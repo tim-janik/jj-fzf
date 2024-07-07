@@ -51,6 +51,23 @@ echo_signoff()
 )
 
 # == Functions ==
+# Edit Commit Message
++jjdescribe()
+(
+  R="$(xrev "$1")"
+  FILES=()
+  test silent == "$($JJFZFSHOW -r "$R"  -T 'separate(" ",if(!description, "silent"))')" &&
+    readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  test ${#FILES[@]} -gt 0 && {
+    M=$(printf "%s: \n" "${FILES[@]}")
+    E=$(jj config get user.email) N=$(jj config get user.name)
+    test -n "$E" -a -n "$N" && M="$M"$'\n\n'"Signed-off-by: $N <$E>"
+    test -n "$M" && jj describe -r "$R" -m "$M"
+  }
+  jj describe -r "$R" ||
+    sleep 1
+)
+
 # Merge into upstream branch
 +jjmerge()
 (
@@ -115,6 +132,7 @@ fzf \
   --bind "ctrl-z:ignore" \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
   --preview-window 'right,border-left' \
+  --bind "alt-e:execute( $SELF +jjdescribe {} )" \
   --bind "alt-m:execute( $SELF +jjmerge {} )" \
   --bind "change:$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
