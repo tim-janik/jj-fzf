@@ -8,6 +8,7 @@ SELF="$0"
 # JJ repository
 JJROOT=$(jj root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
+JJFZFPAGER="less -Rc"
 
 # == Utils ==
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
@@ -167,6 +168,14 @@ echo_commit_msg()
     sleep 1
 )
 
+# Show change
++jjshow()
+(
+  R="$(xrev "$1")"
+  ( set -x
+    jj show -s --git -r "$R" --color=always ) | $JJFZFPAGER
+)
+
 # == Function calling ==
 [[ "${1:-}" =~ \+jj ]] && {
   FUNC="$1" "$@"
@@ -199,6 +208,7 @@ fzf \
   --bind "alt-n:execute( $SELF +jjnew {} )+$RELOAD" \
   --bind "alt-q:execute( $SELF +jjsquash {} )+$RELOAD" \
   --bind "alt-w:execute( $SELF +jjeditnew {} )+$RELOAD" \
+  --bind "ctrl-s:execute( $SELF +jjshow {} )+$RELOAD" \
   --bind "change:refresh-preview+$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
