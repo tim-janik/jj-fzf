@@ -220,6 +220,15 @@ describe()
 )
 KEYBINDINGS["Ctrl-E"]="describe"
 
+# Split change
+split-interactive()
+(
+  R="$(xrev "$1")"
+  jj split --interactive -r "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Alt-I"]="split-interactive"
+
 # Merge into upstream branch
 merge-upstream()
 (
