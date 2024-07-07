@@ -14,7 +14,14 @@ JJFZFPAGER="less -Rc"
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
 REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
 # Extract JJ revision from first word
-xrev()		( [[ "$* " =~ $REVPAT ]] && rev_changeid "${BASH_REMATCH[1]}" )
+xrev()
+(
+  if [[ "$* " =~ $REVPAT ]] ; then	# jj log line
+    rev_changeid "${BASH_REMATCH[1]}"
+  elif [[ "$*" =~ ^([^\ ]+)$ ]] ; then	# revision identifier w/o whitespace
+    rev_changeid "${BASH_REMATCH[1]}"
+  fi
+)
 # Look up full revision via JJ change_id
 rev_changeid()	( $JJFZFSHOW -T 'change_id' -r "$1" )
 # Look up full commit hash via JJ commit_id
@@ -62,19 +69,48 @@ echo_commit_msg()
 )
 
 # == Functions ==
-# Abandon Commit
-+jjabandon()
+FUNCTIONS=()
+declare -A KEYBINDINGS
+
+loadlog()
 (
-  set -x
-  R="$(xrev "$1")"
-  jj abandon -r "$R" ||
+  if test -z "${1:-}" ; then
+    # default, show decendants, ancestry around working copy
+    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r '::@ | @-::'
+  else
+    # search pattern, filter on top of all entries
+    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r :: | {
+      grep -P "$1" || # invalid patterns like '*' show full log
+	cat # -P '^\W*$|'"$1"
+    }
+  fi
+  # TODO: squash entire description into oneline for grep
+)
+FUNCTIONS+=( 'loadlog' )
+
+preview()
+(
+  R="$(xrev "${1:-@}" 2>/dev/null)" &&
+    test -n "$R" ||
+      exit
+  jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_detailed -s --git -r "$R"
+)
+FUNCTIONS+=( 'preview' )
+
+# Abandon Commit
+abandon()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj abandon -r "$R" ) ||
     sleep 1
 )
+KEYBINDINGS["Alt-A"]="abandon"
 
 # Commit (Interactive)
-+jjcommit()
+commit()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   # Edit commit msg if mutable
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] || {
@@ -104,11 +140,12 @@ echo_commit_msg()
   # open new empty working copy commit
   jj new "$R"
 )
+KEYBINDINGS["Alt-C"]="commit"
 
 # Edit Commit Message
-+jjdescribe()
+describe()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   test silent == "$($JJFZFSHOW -r "$R"  -T 'separate(" ",if(!description, "silent"))')" && {
     M="$(echo_commit_msg "$R")"
     test z "$M" ||
@@ -117,11 +154,12 @@ echo_commit_msg()
   jj describe -r "$R" ||
     sleep 1
 )
+KEYBINDINGS["Alt-E"]="describe"
 
 # Merge into upstream branch
-+jjmerge()
+merge()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   C="$(rev_commitid "$R")"
   BRANCH="$(rev_branches "$R") $C" &&	# pick first branch name or $C
     [[ $BRANCH =~ ([^ ]+) ]] && BRANCH="${BASH_REMATCH[1]}"
@@ -161,19 +199,21 @@ echo_commit_msg()
   jj new --no-edit -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" ||
     sleep 1
 )
+KEYBINDINGS["Alt-M"]="merge"
 
 # New
-+jjnew()
+new()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   jj new "$R" ||
     sleep 1
 )
+KEYBINDINGS["Ctrl-N"]="new"
 
 # Squash Committs
-+jjsquash()
+squash()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   test \
     empty-silent == "$($JJTMPL_R "$R"  -T 'separate(" ",if(empty && !description, "empty-silent"))')" -a \
     empty-silent == "$($JJTMPL_R "$R-" -T 'separate(" ",if(empty && !description, "empty-silent"))')" &&
@@ -181,27 +221,31 @@ echo_commit_msg()
   jj squash -r "$R" || # --keep-emptied
     sleep 1
 )
+KEYBINDINGS["Alt-Q"]="squash"
 
 # Edit (New) Working Copy
-+jjeditnew()
+working_copy()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
   jj $CMD -r "$R" ||
     sleep 1
 )
+KEYBINDINGS["Ctrl-W"]="working_copy"
 
 # Show change
-+jjshow()
+show()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   ( set -x
     jj show -s --git -r "$R" --color=always ) | $JJFZFPAGER
 )
+KEYBINDINGS["Ctrl-S"]="show"
 
 # == Function calling ==
-[[ "${1:-}" =~ \+jj ]] && {
+[[ "${1:-}" =~ ^[a-z0-9_]+ ]] &&
+  [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] && {
   FUNC="$1" "$@"
   exit $?
 }
@@ -213,27 +257,23 @@ jj status >/dev/null
 jj git export --quiet
 
 # == FZF ==
-PREVIEW_REVISION='jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_detailed -s --git -r'
-LOADLOG="jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r ::"
-RELOAD="reload( $LOADLOG | { grep -P '^\W*$|'{q} || cat; } )"
+RELOAD="reload( exec $SELF loadlog {q} )"
+BIND=()
+for k in "${!KEYBINDINGS[@]}" ; do
+  BIND+=( --bind "${k,,}:execute( $SELF ${KEYBINDINGS[$k]} {} )+$RELOAD+refresh-preview" )
+done
+
 fzf \
   --no-tac --no-sort \
   --ansi --no-mouse \
   --layout reverse-list \
   --disabled +m \
+  --bind "change:$RELOAD+refresh-preview" \
   --bind "ctrl-x:jump" \
   --bind "ctrl-z:ignore" \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
+  --bind "enter:execute( $SELF show {} )+$RELOAD" \
+  "${BIND[@]}" \
   --preview-window 'right,border-left' \
-  --bind "alt-a:execute( $SELF +jjabandon {} )+$RELOAD" \
-  --bind "alt-c:execute( $SELF +jjcommit {} )+$RELOAD" \
-  --bind "alt-e:execute( $SELF +jjdescribe {} )+$RELOAD" \
-  --bind "alt-m:execute( $SELF +jjmerge {} )+$RELOAD" \
-  --bind "alt-n:execute( $SELF +jjnew {} )+$RELOAD" \
-  --bind "alt-q:execute( $SELF +jjsquash {} )+$RELOAD" \
-  --bind "alt-w:execute( $SELF +jjeditnew {} )+$RELOAD" \
-  --bind "ctrl-s:execute( $SELF +jjshow {} )+$RELOAD" \
-  --bind "enter:execute( $SELF +jjshow {} )+$RELOAD" \
-  --bind "change:refresh-preview+$RELOAD" \
-  --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
-  < <( $LOADLOG ) || :
+  --preview "exec $SELF preview {}" \
+  < <( $SELF loadlog "" ) || :
