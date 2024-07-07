@@ -133,6 +133,16 @@ echo_signoff()
     sleep 1
 )
 
+# Edit (New) Working Copy
++jjeditnew()
+(
+  R="$(xrev "$1")"
+  IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
+  [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
+  jj $CMD -r "$R" ||
+    sleep 1
+)
+
 # == Function calling ==
 [[ "${1:-}" =~ \+jj ]] && {
   FUNC="$1" "$@"
@@ -162,6 +172,7 @@ fzf \
   --bind "alt-m:execute( $SELF +jjmerge {} )+$RELOAD" \
   --bind "alt-n:execute( $SELF +jjnew {} )+$RELOAD" \
   --bind "alt-q:execute( $SELF +jjsquash {} )+$RELOAD" \
+  --bind "alt-w:execute( $SELF +jjeditnew {} )+$RELOAD" \
   --bind "change:refresh-preview+$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
