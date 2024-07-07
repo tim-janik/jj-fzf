@@ -256,6 +256,25 @@ jj git import --quiet
 jj status >/dev/null
 jj git export --quiet
 
+# == Help / Docs ==
+HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
+HELPKEYS[Ctrl-↑]='preview-up'
+HELPKEYS[Ctrl-↓]='preview-down'
+KEYS="${!HELPKEYS[@]}"
+KEYS=$(sort <<<"${KEYS// /$'\n'}")
+WHITE="                                                                                "
+HEADER=""
+i=0
+for k in $KEYS ; do
+  S="$k: ${HELPKEYS[$k]}"	# printf(1) cannot count UTF-8 continuation chars (0x80-0xBF)
+  test ${#S} -lt 26 && S="$S${WHITE:0:$(( 26 - ${#S} ))}"	# so, format like %-26s
+  HEADER="$HEADER$S" #$HIGH"
+  i=$(($i+1))
+  test 0 == $(($i % 3)) &&
+    HEADER="$HEADER"$'\n' ||
+      HEADER="$HEADER "
+done
+
 # == FZF ==
 RELOAD="reload( exec $SELF loadlog {q} )"
 BIND=()
@@ -268,6 +287,7 @@ fzf \
   --ansi --no-mouse \
   --layout reverse-list \
   --disabled +m \
+  --header "$HEADER" \
   --bind "change:$RELOAD+refresh-preview" \
   --bind "ctrl-x:jump" \
   --bind "ctrl-z:ignore" \
