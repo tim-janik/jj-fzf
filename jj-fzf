@@ -239,6 +239,13 @@ squash()
 )
 KEYBINDINGS["Alt-Q"]="squash"
 
+# Undo last JJ op
+undo()
+(
+  jj op undo
+)
+KEYBINDINGS["Ctrl-Z"]="undo"
+
 # Edit (New) Working Copy
 working-copy()
 (
