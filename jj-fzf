@@ -3,3 +3,8 @@
 set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: $*" >&2; exit 127 ; }
 SELF="$0"
+
+# == Config ==
+# JJ repository
+JJROOT=$(jj root) || die "$PWD: not a JJ repository"
+JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
