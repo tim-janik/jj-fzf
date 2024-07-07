@@ -12,6 +12,94 @@ JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
 # == Utils ==
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
 REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+# Extract JJ revision from first word
+xrev()		( [[ "$* " =~ $REVPAT ]] && rev_changeid "${BASH_REMATCH[1]}" )
+# Look up full revision via JJ change_id
+rev_changeid()	( $JJFZFSHOW -T 'change_id' -r "$1" )
+# Look up full commit hash via JJ commit_id
+rev_commitid()	( $JJFZFSHOW -T 'commit_id' -r "$1" )
+# List all branches of a revision
+rev_branches()	( $JJFZFSHOW -T 'concat(separate(" ",branches))' -r "$1" )
+# Require .git directory and set GIT_DIR
+require_git_dir()
+{
+  test -e "$JJROOT/.git" &&
+    export GIT_DIR="$JJROOT/.git" || {
+      test -e "$JJROOT/.jj/repo/store/git" &&
+	export GIT_DIR="$JJROOT/.jj/repo/store/git" ||
+	  die "$PWD: failed to find .git store"
+    }
+}
+ERROR()
+{
+  FUNC="${FUNC:-$0}"
+  echo "ERROR: ${FUNC:+$FUNC:}" "$*" >&2
+  read -t 2
+  exit
+}
+
+# == Helpers ==
+# Echo signoff
+echo_signoff()
+(
+  JJFZF_SIGNOFF=true	# config get jjfzf.signoff
+  if test "${JJFZF_SIGNOFF:-true}" == true ; then
+    echo # separating newline before signoff section
+    $JJFZFSHOW -T 'format_detailed_signature(author) ++ "\n"' -r @ |
+      sed -e 's/>.*/>/ ; s/^/Signed-off-by: /'
+  fi
+)
+
+# == Functions ==
+# Merge into upstream branch
++jjmerge()
+(
+  set -x
+  R="$(xrev "$1")"
+  C="$(rev_commitid "$R")"
+  BRANCH="$(rev_branches "$R") $C" &&	# pick first branch name or $C
+    [[ $BRANCH =~ ([^ ]+) ]] && BRANCH="${BASH_REMATCH[1]}"
+  require_git_dir
+  # find upstream branch name
+  UPSTREAMNAMES="master trunk main" DEST=
+  for M in $UPSTREAMNAMES ; do
+    test -n "$(git config --get branch.$M.remote)" && DEST="$M" && break
+  done		# check tracking branch
+  test -n "$DEST" ||
+    for M in $UPSTREAMNAMES ; do
+      test -n "$(git rev-parse origin/$M $M 2>/dev/null)" && DEST="$M" && break
+    done	# check matching remote and local branch
+  test -n "$DEST" || ERROR "failed to find upstream merge branch (tried $UPSTREAMNAMES)"
+  # check for work in progress
+  git --no-pager diff -U0 "$DEST..$BRANCH" |	# examine all branch changes
+    egrep "^\+.*\b(XXX|WIP|FIXME)\b" &&		# work still to be done
+    WARN="(WARNING: merge diff contains WIP keywords)" || WARN=
+  # create merge msg
+  TEMPD="`mktemp -d jjfzf0XXXXXX`" || die "mktemp failed"
+  trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
+  SEP="^^^^^^^^^^^^"
+  echo -e "# $SEP DRAFT:  merge $BRANCH into $DEST ${WARN:+$WARN} $SEP # DELETE THIS" > "$TEMPD/MERGE.md"
+  echo -e "Merge branch '$BRANCH'\n\n* Branch commit log:" >> "$TEMPD/MERGE.md"
+  git log --pretty=$'\f%s%+b' "$DEST..$BRANCH" |
+    sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
+    sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /' >> "$TEMPD/MERGE.md"
+  echo_signoff >> "$TEMPD/MERGE.md"
+  # edit merge msg
+  HO=`md5sum "$TEMPD/MERGE.md"`
+  $EDITOR "$TEMPD/MERGE.md" &&
+    HN=`md5sum "$TEMPD/MERGE.md"` ||
+      HN="$HO"
+  test "$HO" != "$HN" ||
+    ERROR "Merge aborted by user"
+  # create merge
+  jj new --no-edit "$(cat "$TEMPD/MERGE.md")" "$BRANCH" "$R"
+)
+
+# == Function calling ==
+[[ "${1:-}" =~ \+jj ]] && {
+  FUNC="$1" "$@"
+  exit $?
+}
 
 # == FZF ==
 PREVIEW_REVISION='jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_detailed -s --git -r'
@@ -26,5 +114,6 @@ fzf \
   --bind "ctrl-z:ignore" \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
   --preview-window 'right,border-left' \
+  --bind "alt-m:execute( $SELF +jjmerge {} )" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
