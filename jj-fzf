@@ -274,6 +274,15 @@ merge-upstream()
 )
 KEYBINDINGS["Alt-M"]="merge-upstream"
 
+# New --insert-before
+new-before()
+(
+  R="$(xrev "${1:-@}")"
+  jj new --insert-before "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Alt-N"]="new-before"
+
 # New
 new()
 (
