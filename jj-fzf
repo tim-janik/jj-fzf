@@ -283,7 +283,7 @@ new()
 )
 KEYBINDINGS["Ctrl-N"]="new"
 
-# Squash Committs
+# Squash Commits
 squash()
 (
   R="$(xrev "${1:-@}")"
@@ -295,6 +295,14 @@ squash()
     sleep 1
 )
 KEYBINDINGS["Alt-Q"]="squash"
+
+# Swap Commits
+swap-commits()
+(
+  R="$(xrev "$1")"
+  jj rebase -r "$R" --insert-before "$R-"
+)
+KEYBINDINGS["Alt-X"]="swap-commits"
 
 # Undo last JJ op
 undo()
