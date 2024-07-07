@@ -75,9 +75,34 @@ echo_commit_msg()
 +jjcommit()
 (
   R="$(xrev "$1")"
-  +jjdescribe "$R" &&
-    jj new "$R" ||
+  # Edit commit msg if mutable
+  IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
+  [[ $IMMU =~ ^true ]] || {
+    # fetch new / old description
+    test silent == "$($JJFZFSHOW -r "$R"  -T 'separate(" ",if(!description, "silent"))')" &&
+      M="$(echo_commit_msg "$R")" ||
+	M="$($JJFZFSHOW -r "$R" -T 'separate(" ",description)')"
+    [[ "$M" =~ Signed-off-by ]] ||
+      M="$M$(echo; echo_signoff)"
+    # create commit msg file
+    TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
+    trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
+    SEP="^^^^^^^^^^^^"
+    echo -e "# $SEP DRAFT:  commit $R $SEP # DELETE THIS" > "$TEMPD/COMMIT.txt"
+    echo "$M" >> "$TEMPD/COMMIT.txt"
+    # edit commit msg
+    HO=`md5sum "$TEMPD/COMMIT.txt"`
+    $EDITOR "$TEMPD/COMMIT.txt" &&
+      HN=`md5sum "$TEMPD/COMMIT.txt"` ||
+	HN="$HO"
+    test "$HO" != "$HN" ||
+      ERROR "Commit aborted by user"
+    # update commit msg
+    jj describe --no-edit -m "$M" "$R" ||
       sleep 1
+  }
+  # open new empty working copy commit
+  jj new "$R"
 )
 
 # Edit Commit Message
@@ -96,7 +121,6 @@ echo_commit_msg()
 # Merge into upstream branch
 +jjmerge()
 (
-  set -x
   R="$(xrev "$1")"
   C="$(rev_commitid "$R")"
   BRANCH="$(rev_branches "$R") $C" &&	# pick first branch name or $C
