@@ -75,24 +75,24 @@ echo_signoff()
     egrep "^\+.*\b(XXX|WIP|FIXME)\b" &&		# work still to be done
     WARN="(WARNING: merge diff contains WIP keywords)" || WARN=
   # create merge msg
-  TEMPD="`mktemp -d jjfzf0XXXXXX`" || die "mktemp failed"
+  TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
   trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
   SEP="^^^^^^^^^^^^"
-  echo -e "# $SEP DRAFT:  merge $BRANCH into $DEST ${WARN:+$WARN} $SEP # DELETE THIS" > "$TEMPD/MERGE.md"
-  echo -e "Merge branch '$BRANCH'\n\n* Branch commit log:" >> "$TEMPD/MERGE.md"
+  echo -e "# $SEP DRAFT:  merge $BRANCH into $DEST ${WARN:+$WARN} $SEP # DELETE THIS" > "$TEMPD/MERGE.txt"
+  echo -e "Merge branch '$BRANCH'\n\n* Branch commit log:" >> "$TEMPD/MERGE.txt"
   git log --pretty=$'\f%s%+b' "$DEST..$BRANCH" |
     sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
-    sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /' >> "$TEMPD/MERGE.md"
-  echo_signoff >> "$TEMPD/MERGE.md"
+    sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /' >> "$TEMPD/MERGE.txt"
+  echo_signoff >> "$TEMPD/MERGE.txt"
   # edit merge msg
-  HO=`md5sum "$TEMPD/MERGE.md"`
-  $EDITOR "$TEMPD/MERGE.md" &&
-    HN=`md5sum "$TEMPD/MERGE.md"` ||
+  HO=`md5sum "$TEMPD/MERGE.txt"`
+  $EDITOR "$TEMPD/MERGE.txt" &&
+    HN=`md5sum "$TEMPD/MERGE.txt"` ||
       HN="$HO"
   test "$HO" != "$HN" ||
     ERROR "Merge aborted by user"
   # create merge
-  jj new --no-edit -m "$(cat "$TEMPD/MERGE.md")" "$BRANCH" "$DEST" ||
+  jj new --no-edit -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" ||
     sleep 1
 )
 
