@@ -8,3 +8,23 @@ SELF="$0"
 # JJ repository
 JJROOT=$(jj root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
+
+# == Utils ==
+# Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
+REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+
+# == FZF ==
+PREVIEW_REVISION='jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_detailed -s --git -r'
+LOADLOG="jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r ::"
+RELOAD="reload( $LOADLOG )"
+fzf \
+  --no-tac --no-sort \
+  --ansi --no-mouse \
+  --layout reverse-list \
+  --disabled +m \
+  --bind "ctrl-x:jump" \
+  --bind "ctrl-z:ignore" \
+  --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
+  --preview-window 'right,border-left' \
+  --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
+  < <( $LOADLOG ) || :
