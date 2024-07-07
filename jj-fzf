@@ -92,7 +92,8 @@ echo_signoff()
   test "$HO" != "$HN" ||
     ERROR "Merge aborted by user"
   # create merge
-  jj new --no-edit "$(cat "$TEMPD/MERGE.md")" "$BRANCH" "$R"
+  jj new --no-edit "$(cat "$TEMPD/MERGE.md")" "$BRANCH" "$R" ||
+    sleep 1
 )
 
 # == Function calling ==
@@ -104,7 +105,7 @@ echo_signoff()
 # == FZF ==
 PREVIEW_REVISION='jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_detailed -s --git -r'
 LOADLOG="jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r ::"
-RELOAD="reload( $LOADLOG )"
+RELOAD="reload( $LOADLOG | { grep -P '^\W*$|'{q} || cat; } )"
 fzf \
   --no-tac --no-sort \
   --ansi --no-mouse \
@@ -115,5 +116,6 @@ fzf \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
   --preview-window 'right,border-left' \
   --bind "alt-m:execute( $SELF +jjmerge {} )" \
+  --bind "change:$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
