@@ -9,6 +9,17 @@ SELF="$0"
 JJROOT=$(jj root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
 JJFZFPAGER="less -Rc"
+FZFSETTINGS=(
+  --ansi --no-mouse
+  --info inline
+  --layout reverse-list
+  --scroll-off 3
+  --bind "ctrl-x:jump"
+  --bind "ctrl-z:ignore"
+  --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
+  --preview-window 'right,border-left'
+)
+FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 10% --border)
 TEMPD=
 
 # == Utils ==
@@ -220,6 +231,26 @@ describe()
 )
 KEYBINDINGS["Ctrl-E"]="describe"
 
+# Help with JJ commands
+help()
+(
+  JJCMDS=:
+  for w in $( LANG=C
+	      jj --help |
+		sed -r '1,/^Commands:/d; /^\w/{x;q}; s/^ *(\w+)\b.*/\1/' ) ; do
+    [[ $w == help ]] && continue
+    JJCMDS="$JJCMDS$w:"
+  done
+  "${FZFPOPUP[@]}" \
+    --header-first --no-sort \
+    --header "jj --help" \
+    --nth 1 \
+    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help" \
+    --bind "enter:execute( [[ $JJCMDS =~ :{1}: ]] && { jj {1} --help | $JJFZFPAGER; } )+abort" \
+    < <(jj help)
+)
+KEYBINDINGS["Ctrl-H"]="help"
+
 # Split change
 split-interactive()
 (
@@ -380,17 +411,12 @@ for k in "${!KEYBINDINGS[@]}" ; do
 done
 
 fzf \
+  "${FZFSETTINGS[@]}" \
   --no-tac --no-sort \
-  --ansi --no-mouse \
-  --layout reverse-list \
   --disabled +m \
   --header "$HEADER" \
   --bind "change:$RELOAD+refresh-preview" \
-  --bind "ctrl-x:jump" \
-  --bind "ctrl-z:ignore" \
-  --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
   --bind "enter:execute( $SELF show {} {q} )+$RELOAD" \
   "${BIND[@]}" \
-  --preview-window 'right,border-left' \
   --preview " exec $SELF preview {} {q} " \
   < <( $SELF loadlog "" ) || :
