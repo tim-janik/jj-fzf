@@ -49,21 +49,35 @@ echo_signoff()
       sed -e 's/>.*/>/ ; s/^/Signed-off-by: /'
   fi
 )
-
-# == Functions ==
-# Edit Commit Message
-+jjdescribe()
+echo_commit_msg()
 (
-  R="$(xrev "$1")"
+  R="$1"
   FILES=()
   test silent == "$($JJFZFSHOW -r "$R"  -T 'separate(" ",if(!description, "silent"))')" &&
     readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   test ${#FILES[@]} -gt 0 && {
-    M=$(printf "%s: \n" "${FILES[@]}")
-    E=$(jj config get user.email) N=$(jj config get user.name)
-    test -n "$E" -a -n "$N" && M="$M"$'\n\n'"Signed-off-by: $N <$E>"
-    test -n "$M" && jj describe -r "$R" -m "$M"
+    printf "%s: \n" "${FILES[@]}"
+    echo_signoff
   }
+)
+
+# == Functions ==
+# Commit (Interactive)
++jjcommit()
+(
+  R="$(xrev "$1")"
+  +jjdescribe "$R" &&
+    jj new "$R" ||
+      sleep 1
+)
+
+# Edit Commit Message
++jjdescribe()
+(
+  R="$(xrev "$1")"
+  M="$(echo_commit_msg "$R")"
+  test z "$M" ||
+    jj describe -r "$R" -m "$M"
   jj describe -r "$R" ||
     sleep 1
 )
@@ -168,6 +182,7 @@ fzf \
   --bind "ctrl-z:ignore" \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
   --preview-window 'right,border-left' \
+  --bind "alt-c:execute( $SELF +jjcommit {} )+$RELOAD" \
   --bind "alt-e:execute( $SELF +jjdescribe {} )+$RELOAD" \
   --bind "alt-m:execute( $SELF +jjmerge {} )+$RELOAD" \
   --bind "alt-n:execute( $SELF +jjnew {} )+$RELOAD" \
