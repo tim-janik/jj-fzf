@@ -302,7 +302,7 @@ done
 RELOAD="reload( exec $SELF loadlog {q} )"
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
-  BIND+=( --bind "${k,,}:execute( $SELF ${KEYBINDINGS[$k]} {} )+$RELOAD+refresh-preview" )
+  BIND+=( --bind "${k,,}:execute( $SELF ${KEYBINDINGS[$k]} {} {q} )+$RELOAD+refresh-preview" )
 done
 
 fzf \
@@ -315,8 +315,8 @@ fzf \
   --bind "ctrl-x:jump" \
   --bind "ctrl-z:ignore" \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
-  --bind "enter:execute( $SELF show {} )+$RELOAD" \
+  --bind "enter:execute( $SELF show {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview-window 'right,border-left' \
-  --preview "exec $SELF preview {}" \
+  --preview " exec $SELF preview {} {q} " \
   < <( $SELF loadlog "" ) || :
