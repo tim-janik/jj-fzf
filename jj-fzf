@@ -209,6 +209,7 @@ fzf \
   --bind "alt-q:execute( $SELF +jjsquash {} )+$RELOAD" \
   --bind "alt-w:execute( $SELF +jjeditnew {} )+$RELOAD" \
   --bind "ctrl-s:execute( $SELF +jjshow {} )+$RELOAD" \
+  --bind "enter:execute( $SELF +jjshow {} )+$RELOAD" \
   --bind "change:refresh-preview+$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
