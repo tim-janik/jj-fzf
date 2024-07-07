@@ -173,7 +173,7 @@ describe()
 KEYBINDINGS["Alt-E"]="describe"
 
 # Merge into upstream branch
-merge()
+merge-upstream()
 (
   R="$(xrev "${1:-@}")"
   C="$(rev_commitid "$R")"
@@ -215,7 +215,7 @@ merge()
   jj new --no-edit -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" ||
     sleep 1
 )
-KEYBINDINGS["Alt-M"]="merge"
+KEYBINDINGS["Alt-M"]="merge-upstream"
 
 # New
 new()
@@ -240,7 +240,7 @@ squash()
 KEYBINDINGS["Alt-Q"]="squash"
 
 # Edit (New) Working Copy
-working_copy()
+working-copy()
 (
   R="$(xrev "${1:-@}")"
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
@@ -248,7 +248,7 @@ working_copy()
   jj $CMD -r "$R" ||
     sleep 1
 )
-KEYBINDINGS["Ctrl-W"]="working_copy"
+KEYBINDINGS["Ctrl-W"]="working-copy"
 
 # Show change
 show()
