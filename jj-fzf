@@ -28,6 +28,12 @@ rev_changeid()	( $JJFZFSHOW -T 'change_id' -r "$1" )
 rev_commitid()	( $JJFZFSHOW -T 'commit_id' -r "$1" )
 # List all branches of a revision
 rev_branches()	( $JJFZFSHOW -T 'concat(separate(" ",branches))' -r "$1" )
+# Condense commit empty/description/parent state into a key word
+rev_edpstate()
+(
+  export EDPSTATE='separate("-", if(empty, "empty", "diff"), if(description, "description", "silent"), "p" ++ self.parents().len()) ++ "\n"'
+  $JJFZFSHOW -r "$1" -T "$EDPSTATE" # empty-description-p2 diff-silent-p1 etc
+)
 # Require .git directory and set GIT_DIR
 require_git_dir()
 {
