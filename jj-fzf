@@ -113,6 +113,14 @@ echo_signoff()
     sleep 1
 )
 
+# New
++jjnew()
+(
+  R="$(xrev "$1")"
+  jj new "$R" ||
+    sleep 1
+)
+
 # == Function calling ==
 [[ "${1:-}" =~ \+jj ]] && {
   FUNC="$1" "$@"
@@ -140,6 +148,7 @@ fzf \
   --preview-window 'right,border-left' \
   --bind "alt-e:execute( $SELF +jjdescribe {} )" \
   --bind "alt-m:execute( $SELF +jjmerge {} )" \
+  --bind "alt-n:execute( $SELF +jjnew {} )" \
   --bind "change:$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
