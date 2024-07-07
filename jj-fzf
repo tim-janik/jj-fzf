@@ -92,7 +92,7 @@ echo_signoff()
   test "$HO" != "$HN" ||
     ERROR "Merge aborted by user"
   # create merge
-  jj new --no-edit "$(cat "$TEMPD/MERGE.md")" "$BRANCH" "$R" ||
+  jj new --no-edit -m "$(cat "$TEMPD/MERGE.md")" "$BRANCH" "$DEST" ||
     sleep 1
 )
 
