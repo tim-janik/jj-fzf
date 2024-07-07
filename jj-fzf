@@ -53,12 +53,11 @@ echo_commit_msg()
 (
   R="$1"
   FILES=()
-  test silent == "$($JJFZFSHOW -r "$R"  -T 'separate(" ",if(!description, "silent"))')" &&
-    readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
-  test ${#FILES[@]} -gt 0 && {
-    printf "%s: \n" "${FILES[@]}"
-    echo_signoff
-  }
+  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  test ${#FILES[@]} -gt 0 &&
+    printf "%s: \n" "${FILES[@]}" ||
+      echo Empty...
+  echo_signoff
 )
 
 # == Functions ==
@@ -75,9 +74,11 @@ echo_commit_msg()
 +jjdescribe()
 (
   R="$(xrev "$1")"
-  M="$(echo_commit_msg "$R")"
-  test z "$M" ||
-    jj describe -r "$R" -m "$M"
+  test silent == "$($JJFZFSHOW -r "$R"  -T 'separate(" ",if(!description, "silent"))')" && {
+    M="$(echo_commit_msg "$R")"
+    test z "$M" ||
+      jj describe -r "$R" -m "$M"
+  }
   jj describe -r "$R" ||
     sleep 1
 )
