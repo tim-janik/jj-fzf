@@ -327,6 +327,15 @@ squash()
 )
 KEYBINDINGS["Alt-Q"]="squash"
 
+# Duplicate Commit
+duplicate()
+(
+  R="$(xrev "${1:-@}")"
+  jj duplicate "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Alt-U"]="duplicate"
+
 # Swap Commits
 swap-commits()
 (
