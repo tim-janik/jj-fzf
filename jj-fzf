@@ -146,9 +146,9 @@ fzf \
   --bind "ctrl-z:ignore" \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
   --preview-window 'right,border-left' \
-  --bind "alt-e:execute( $SELF +jjdescribe {} )" \
-  --bind "alt-m:execute( $SELF +jjmerge {} )" \
-  --bind "alt-n:execute( $SELF +jjnew {} )" \
-  --bind "change:$RELOAD" \
+  --bind "alt-e:execute( $SELF +jjdescribe {} )+$RELOAD" \
+  --bind "alt-m:execute( $SELF +jjmerge {} )+$RELOAD" \
+  --bind "alt-n:execute( $SELF +jjnew {} )+$RELOAD" \
+  --bind "change:refresh-preview+$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
