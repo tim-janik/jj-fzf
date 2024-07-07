@@ -61,6 +61,15 @@ echo_commit_msg()
 )
 
 # == Functions ==
+# Abandon Commit
++jjabandon()
+(
+  set -x
+  R="$(xrev "$1")"
+  jj abandon -r "$R" ||
+    sleep 1
+)
+
 # Commit (Interactive)
 +jjcommit()
 (
@@ -183,6 +192,7 @@ fzf \
   --bind "ctrl-z:ignore" \
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)' \
   --preview-window 'right,border-left' \
+  --bind "alt-a:execute( $SELF +jjabandon {} )+$RELOAD" \
   --bind "alt-c:execute( $SELF +jjcommit {} )+$RELOAD" \
   --bind "alt-e:execute( $SELF +jjdescribe {} )+$RELOAD" \
   --bind "alt-m:execute( $SELF +jjmerge {} )+$RELOAD" \
