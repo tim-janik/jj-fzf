@@ -195,7 +195,7 @@ commit()
       HN=`md5sum "$TEMPD/COMMIT.txt"` ||
 	HN="$HO"
     test "$HO" != "$HN" ||
-      ERROR "Commit aborted by user"
+      ERROR "Commit cancelled by user"
     # update commit msg
     jj describe --no-edit -m "$M" "$R" ||
       sleep 1
@@ -267,7 +267,7 @@ merge-upstream()
     HN=`md5sum "$TEMPD/MERGE.txt"` ||
       HN="$HO"
   test "$HO" != "$HN" ||
-    ERROR "Merge aborted by user"
+    ERROR "Merge cancelled by user"
   # create merge
   jj new --no-edit -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" ||
     sleep 1
