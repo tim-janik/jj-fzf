@@ -121,6 +121,18 @@ echo_signoff()
     sleep 1
 )
 
+# Squash Committs
++jjsquash()
+(
+  R="$(xrev "$1")"
+  test \
+    empty-silent == "$($JJTMPL_R "$R"  -T 'separate(" ",if(empty && !description, "empty-silent"))')" -a \
+    empty-silent == "$($JJTMPL_R "$R-" -T 'separate(" ",if(empty && !description, "empty-silent"))')" &&
+    exec jj abandon -r "$R-"  # squash 2 empty via abandoning parent # FIXME if child is workdir, just edit @-
+  jj squash -r "$R" || # --keep-emptied
+    sleep 1
+)
+
 # == Function calling ==
 [[ "${1:-}" =~ \+jj ]] && {
   FUNC="$1" "$@"
@@ -149,6 +161,7 @@ fzf \
   --bind "alt-e:execute( $SELF +jjdescribe {} )+$RELOAD" \
   --bind "alt-m:execute( $SELF +jjmerge {} )+$RELOAD" \
   --bind "alt-n:execute( $SELF +jjnew {} )+$RELOAD" \
+  --bind "alt-q:execute( $SELF +jjsquash {} )+$RELOAD" \
   --bind "change:refresh-preview+$RELOAD" \
   --preview "[[ {} =~ $REVPAT ]] || exit; $PREVIEW_REVISION \${BASH_REMATCH[1]}" \
   < <( $LOADLOG ) || :
