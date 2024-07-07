@@ -119,6 +119,12 @@ echo_signoff()
   exit $?
 }
 
+# == Sync ==
+# Synchronize before changes in git or @ mess up state during jj log
+jj git import --quiet
+jj status >/dev/null
+jj git export --quiet
+
 # == FZF ==
 PREVIEW_REVISION='jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_detailed -s --git -r'
 LOADLOG="jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r ::"
