@@ -557,6 +557,7 @@ HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# cop
 HELPKEYS[Ctrl-↑]='preview-up'
 HELPKEYS[Ctrl-↓]='preview-down'
 HELPKEYS[Ctrl-S]='snapshot'
+HELPKEYS[Ctrl-U]='unfiltered-log'
 HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
@@ -582,6 +583,7 @@ done
 fzf \
   "${FZFSETTINGS[@]}" \
   --bind "ctrl-s:execute-silent(jj st)+clear-screen+$RELOAD" \
+  --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
   --bind "enter:execute( $SELF log {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
