@@ -249,6 +249,25 @@ abandon()
 )
 KEYBINDINGS["Alt-A"]="abandon"
 
+# Branch Creation
+branch()
+(
+  R="$(xrev "${1:-@}")"
+  read -p 'Branch Name: ' B &&
+    test -n "$B" ||
+      return
+  set +o pipefail &&
+    jj --ignore-working-copy branch list "$B" 2>/dev/null |
+      grep -qF "$B" &&
+    S='set -B' || S='create'
+  ( set -x
+    jj branch $S "$B" -r "$R"
+    jj git export --quiet
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-B"]="branch"
+
 # Backout Commit
 backout()
 (
