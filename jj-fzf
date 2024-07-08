@@ -140,14 +140,17 @@ loadlog()
   if test -z "${1:-}" ; then
     # default, show decendants, ancestry around working copy
     jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r '::@ | @-::'
+  elif jj --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
+    # use valid revset
+    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "$1"
   else
     # search pattern, filter on top of all entries
     jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r :: | {
       grep -P "$1" || # invalid patterns like '*' show full log
 	cat # -P '^\W*$|'"$1"
     }
+    # TODO: squash entire description into oneline for grep
   fi
-  # TODO: squash entire description into oneline for grep
 )
 FUNCTIONS+=( 'loadlog' )
 
@@ -488,4 +491,5 @@ fzf \
   --bind "enter:execute( $SELF show {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
+  --prompt 'Revset|Regexp> ' \
   < <( $SELF loadlog "$STARTQUERY" ) || :
