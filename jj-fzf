@@ -377,6 +377,7 @@ KEYBINDINGS["Ctrl-S"]="show"
   FUNC="$1" "$@"
   exit $?
 }
+STARTQUERY="${1:-}"
 
 # == Sync ==
 # Synchronize before changes in git or @ mess up state during jj log
@@ -412,6 +413,7 @@ done
 
 fzf \
   "${FZFSETTINGS[@]}" \
+  -q "$STARTQUERY" \
   --no-tac --no-sort \
   --disabled +m \
   --header "$HEADER" \
@@ -419,4 +421,4 @@ fzf \
   --bind "enter:execute( $SELF show {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
-  < <( $SELF loadlog "" ) || :
+  < <( $SELF loadlog "$STARTQUERY" ) || :
