@@ -261,6 +261,18 @@ describe()
 )
 KEYBINDINGS["Ctrl-E"]="describe"
 
+# File Editor
+file-editor()
+(
+  R="$(xrev "${1:-@}")"
+  cd "$JJROOT"	# needed for relative paths to match
+  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  ( set -x
+    ${EDITOR:-nano} "${FILES[@]}"
+  )
+)
+KEYBINDINGS["Ctrl-F"]="file-editor"
+
 # Help with JJ commands
 help()
 (
