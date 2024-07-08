@@ -265,7 +265,7 @@ help()
     --header "jj --help" \
     --nth 1 \
     --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help" \
-    --bind "enter:execute( [[ $JJCMDS =~ :{1}: ]] && { jj {1} --help | $JJFZFPAGER; } )+abort" \
+    --bind "enter:execute( test -n {1} || exit; { [[ $JJCMDS =~ :{1}: ]] && jj {1} --help || jj help ;} | $JJFZFPAGER )+abort" \
     < <(jj help)
 )
 KEYBINDINGS["Ctrl-H"]="help"
