@@ -401,6 +401,15 @@ rebase-revision()
 )
 KEYBINDINGS["Alt-R"]="rebase-revision"
 
+# Show change
+show()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj show -s --git -r "$R" --color=always ) | $JJFZFPAGER
+)
+KEYBINDINGS["Ctrl-S"]="show"
+
 # Duplicate Commit
 duplicate()
 (
@@ -409,21 +418,6 @@ duplicate()
     sleep 1
 )
 KEYBINDINGS["Alt-U"]="duplicate"
-
-# Swap Commits
-swap-commits()
-(
-  R="$(xrev "$1")"
-  jj rebase -r "$R" --insert-before "$R-"
-)
-KEYBINDINGS["Alt-X"]="swap-commits"
-
-# Undo last JJ op
-undo()
-(
-  jj op undo
-)
-KEYBINDINGS["Ctrl-Z"]="undo"
 
 # Gitk View
 gitk()
@@ -451,14 +445,20 @@ working-copy()
 )
 KEYBINDINGS["Ctrl-W"]="working-copy"
 
-# Show change
-show()
+# Swap Commits
+swap-commits()
 (
-  R="$(xrev "${1:-@}")"
-  ( set -x
-    jj show -s --git -r "$R" --color=always ) | $JJFZFPAGER
+  R="$(xrev "$1")"
+  jj rebase -r "$R" --insert-before "$R-"
 )
-KEYBINDINGS["Ctrl-S"]="show"
+KEYBINDINGS["Alt-X"]="swap-commits"
+
+# Undo last JJ op
+undo()
+(
+  jj op undo
+)
+KEYBINDINGS["Ctrl-Z"]="undo"
 
 # == Function calling ==
 [[ "${1:-}" =~ ^[a-z0-9_]+ ]] &&
