@@ -131,6 +131,35 @@ user_editor_on_var()
   return 1
 }
 
+# == Oneline Template ==
+# https://github.com/martinvonz/jj/blob/main/docs/templates.md#commit-type
+# https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml # builtin_log_oneline
+JJFZF_ONELINE='
+if(root,
+  format_root_commit(self),
+  label(if(current_working_copy, "working_copy"),
+    concat(
+      separate(" ",
+        format_short_change_id_with_hidden_and_divergent_info(self),
+        if(author.email(), author.username(), email_placeholder),
+        committer.timestamp().local().format("%Y-%m-%d"),
+        format_short_commit_id(commit_id),
+        if(immutable, label("description placeholder", "◆")),
+        branches,
+        tags,
+        working_copies,
+        git_head,
+        if(conflict, label("conflict", "conflict")),
+        if(empty, label("empty", "(empty)")),
+        if(description,
+          description.first_line(),
+          label(if(empty, "empty"), description_placeholder),
+        ),
+      ) ++ "\n",
+    ),
+  )
+)' # ◇⚿
+
 # == Functions ==
 FUNCTIONS=()
 declare -A KEYBINDINGS
@@ -140,14 +169,14 @@ loadlog()
   cd "$JJROOT" # create root relative file names
   {
     if test -z "${1:-}" ; then
-      # default, show decendants, ancestry around working copy
-      jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r '::@ | @-::'
+      # empty query, show all
+      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r '::'
     elif jj --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
       # use valid revset
-      jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "$1"
+      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$1"
     else
       # search pattern, filter on top of all entries
-      jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r :: | {
+      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r :: | {
 	grep -P "$1" || # invalid patterns like '*' show full log
 	  cat # -P '^\W*$|'"$1"
       }
@@ -196,7 +225,7 @@ selectchange()
 	  --prompt "$PROMPT" \
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
 	  --header-first --header "$HEADER" \
-	  < <(jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "$REVISION" )
+	  < <(jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$REVISION" )
      ) &&
     [[ "$REV" =~ $REVPAT ]] &&
     echo "${BASH_REMATCH[1]}" &&
