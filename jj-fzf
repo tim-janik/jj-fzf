@@ -401,8 +401,18 @@ KEYBINDINGS["Ctrl-E"]="describe"
 file-editor()
 (
   R="$(xrev "${1:-@}")"
-  cd "$JJROOT"	# needed for relative paths to match
+  W="$(xrev "@")"
+  # cd root; otherwise revision file paths will mismatch
+  cd "$JJROOT"
+  # read files edited by revision
   readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  # make sure to edit revision
+  test "$W" == "$R" || (
+    IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
+    [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
+    set -x
+    jj $CMD -r "$R"
+  )
   ( set -x
     ${EDITOR:-nano} "${FILES[@]}"
   )
