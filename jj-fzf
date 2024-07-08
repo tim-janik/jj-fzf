@@ -23,6 +23,7 @@ FZFSETTINGS=(
   --preview-window 'right,border-left'
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
+RELOAD="reload( exec $SELF loadlog {q} )"
 TEMPD=
 
 # == Utils ==
@@ -217,17 +218,18 @@ FUNCTIONS+=( 'preview' )
 # Select Change ID
 selectchange()
 (
-  REVISION="${1:- :: }"
+  STARTQUERY="${1:- recent7 }"
   PROMPT="${2:-> }"
   PREVIEW="${3:-}"
   HEADER="${4:-}"
   test -n "$PREVIEW" || PREVIEW="$SELF preview {} {q}"
   REV=$("${FZFPOPUP[@]}" \
-	  --no-sort \
-	  --prompt "$PROMPT" \
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
-	  --header-first --header "$HEADER" \
-	  < <(jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$REVISION" )
+	  --prompt "$PROMPT" \
+	  --header "$HEADER" --header-first \
+	  --no-tac --no-sort +m --disabled \
+	  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
+	  < <( $SELF loadlog "$STARTQUERY" )
      ) &&
     [[ "$REV" =~ $REVPAT ]] &&
     echo "${BASH_REMATCH[1]}" &&
@@ -432,8 +434,9 @@ rebase-cmd()
   PREVIEW="$PREVIEW && echo DESTINATION: && $JJFZFONELINE -r \$REV && echo"
   PREVIEW="$PREVIEW && echo COMMON: && $JJFZFONELINE -r 'heads( ::$S & ::'\$REV')'"
   D=$( $SELF \
-	 selectchange "all: :: ~$S" \
-	 'Destination> ' \
+	 selectchange \
+	 "recent7 ~ $S" \
+	 "Destination> " \
 	 "$PREVIEW"
    ) || exit
   D="$(rev_changeid "$D")"
@@ -568,7 +571,6 @@ for k in $KEYS ; do
 done
 
 # == FZF ==
-RELOAD="reload( exec $SELF loadlog {q} )"
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
   BIND+=( --bind "${k,,}:execute( $SELF ${KEYBINDINGS[$k]} {} {q} )+$RELOAD+refresh-preview" )
@@ -576,14 +578,12 @@ done
 
 fzf \
   "${FZFSETTINGS[@]}" \
-  -q "$STARTQUERY" \
-  --no-tac --no-sort \
-  --disabled +m \
-  --header "$HEADER" \
-  --bind "change:$RELOAD+refresh-preview" \
   --bind "ctrl-l:execute-silent(jj st)+clear-screen+$RELOAD" \
   --bind "enter:execute( $SELF show {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
   --prompt 'Revset|Regexp> ' \
+  --header "$HEADER" --header-first \
+  --no-tac --no-sort +m --disabled \
+  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
   < <( $SELF loadlog "$STARTQUERY" ) || :
