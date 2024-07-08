@@ -171,7 +171,7 @@ concat(
 )
 FUNCTIONS+=( 'preview' )
 
-# Abandon Commit
+# Abandon Revision
 abandon()
 (
   R="$(xrev "${1:-@}")"
@@ -181,35 +181,26 @@ abandon()
 )
 KEYBINDINGS["Alt-A"]="abandon"
 
-# Commit (Interactive)
+# Commit (full)
 commit()
 (
   R="$(xrev "${1:-@}")"
   # Edit commit msg if mutable
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] || {
-    # fetch new / old description
-    test silent == "$($JJFZFSHOW -r "$R"  -T 'separate(" ",if(!description, "silent"))')" &&
-      M="$(echo_commit_msg "$R")" ||
-	M="$($JJFZFSHOW -r "$R" -T 'separate(" ",description)')"
-    [[ "$M" =~ Signed-off-by ]] ||
-      M="$M$(echo; echo_signoff)"
-    # create commit msg file
-    TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
-    trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
-    SEP="^^^^^^^^^^^^"
-    echo -e "# $SEP DRAFT:  commit $R $SEP # DELETE THIS" > "$TEMPD/COMMIT.txt"
-    echo "$M" >> "$TEMPD/COMMIT.txt"
-    # edit commit msg
-    HO=`md5sum "$TEMPD/COMMIT.txt"`
-    $EDITOR "$TEMPD/COMMIT.txt" &&
-      HN=`md5sum "$TEMPD/COMMIT.txt"` ||
-	HN="$HO"
-    test "$HO" != "$HN" ||
+    O="$(rev_description "$R")"
+    MSG="$(echo_commit_msg "$R")"
+    user_editor_on_var "COMMIT.txt" MSG ||
       ERROR "Commit cancelled by user"
-    # update commit msg
-    jj describe --no-edit -m "$M" "$R" ||
-      sleep 1
+    # update commit msg if needed
+    test "$O" == "$MSG" ||
+      jj describe --no-edit -r "$R" -m "$MSG"
+    }
+  S=$(rev_edpstate "$R")
+  # keep existing message
+  [[ $S =~ -silent- ]] || {
+    rev_description "$R"
+    return
   }
   # open new empty working copy commit
   jj new "$R"
