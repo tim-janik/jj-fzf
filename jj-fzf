@@ -482,6 +482,24 @@ rebase-descendants()
 )
 KEYBINDINGS["Alt-S"]="rebase-descendants"
 
+# Tag Creation
+tag()
+(
+  R="$(xrev "${1:-@}")"
+  C="$(rev_commitid "$R")"
+  require_git_dir
+  read -p 'Tag Name: ' B &&
+    test -n "$B" ||
+      return
+  M="$(git log -1 --oneline "$C")"
+  ( set -x
+    git tag -a "$B" -m "$M" "$C"
+    jj git import --quiet
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-T"]="tag"
+
 # Rebase Revision
 rebase-revision()
 (
