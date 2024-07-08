@@ -463,6 +463,7 @@ jj git export --quiet
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 HELPKEYS[Ctrl-↑]='preview-up'
 HELPKEYS[Ctrl-↓]='preview-down'
+HELPKEYS[Ctrl-L]='snapshot'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
 WHITE="                                                                                "
@@ -492,6 +493,7 @@ fzf \
   --disabled +m \
   --header "$HEADER" \
   --bind "change:$RELOAD+refresh-preview" \
+  --bind "ctrl-l:execute-silent(jj st)+clear-screen+$RELOAD" \
   --bind "enter:execute( $SELF show {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
