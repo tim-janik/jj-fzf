@@ -12,7 +12,7 @@ JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always 
 JJFZFPAGER="less -Rc"
 FZFSETTINGS=(
   --ansi --no-mouse
-  --info inline
+  --info default
   --layout reverse-list
   --scroll-off 3
   --bind "ctrl-x:jump"
