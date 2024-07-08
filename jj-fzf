@@ -6,8 +6,9 @@ SELF="$0"
 
 # == Config ==
 # JJ repository
-JJROOT=$(jj root) || die "$PWD: not a JJ repository"
+JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
+JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
 FZFSETTINGS=(
   --ansi --no-mouse
@@ -19,7 +20,7 @@ FZFSETTINGS=(
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'right,border-left'
 )
-FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 10% --border)
+FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 TEMPD=
 
 # == Utils ==
@@ -170,6 +171,28 @@ concat(
     sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
 )
 FUNCTIONS+=( 'preview' )
+
+# Select Change ID
+selectchange()
+(
+  REVISION="${1:- :: }"
+  PROMPT="${2:-> }"
+  PREVIEW="${3:-}"
+  HEADER="${4:-}"
+  test -n "$PREVIEW" || PREVIEW="$SELF preview {} {q}"
+  REV=$("${FZFPOPUP[@]}" \
+	  --no-sort \
+	  --prompt "$PROMPT" \
+	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
+	  --header-first --header "$HEADER" \
+	  < <(jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "$REVISION" )
+     ) &&
+    [[ "$REV" =~ $REVPAT ]] &&
+    echo "${BASH_REMATCH[1]}" &&
+    exit 0
+  exit 1
+)
+FUNCTIONS+=( 'selectchange' )
 
 # Abandon Revision
 abandon()
