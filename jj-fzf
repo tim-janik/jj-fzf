@@ -162,6 +162,21 @@ if(root,
     ),
   )
 )' # ◇⚿
+JJFZF_SHOWDETAILS='
+concat(
+  "◉ ",
+  builtin_log_oneline,
+  "Change ID: " ++ self.change_id() ++ "\n",
+  "Commit ID: " ++ commit_id ++ "\n",
+  surround("Refs:      ", "\n", separate(" ", local_branches, remote_branches, tags)),
+  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
+  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
+  "Author:    " ++ format_detailed_signature(author) ++ "\n",
+  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
+  indent("    ",
+    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
+  "\n",
+)'	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 
 # == Functions ==
 FUNCTIONS=()
@@ -195,22 +210,8 @@ preview()
   R="$(xrev "${1:-@}" 2>/dev/null)" &&
     test -n "$R" ||
       exit
-  export SHOWDETAILS='
-concat(
-  builtin_log_oneline,
-  "Change ID: " ++ self.change_id() ++ "\n",
-  "Commit ID: " ++ commit_id ++ "\n",
-  surround("Refs:      ", "\n", separate(" ", local_branches, remote_branches, tags)),
-  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
-  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
-  "Author:    " ++ format_detailed_signature(author) ++ "\n",
-  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
-  indent("    ",
-    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
-  "\n",
-)'	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy log --no-graph --color=always -T "$SHOWDETAILS" -s --git -r "$R" |
+  jj --no-pager --ignore-working-copy log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
     sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
 )
 FUNCTIONS+=( 'preview' )
@@ -473,8 +474,10 @@ KEYBINDINGS["Alt-R"]="rebase-revision"
 log()
 (
   R="$(xrev "${1:-@}")"
-  ( set -x
-    jj log -s --git -r "::$R" --color=always ) | $JJFZFPAGER
+  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  jj log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "::$R" |
+    sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
+    $JJFZFPAGER
 )
 KEYBINDINGS["Ctrl-L"]="log"
 
