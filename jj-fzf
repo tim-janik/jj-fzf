@@ -469,14 +469,14 @@ rebase-revision()
 )
 KEYBINDINGS["Alt-R"]="rebase-revision"
 
-# Show change
-show()
+# Log flat change history
+log()
 (
   R="$(xrev "${1:-@}")"
   ( set -x
-    jj show -s --git -r "$R" --color=always ) | $JJFZFPAGER
+    jj log -s --git -r "::$R" --color=always ) | $JJFZFPAGER
 )
-KEYBINDINGS["Ctrl-S"]="show"
+KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
 duplicate()
@@ -553,7 +553,7 @@ jj git export --quiet
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 HELPKEYS[Ctrl-↑]='preview-up'
 HELPKEYS[Ctrl-↓]='preview-down'
-HELPKEYS[Ctrl-L]='snapshot'
+HELPKEYS[Ctrl-S]='snapshot'
 HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
@@ -578,8 +578,8 @@ done
 
 fzf \
   "${FZFSETTINGS[@]}" \
-  --bind "ctrl-l:execute-silent(jj st)+clear-screen+$RELOAD" \
-  --bind "enter:execute( $SELF show {} {q} )+$RELOAD" \
+  --bind "ctrl-s:execute-silent(jj st)+clear-screen+$RELOAD" \
+  --bind "enter:execute( $SELF log {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
   --prompt 'Revset|Regexp> ' \
