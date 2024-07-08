@@ -67,6 +67,10 @@ require_git_dir()
 	  die "$PWD: failed to find .git store"
     }
 }
+MESSAGE()
+{
+  echo "#${FUNC:+ $FUNC:}" "$*"
+}
 ERROR()
 {
   FUNC="${FUNC:-$0}"
@@ -343,6 +347,52 @@ squash()
     sleep 1
 )
 KEYBINDINGS["Alt-Q"]="squash"
+
+# Rebase Revision/Branch/Descendants
+rebase-cmd()
+(
+  S="$(xrev "$1")"
+  M="$2"		# -r -b -s
+  WHAT="${3:-BRANCH}"	# REVISION BRANCH SOURCE
+  PREVIEW=":"
+  PREVIEW="$PREVIEW && echo && echo jj rebase $M $S -d \$REV && echo"
+  PREVIEW="$PREVIEW && echo $WHAT: && $JJFZFONELINE -r $S && echo"
+  PREVIEW="$PREVIEW && echo DESTINATION: && $JJFZFONELINE -r \$REV && echo"
+  PREVIEW="$PREVIEW && echo COMMON: && $JJFZFONELINE -r 'heads( ::$S & ::'\$REV')'"
+  D=$( $SELF \
+	 selectchange "all: :: ~$S" \
+	 'Destination> ' \
+	 "$PREVIEW"
+   ) || exit
+  D="$(rev_changeid "$D")"
+  COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$D & ::$S) ") # maybe >1
+  MESSAGE "$WHAT=$S DESTINATION=$D COMMON='$COMMON'"
+  # -b skips "$COMMON" == "$D"; but -s will rebase
+  ( set -x
+    jj rebase $M "$S" -d "$D"
+  ) || sleep 1
+)
+
+# Rebase Branch
+rebase-branch()
+(
+  rebase-cmd "${1:-@}" -b "BRANCH"
+)
+KEYBINDINGS["Alt-L"]="rebase-branch"
+
+# Rebase Descendants
+rebase-descendants()
+(
+  rebase-cmd "${1:-@}" -s "SOURCE"
+)
+KEYBINDINGS["Alt-S"]="rebase-descendants"
+
+# Rebase Revision
+rebase-revision()
+(
+  rebase-cmd "${1:-@}" -r "REVISION"
+)
+KEYBINDINGS["Alt-R"]="rebase-revision"
 
 # Duplicate Commit
 duplicate()
