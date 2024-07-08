@@ -471,10 +471,18 @@ KEYBINDINGS["Ctrl-W"]="working-copy"
 # Swap Commits
 swap-commits()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   jj rebase -r "$R" --insert-before "$R-"
 )
 KEYBINDINGS["Alt-X"]="swap-commits"
+
+# Restore change
+restore()
+(
+  R="$(xrev "${1:-@}")"
+  jj restore --from "$R" --to @
+)
+KEYBINDINGS["Alt-Y"]="restore"
 
 # Undo last JJ op
 undo()
