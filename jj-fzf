@@ -246,6 +246,14 @@ commit()
 )
 KEYBINDINGS["Alt-C"]="commit"
 
+# diffedit
+diffedit()
+(
+  R="$(xrev "${1:-@}")"
+  jj diffedit -r "$R"
+)
+KEYBINDINGS["Ctrl-D"]="diffedit"
+
 # Edit Commit Message
 describe()
 (
