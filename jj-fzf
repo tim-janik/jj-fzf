@@ -5,6 +5,8 @@ SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: $*
 SELF="$0"
 
 # == Config ==
+STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
+TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | branches() | remote_branches() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
@@ -171,9 +173,9 @@ loadlog()
     if test -z "${1:-}" ; then
       # empty query, show all
       jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r '::'
-    elif jj --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
+    elif jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
       # use valid revset
-      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$1"
+      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$1"
     else
       # search pattern, filter on top of all entries
       jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r :: | {
@@ -537,7 +539,6 @@ KEYBINDINGS["Ctrl-Z"]="undo"
   FUNC="$1" "$@"
   exit $?
 }
-STARTQUERY="${1:-}"
 
 # == Sync ==
 # Synchronize before changes in git or @ mess up state during jj log
@@ -550,6 +551,7 @@ HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# cop
 HELPKEYS[Ctrl-↑]='preview-up'
 HELPKEYS[Ctrl-↓]='preview-down'
 HELPKEYS[Ctrl-L]='snapshot'
+HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
 WHITE="                                                                                "
