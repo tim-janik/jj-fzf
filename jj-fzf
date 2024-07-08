@@ -170,7 +170,7 @@ describe()
   jj describe -r "$R" ||
     sleep 1
 )
-KEYBINDINGS["Alt-E"]="describe"
+KEYBINDINGS["Ctrl-E"]="describe"
 
 # Merge into upstream branch
 merge-upstream()
