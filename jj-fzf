@@ -314,6 +314,7 @@ KEYBINDINGS["Alt-I"]="split-interactive"
 merge-upstream()
 (
   R="$(xrev "${1:-@}")"
+  cd "$JJROOT" # subdirs may vanish
   C="$(rev_commitid "$R")"
   BRANCH="$(rev_branches "$R") $C" &&	# pick first branch name or $C
     [[ $BRANCH =~ ([^ ]+) ]] && BRANCH="${BASH_REMATCH[1]}"
@@ -350,8 +351,10 @@ merge-upstream()
   test "$HO" != "$HN" ||
     ERROR "Merge cancelled by user"
   # create merge
-  jj new --no-edit -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" ||
-    sleep 1
+  jj new -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" &&
+    jj branch set -B -r @ "$DEST" ||
+      jj git export ||
+      sleep 1
 )
 KEYBINDINGS["Alt-M"]="merge-upstream"
 
