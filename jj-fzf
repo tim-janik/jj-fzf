@@ -195,12 +195,6 @@ commit()
     # update commit msg if needed
     test "$O" == "$MSG" ||
       jj describe --no-edit -r "$R" -m "$MSG"
-    }
-  S=$(rev_edpstate "$R")
-  # keep existing message
-  [[ $S =~ -silent- ]] || {
-    rev_description "$R"
-    return
   }
   # open new empty working copy commit
   jj new "$R"
