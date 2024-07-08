@@ -299,6 +299,55 @@ commit()
 )
 KEYBINDINGS["Alt-C"]="commit"
 
+# Delete Branches and Tags
+delbranches()
+(
+  R="$(xrev "${1:-@}")"
+  require_git_dir
+  jj git export --quiet
+  jj git import --quiet
+  # Branch on @ for initial query
+  B=$($JJFZFSHOW -r "$R" -T 'concat(separate(" ",branches))') &&
+    B="${B%% *}" &&
+    test -n "$B" &&
+    B=(-q "$B") ||
+      B=()
+  DEL=$("${FZFPOPUP[@]}" \
+  	  --prompt "Delete > " \
+	  --header "Delete Branches or Tags" --header-first \
+	  --no-tac --no-sort +m \
+	  -d: --nth 1 "${B[@]}" \
+	  < <(
+	  (
+	    jj branch list | while read n rest ; do
+	      printf "%-28s (branch) %s\n" "$n" "$rest"
+	    done
+	    echo
+	    git tag -n1 | while read n rest ; do
+	      printf "%-28s (tag) %s\n" "$n:" "$rest"
+	    done
+	  )
+	)
+     )
+  DEL="${DEL%%:*}" # strip :...
+  test -n "$DEL" || return
+  (
+    jj branch list | fgrep -q "$DEL:" ;
+    echo "branch list check: $?"
+    if set +o pipefail && jj --ignore-working-copy branch list | fgrep -q "$DEL:" ; then
+      ( set -x
+	jj branch delete $DEL
+	jj git export --quiet )
+    else
+      ( set -x
+	git tag -d "$DEL"
+	jj git import --quiet )
+    fi
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-D"]="delbranches"
+
 # diffedit
 diffedit()
 (
