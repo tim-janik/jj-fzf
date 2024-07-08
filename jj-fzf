@@ -584,7 +584,9 @@ gitk()
   COMMIT="$(rev_commitid "$R")"
   cd "$JJROOT"
   test -e "$JJROOT/.jj/repo/store/git" && export GIT_DIR="$JJROOT/.jj/repo/store/git" || export GIT_DIR="$JJROOT/.git"
-  readarray -t HEADS < <(cd "$GIT_DIR" && find refs/heads refs/remotes refs/tags -type f -printf %p\\n | sed 's|^refs/[^/]*/||')
+  readarray -t HEADS < <(
+    jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(::) '
+  )
   # beware gitk is executable and sh function
   env gitk --select-commit=$COMMIT $COMMIT "${HEADS[@]}" --
   jj git import --quiet
