@@ -1,0 +1,686 @@
+#!/bin/bash
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+set -Eeuo pipefail #-x
+SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: $*" >&2; exit 127 ; }
+SELF="$0"
+
+# == Config ==
+STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
+TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | branches() | remote_branches() "'
+# JJ repository
+JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
+JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
+JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_oneline"
+JJFZFPAGER="less -Rc"
+FZFSETTINGS=(
+  --ansi --no-mouse
+  --info default
+  --layout reverse-list
+  --scroll-off 3
+  --bind "ctrl-x:jump"
+  --bind "ctrl-z:ignore"
+  --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
+  --preview-window 'right,border-left'
+)
+FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
+RELOAD="reload( exec $SELF loadlog {q} )"
+TEMPD=
+
+# == Utils ==
+# Create temporary dir, assigns $TEMPD
+temp_dir()
+{
+  test -n "$TEMPD" || {
+    TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
+    trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
+  }
+}
+# Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
+REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+# Extract JJ revision from first word
+xrev()
+(
+  if [[ "$* " =~ $REVPAT ]] ; then	# jj log line
+    rev_changeid "${BASH_REMATCH[1]}"
+  elif [[ "$*" =~ ^([^\ ]+)$ ]] ; then	# revision identifier w/o whitespace
+    rev_changeid "${BASH_REMATCH[1]}"
+  fi
+)
+# Look up full revision via JJ change_id
+rev_changeid()	( $JJFZFSHOW -T 'change_id' -r "$1" )
+# Look up full commit hash via JJ commit_id
+rev_commitid()	( $JJFZFSHOW -T 'commit_id' -r "$1" )
+# List all branches of a revision
+rev_branches()	( $JJFZFSHOW -T 'concat(separate(" ",branches))' -r "$1" )
+# Get revision description
+rev_description() ( $JJFZFSHOW -T 'concat(description)' -r "$1" )
+# Condense commit empty/description/parent state into a key word
+rev_edpstate()
+(
+  export EDPSTATE='separate("-", if(empty, "empty", "diff"), if(description, "description", "silent"), "p" ++ self.parents().len()) ++ "\n"'
+  $JJFZFSHOW -r "$1" -T "$EDPSTATE" # empty-description-p2 diff-silent-p1 etc
+)
+# Require .git directory and set GIT_DIR
+require_git_dir()
+{
+  test -e "$JJROOT/.git" &&
+    export GIT_DIR="$JJROOT/.git" || {
+      test -e "$JJROOT/.jj/repo/store/git" &&
+	export GIT_DIR="$JJROOT/.jj/repo/store/git" ||
+	  die "$PWD: failed to find .git store"
+    }
+}
+MESSAGE()
+{
+  echo "#${FUNC:+ $FUNC:}" "$*"
+}
+ERROR()
+{
+  FUNC="${FUNC:-$0}"
+  echo "ERROR: ${FUNC:+$FUNC:}" "$*" >&2
+  read -t 2
+  exit
+}
+
+# == Helpers ==
+# Echo signoff
+echo_signoff()
+(
+  JJFZF_SIGNOFF=true	# config get jjfzf.signoff
+  if test "${JJFZF_SIGNOFF:-true}" == true ; then
+    echo # separating newline before signoff section
+    $JJFZFSHOW -T 'format_detailed_signature(author) ++ "\n"' -r @ |
+      sed -e 's/>.*/>/ ; s/^/Signed-off-by: /'
+  fi
+)
+# Echo current or default message
+echo_commit_msg()
+(
+  R="$1"
+  S=$(rev_edpstate "$R")
+  # keep existing message
+  [[ $S =~ -silent- ]] || {
+    rev_description "$R"
+    return
+  }
+  # start with file name prefixes
+  cd "$JJROOT" # create root relative file names
+  FILES=()
+  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  test ${#FILES[@]} -gt 0 &&
+    printf "%s: \n" "${FILES[@]}" ||
+      echo Empty...
+  # ensure signoff
+  echo_signoff
+)
+# Run user editor: user_editor_on_var <FILE> <VARIABLE>
+user_editor_on_var()
+{
+  local FILE="$1" N=
+  declare -n _ueovMSG="$2"			# <VARIABLE> alias
+  # create msg file
+  temp_dir
+  local TEMPFILE="$TEMPD/$FILE"
+  cat >"$TEMPFILE" <<<"$_ueovMSG"
+  # edit commit msg
+  $EDITOR "$TEMPFILE" &&
+    N="$(cat "$TEMPFILE")" && {
+      test "$_ueovMSG" != "$N" &&
+	_ueovMSG="$(cat "$TEMPFILE")"
+      rm -f "$TEMPFILE"
+      return 0
+    }
+  rm -f "$TEMPFILE"
+  return 1
+}
+
+# == Oneline Template ==
+# https://github.com/martinvonz/jj/blob/main/docs/templates.md#commit-type
+# https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml # builtin_log_oneline
+JJFZF_ONELINE='
+if(root,
+  format_root_commit(self),
+  label(if(current_working_copy, "working_copy"),
+    concat(
+      separate(" ",
+        format_short_change_id_with_hidden_and_divergent_info(self),
+        if(author.email(), author.username(), email_placeholder),
+        committer.timestamp().local().format("%Y-%m-%d"),
+        format_short_commit_id(commit_id),
+        if(immutable, label("description placeholder", "◆")),
+        branches,
+        tags,
+        working_copies,
+        git_head,
+        if(conflict, label("conflict", "conflict")),
+        if(empty, label("empty", "(empty)")),
+        if(description,
+          description.first_line(),
+          label(if(empty, "empty"), description_placeholder),
+        ),
+      ) ++ "\n",
+    ),
+  )
+)' # ◇⚿
+JJFZF_SHOWDETAILS='
+concat(
+  "◉ ",
+  builtin_log_oneline,
+  "Change ID: " ++ self.change_id() ++ "\n",
+  "Commit ID: " ++ commit_id ++ "\n",
+  surround("Refs:      ", "\n", separate(" ", local_branches, remote_branches, tags)),
+  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
+  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
+  "Author:    " ++ format_detailed_signature(author) ++ "\n",
+  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
+  indent("    ",
+    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
+  "\n",
+)'	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+
+# == Functions ==
+FUNCTIONS=()
+declare -A KEYBINDINGS
+
+loadlog()
+(
+  cd "$JJROOT" # create root relative file names
+  {
+    if test -z "${1:-}" ; then
+      # empty query, show all
+      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r '::'
+    elif jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
+      # use valid revset
+      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$1"
+    else
+      # search pattern, filter on top of all entries
+      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r :: | {
+	grep -P "$1" || # invalid patterns like '*' show full log
+	  cat # -P '^\W*$|'"$1"
+      }
+      # TODO: squash entire description into oneline for grep
+    fi
+  } | # post process, to give the '@' in --graph a seperate color
+    sed -r $'s/^(\W*)@/\\1\e[31;1m@\e[0m/'
+)
+FUNCTIONS+=( 'loadlog' )
+
+preview()
+(
+  R="$(xrev "${1:-@}" 2>/dev/null)" &&
+    test -n "$R" ||
+      exit
+  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  jj --no-pager --ignore-working-copy log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
+    sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
+)
+FUNCTIONS+=( 'preview' )
+
+# Select Change ID
+selectchange()
+(
+  STARTQUERY="${1:- recent7 }"
+  PROMPT="${2:-> }"
+  PREVIEW="${3:-}"
+  HEADER="${4:-}"
+  test -n "$PREVIEW" || PREVIEW="$SELF preview {} {q}"
+  REV=$("${FZFPOPUP[@]}" \
+	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
+	  --prompt "$PROMPT" \
+	  --header "$HEADER" --header-first \
+	  --no-tac --no-sort +m --disabled \
+	  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
+	  < <( $SELF loadlog "$STARTQUERY" )
+     ) &&
+    [[ "$REV" =~ $REVPAT ]] &&
+    echo "${BASH_REMATCH[1]}" &&
+    exit 0
+  exit 1
+)
+FUNCTIONS+=( 'selectchange' )
+
+# Abandon Revision
+abandon()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj abandon -r "$R" ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-A"]="abandon"
+
+# Branch Creation
+branch()
+(
+  R="$(xrev "${1:-@}")"
+  read -p 'Branch Name: ' B &&
+    test -n "$B" ||
+      return
+  set +o pipefail &&
+    jj --ignore-working-copy branch list "$B" 2>/dev/null |
+      grep -qF "$B" &&
+    S='set -B' || S='create'
+  ( set -x
+    jj branch $S "$B" -r "$R"
+    jj git export --quiet
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-B"]="branch"
+
+# Backout Commit
+backout()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj backout -r "$R" -d "$R") ||
+    sleep 1
+  # TODO: move @ to $R
+)
+KEYBINDINGS["Ctrl-B"]="backout"
+
+# Commit (full)
+commit()
+(
+  R="$(xrev "${1:-@}")"
+  # Edit commit msg if mutable
+  IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
+  [[ $IMMU =~ ^true ]] || {
+    O="$(rev_description "$R")"
+    MSG="$(echo_commit_msg "$R")"
+    user_editor_on_var "COMMIT.txt" MSG ||
+      ERROR "Commit cancelled by user"
+    # update commit msg if needed
+    test "$O" == "$MSG" ||
+      jj describe --no-edit -r "$R" -m "$MSG"
+  }
+  # open new empty working copy commit
+  jj new "$R"
+)
+KEYBINDINGS["Alt-C"]="commit"
+
+# Delete Branches and Tags
+delbranches()
+(
+  R="$(xrev "${1:-@}")"
+  require_git_dir
+  jj git export --quiet
+  jj git import --quiet
+  # Branch on @ for initial query
+  B=$($JJFZFSHOW -r "$R" -T 'concat(separate(" ",branches))') &&
+    B="${B%% *}" &&
+    test -n "$B" &&
+    B=(-q "$B") ||
+      B=()
+  DEL=$("${FZFPOPUP[@]}" \
+  	  --prompt "Delete > " \
+	  --header "Delete Branches or Tags" --header-first \
+	  --no-tac --no-sort +m \
+	  -d: --nth 1 "${B[@]}" \
+	  < <(
+	  (
+	    jj branch list | while read n rest ; do
+	      printf "%-28s (branch) %s\n" "$n" "$rest"
+	    done
+	    echo
+	    git tag -n1 | while read n rest ; do
+	      printf "%-28s (tag) %s\n" "$n:" "$rest"
+	    done
+	  )
+	)
+     )
+  DEL="${DEL%%:*}" # strip :...
+  test -n "$DEL" || return
+  (
+    jj branch list | fgrep -q "$DEL:" ;
+    echo "branch list check: $?"
+    if set +o pipefail && jj --ignore-working-copy branch list | fgrep -q "$DEL:" ; then
+      ( set -x
+	jj branch delete $DEL
+	jj git export --quiet )
+    else
+      ( set -x
+	git tag -d "$DEL"
+	jj git import --quiet )
+    fi
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-D"]="delbranches"
+
+# diffedit
+diffedit()
+(
+  R="$(xrev "${1:-@}")"
+  jj diffedit -r "$R"
+)
+KEYBINDINGS["Ctrl-D"]="diffedit"
+
+# Edit Commit Message
+describe()
+(
+  R="$(xrev "${1:-@}")"
+  O="$(rev_description "$R")"
+  MSG="$(echo_commit_msg "$R")"
+  user_editor_on_var "COMMIT.txt" MSG ||
+    ERROR "Describe cancelled by user"
+  test "$O" == "$MSG" || {
+    jj describe --no-edit -r "$R" -m "$MSG" ||
+      sleep 1
+  }
+)
+KEYBINDINGS["Ctrl-E"]="describe"
+
+# File Editor
+file-editor()
+(
+  R="$(xrev "${1:-@}")"
+  cd "$JJROOT"	# needed for relative paths to match
+  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  ( set -x
+    ${EDITOR:-nano} "${FILES[@]}"
+  )
+)
+KEYBINDINGS["Ctrl-F"]="file-editor"
+
+# Help with JJ commands
+help()
+(
+  JJCMDS=:
+  for w in $( LANG=C
+	      jj --help |
+		sed -r '1,/^Commands:/d; /^\w/{x;q}; s/^ *(\w+)\b.*/\1/' ) ; do
+    [[ $w == help ]] && continue
+    JJCMDS="$JJCMDS$w:"
+  done
+  "${FZFPOPUP[@]}" \
+    --header-first --no-sort \
+    --header "jj --help" \
+    --nth 1 \
+    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help" \
+    --bind "enter:execute( test -n {1} || exit; { [[ $JJCMDS =~ :{1}: ]] && jj {1} --help || jj help ;} | $JJFZFPAGER )+abort" \
+    < <(jj help)
+)
+KEYBINDINGS["Ctrl-H"]="help"
+
+# Split change
+split-interactive()
+(
+  R="$(xrev "$1")"
+  jj split --interactive -r "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Alt-I"]="split-interactive"
+
+# Merge into upstream branch
+merge-upstream()
+(
+  R="$(xrev "${1:-@}")"
+  cd "$JJROOT" # subdirs may vanish
+  C="$(rev_commitid "$R")"
+  BRANCH="$(rev_branches "$R") $C" &&	# pick first branch name or $C
+    [[ $BRANCH =~ ([^ ]+) ]] && BRANCH="${BASH_REMATCH[1]}"
+  require_git_dir
+  # find upstream branch name
+  UPSTREAMNAMES="master trunk main" DEST=
+  for M in $UPSTREAMNAMES ; do
+    test -n "$(git config --get branch.$M.remote)" && DEST="$M" && break
+  done		# check tracking branch
+  test -n "$DEST" ||
+    for M in $UPSTREAMNAMES ; do
+      test -n "$(git rev-parse origin/$M $M 2>/dev/null)" && DEST="$M" && break
+    done	# check matching remote and local branch
+  test -n "$DEST" || ERROR "failed to find upstream merge branch (tried $UPSTREAMNAMES)"
+  # check for work in progress
+  git --no-pager diff -U0 "$DEST..$BRANCH" |	# examine all branch changes
+    egrep "^\+.*\b(XXX|WIP|FIXME)\b" &&		# work still to be done
+    WARN="(WARNING: merge diff contains WIP keywords)" || WARN=
+  # create merge msg
+  TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
+  trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
+  SEP="^^^^^^^^^^^^"
+  echo -e "# $SEP DRAFT:  merge $BRANCH into $DEST ${WARN:+$WARN} $SEP # DELETE THIS" > "$TEMPD/MERGE.txt"
+  echo -e "Merge branch '$BRANCH'\n\n* Branch commit log:" >> "$TEMPD/MERGE.txt"
+  git log --pretty=$'\f%s%+b' "$DEST..$BRANCH" |
+    sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
+    sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /' >> "$TEMPD/MERGE.txt"
+  echo_signoff >> "$TEMPD/MERGE.txt"
+  # edit merge msg
+  HO=`md5sum "$TEMPD/MERGE.txt"`
+  $EDITOR "$TEMPD/MERGE.txt" &&
+    HN=`md5sum "$TEMPD/MERGE.txt"` ||
+      HN="$HO"
+  test "$HO" != "$HN" ||
+    ERROR "Merge cancelled by user"
+  # create merge
+  jj new -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" &&
+    jj branch set -B -r @ "$DEST" ||
+      jj git export ||
+      sleep 1
+)
+KEYBINDINGS["Alt-M"]="merge-upstream"
+
+# New --insert-before
+new-before()
+(
+  R="$(xrev "${1:-@}")"
+  jj new --insert-before "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Alt-N"]="new-before"
+
+# New
+new()
+(
+  R="$(xrev "${1:-@}")"
+  jj new "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Ctrl-N"]="new"
+
+# Squash Commits
+squash-fixup()
+(
+  R="$(xrev "${1:-@}")"
+  W="$(xrev "@")"
+  test "$W" == "$R" &&
+    OPT='--keep-emptied' ||
+      OPT=
+  # export EDITOR=true
+  ( set -x
+    jj squash -r "$R" $OPT \
+       --use-destination-message
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-Q"]="squash-fixup"
+
+# Rebase Revision/Branch/Descendants
+rebase-cmd()
+(
+  S="$(xrev "$1")"
+  M="$2"		# -r -b -s
+  WHAT="${3:-BRANCH}"	# REVISION BRANCH SOURCE
+  PREVIEW=":"
+  PREVIEW="$PREVIEW && echo && echo jj rebase $M $S -d \$REV && echo"
+  PREVIEW="$PREVIEW && echo $WHAT: && $JJFZFONELINE -r $S && echo"
+  PREVIEW="$PREVIEW && echo DESTINATION: && $JJFZFONELINE -r \$REV && echo"
+  PREVIEW="$PREVIEW && echo COMMON: && $JJFZFONELINE -r 'heads( ::$S & ::'\$REV')'"
+  D=$( $SELF \
+	 selectchange \
+	 "recent7 ~ $S" \
+	 "Destination> " \
+	 "$PREVIEW"
+   ) || exit
+  D="$(rev_changeid "$D")"
+  COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$D & ::$S) ") # maybe >1
+  MESSAGE "$WHAT=$S DESTINATION=$D COMMON='$COMMON'"
+  # -b skips "$COMMON" == "$D"; but -s will rebase
+  ( set -x
+    jj rebase $M "$S" -d "$D"
+  ) || sleep 1
+)
+
+# Rebase Branch
+rebase-branch()
+(
+  rebase-cmd "${1:-@}" -b "BRANCH"
+)
+KEYBINDINGS["Alt-L"]="rebase-branch"
+
+# Rebase Descendants
+rebase-descendants()
+(
+  rebase-cmd "${1:-@}" -s "SOURCE"
+)
+KEYBINDINGS["Alt-S"]="rebase-descendants"
+
+# Tag Creation
+tag()
+(
+  R="$(xrev "${1:-@}")"
+  C="$(rev_commitid "$R")"
+  require_git_dir
+  read -p 'Tag Name: ' B &&
+    test -n "$B" ||
+      return
+  M="$(git log -1 --oneline "$C")"
+  ( set -x
+    git tag -a "$B" -m "$M" "$C"
+    jj git import --quiet
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-T"]="tag"
+
+# Rebase Revision
+rebase-revision()
+(
+  rebase-cmd "${1:-@}" -r "REVISION"
+)
+KEYBINDINGS["Alt-R"]="rebase-revision"
+
+# Log flat change history
+log()
+(
+  R="$(xrev "${1:-@}")"
+  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  jj log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "::$R" |
+    sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
+    $JJFZFPAGER
+)
+KEYBINDINGS["Ctrl-L"]="log"
+
+# Duplicate Commit
+duplicate()
+(
+  R="$(xrev "${1:-@}")"
+  jj duplicate "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Alt-U"]="duplicate"
+
+# Gitk View
+gitk()
+(
+  R="$(xrev "${1:-@}")"
+  jj git export --quiet
+  COMMIT="$(rev_commitid "$R")"
+  cd "$JJROOT"
+  test -e "$JJROOT/.jj/repo/store/git" && export GIT_DIR="$JJROOT/.jj/repo/store/git" || export GIT_DIR="$JJROOT/.git"
+  readarray -t HEADS < <(
+    jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(::) '
+  )
+  # beware gitk is executable and sh function
+  env gitk --select-commit=$COMMIT $COMMIT "${HEADS[@]}" --
+  jj git import --quiet
+)
+KEYBINDINGS["Ctrl-V"]="gitk"
+
+# Edit (New) Working Copy
+working-copy()
+(
+  R="$(xrev "${1:-@}")"
+  IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
+  [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
+  jj $CMD -r "$R" ||
+    sleep 1
+)
+KEYBINDINGS["Ctrl-W"]="working-copy"
+
+# Swap Commits
+swap-commits()
+(
+  R="$(xrev "${1:-@}")"
+  jj rebase -r "$R" --insert-before "$R-"
+)
+KEYBINDINGS["Alt-X"]="swap-commits"
+
+# Restore change
+restore()
+(
+  R="$(xrev "${1:-@}")"
+  jj restore --from "$R" --to @
+)
+KEYBINDINGS["Alt-Y"]="restore"
+
+# Undo last JJ op
+undo()
+(
+  jj op undo
+)
+KEYBINDINGS["Ctrl-Z"]="undo"
+
+# == Function calling ==
+[[ "${1:-}" =~ ^[a-z0-9_]+ ]] &&
+  [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] && {
+  FUNC="$1" "$@"
+  exit $?
+}
+
+# == Sync ==
+# Synchronize before changes in git or @ mess up state during jj log
+jj git import --quiet
+jj status >/dev/null
+jj git export --quiet
+
+# == Help / Docs ==
+HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
+HELPKEYS[Ctrl-↑]='preview-up'
+HELPKEYS[Ctrl-↓]='preview-down'
+HELPKEYS[Ctrl-S]='snapshot'
+HELPKEYS[Ctrl-U]='unfiltered-log'
+HELPKEYS[recent7]='default revset'
+KEYS="${!HELPKEYS[@]}"
+KEYS=$(sort <<<"${KEYS// /$'\n'}")
+WHITE="                                                                                "
+HEADER=""
+i=0
+for k in $KEYS ; do
+  S="$k: ${HELPKEYS[$k]}"	# printf(1) cannot count UTF-8 continuation chars (0x80-0xBF)
+  test ${#S} -lt 26 && S="$S${WHITE:0:$(( 26 - ${#S} ))}"	# so, format like %-26s
+  HEADER="$HEADER$S" #$HIGH"
+  i=$(($i+1))
+  test 0 == $(($i % 3)) &&
+    HEADER="$HEADER"$'\n' ||
+      HEADER="$HEADER "
+done
+
+# == FZF ==
+BIND=()
+for k in "${!KEYBINDINGS[@]}" ; do
+  BIND+=( --bind "${k,,}:execute( $SELF ${KEYBINDINGS[$k]} {} {q} )+$RELOAD+refresh-preview" )
+done
+
+fzf \
+  "${FZFSETTINGS[@]}" \
+  --bind "ctrl-s:execute-silent(jj st)+clear-screen+$RELOAD" \
+  --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
+  --bind "enter:execute( $SELF log {} {q} )+$RELOAD" \
+  "${BIND[@]}" \
+  --preview " exec $SELF preview {} {q} " \
+  --prompt 'Revset|Regexp> ' \
+  --header "$HEADER" --header-first \
+  --no-tac --no-sort +m --disabled \
+  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
+  < <( $SELF loadlog "$STARTQUERY" ) || :
