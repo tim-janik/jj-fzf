@@ -479,17 +479,21 @@ new()
 KEYBINDINGS["Ctrl-N"]="new"
 
 # Squash Commits
-squash()
+squash-fixup()
 (
   R="$(xrev "${1:-@}")"
-  test \
-    empty-silent == "$($JJTMPL_R "$R"  -T 'separate(" ",if(empty && !description, "empty-silent"))')" -a \
-    empty-silent == "$($JJTMPL_R "$R-" -T 'separate(" ",if(empty && !description, "empty-silent"))')" &&
-    exec jj abandon -r "$R-"  # squash 2 empty via abandoning parent # FIXME if child is workdir, just edit @-
-  jj squash -r "$R" || # --keep-emptied
+  W="$(xrev "@")"
+  test "$W" == "$R" &&
+    OPT='--keep-emptied' ||
+      OPT=
+  # export EDITOR=true
+  ( set -x
+    jj squash -r "$R" $OPT \
+       --use-destination-message
+  ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-Q"]="squash"
+KEYBINDINGS["Alt-Q"]="squash-fixup"
 
 # Rebase Revision/Branch/Descendants
 rebase-cmd()
