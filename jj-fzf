@@ -36,7 +36,8 @@ temp_dir()
   }
 }
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
-REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
 # Extract JJ revision from first word
 xrev()
 (
@@ -193,6 +194,7 @@ label(if(current_operation, "current_operation"),
 # == Functions ==
 FUNCTIONS=()
 declare -A KEYBINDINGS
+FIRSTS=""
 
 loadlog()
 (
@@ -497,7 +499,7 @@ new-before()
   jj new --insert-before "$R" ||
     sleep 1
 )
-KEYBINDINGS["Alt-N"]="new-before"
+KEYBINDINGS["Alt-N"]="new-before"	FIRSTS="$FIRSTS new-before"
 
 # New
 new()
@@ -506,9 +508,7 @@ new()
   jj new "$R" ||
     sleep 1
 )
-KEYBINDINGS["Ctrl-N"]="new"
-
-export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
+KEYBINDINGS["Ctrl-N"]="new"		FIRSTS="$FIRSTS new"
 
 # Oplog
 op-log()
@@ -764,7 +764,10 @@ done
 # == FZF ==
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
-  BIND+=( --bind "${k,,}:execute( $SELF ${KEYBINDINGS[$k]} {} {q} )+$RELOAD+refresh-preview" )
+  fun="${KEYBINDINGS[$k]}"
+  postcmd="+refresh-preview"
+  [[ " $FIRSTS " == *" $fun "* ]] && postcmd="$postcmd+first"
+  BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
 done
 
 fzf \
