@@ -366,7 +366,7 @@ diffedit()
   R="$(xrev "${1:-@}")"
   jj diffedit -r "$R"
 )
-KEYBINDINGS["Ctrl-D"]="diffedit"
+KEYBINDINGS["Alt-E"]="diffedit"
 
 # Edit Commit Message
 describe()
