@@ -9,7 +9,7 @@ STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | branches() | remote_branches() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
-JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
+JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
 FZFSETTINGS=(
@@ -188,13 +188,13 @@ loadlog()
   {
     if test -z "${1:-}" ; then
       # empty query, show all
-      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r '::'
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r '::'
     elif jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
       # use valid revset
-      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$1"
+      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r "$1"
     else
       # search pattern, filter on top of all entries
-      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r :: | {
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r :: | {
 	grep -P "$1" || # invalid patterns like '*' show full log
 	  cat # -P '^\W*$|'"$1"
       }
@@ -211,7 +211,7 @@ preview()
     test -n "$R" ||
       exit
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
     sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
 )
 FUNCTIONS+=( 'preview' )
@@ -478,6 +478,24 @@ new()
 )
 KEYBINDINGS["Ctrl-N"]="new"
 
+# Oplog
+op-log()
+(
+  HEADER="jj op log"
+  RELOAD="reload( exec jj op log --color=always )"
+  export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
+  export E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  "${FZFPOPUP[@]}" \
+    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\"; $SELF loadlog {q}" \
+    --prompt 'Revset|Regexp> ' \
+    --header "$HEADER" --header-first \
+    --no-tac --no-sort +m --disabled \
+    --bind "change:$RELOAD+refresh-preview" \
+    --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF log @ {q} )" \
+    < <( jj op log --color=always )
+)
+KEYBINDINGS["Ctrl-O"]="op-log"
+
 # Squash Commits
 squash-fixup()
 (
@@ -568,7 +586,7 @@ log()
 (
   R="$(xrev "${1:-@}")"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "::$R" |
+  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "::$R" |
     sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
     $JJFZFPAGER
 )
