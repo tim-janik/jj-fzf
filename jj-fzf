@@ -453,6 +453,24 @@ split-interactive()
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
 
+# Line History
+line-history()
+(
+  R="$(xrev "${1:-@}")"
+  C="$(rev_commitid "$R")"
+  cd "$JJROOT"	# needed for correct file paths
+  require_git_dir
+  set +o pipefail
+  jj file list -r "$R" |
+    xargs grep -s -n '' |
+    "${FZFPOPUP[@]}" \
+      --preview " git log --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
+      --bind "enter:execute( git log -M -C --find-copies-harder -L{2}:{1} --color $C | $JJFZFPAGER)" \
+      --header "File Line History" \
+      --no-tac --no-sort +m -d:
+)
+KEYBINDINGS["Alt-L"]="line-history"
+
 # Merge into tracked branch
 merge-upstream()
 (
