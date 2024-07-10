@@ -727,17 +727,19 @@ undo()
 KEYBINDINGS["Ctrl-Z"]="undo"
 
 # == Function calling ==
-[[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] &&
-  [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] && {
-  FUNC="$1" "$@"
-  exit $?
-}
+if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
+  [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] &&
+    SYNC='jj status' || # sync JJ after modifications
+      SYNC=:		# skip syncing for preview functions
+  $SYNC >/dev/null
+  FUNC="$1" "$@" && E=$? || E=$?
+  $SYNC >/dev/null || :
+  exit $E
+fi
 
 # == Sync ==
 # Synchronize before changes in git or @ mess up state during jj log
-jj git import --quiet
-jj status >/dev/null
-jj git export --quiet
+jj status
 
 # == Help / Docs ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
