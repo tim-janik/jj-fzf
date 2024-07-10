@@ -177,6 +177,18 @@ concat(
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
   "\n",
 )'	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+OPLOG_ONELINE='
+label(if(current_operation, "current_operation"),
+  coalesce(
+    if(root, format_root_operation(self)),
+    concat(
+      separate(" ", self.id().short(), self.user(), self.time().start().ago()), " ",
+      self.description().first_line(), " ",
+      if(self.tags(), self.tags().first_line()),
+    ),
+  )
+)
+'
 
 # == Functions ==
 FUNCTIONS=()
@@ -492,7 +504,7 @@ op-log()
     --no-tac --no-sort +m --disabled \
     --bind "change:$RELOAD+refresh-preview" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF log @ {q} )" \
-    < <( jj op log --color=always )
+    < <( jj op log --color=always -T "$OPLOG_ONELINE" )
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
