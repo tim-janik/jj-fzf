@@ -509,6 +509,8 @@ op-log()
   H="jj op log"$'\n'
   H="$H""Alt-D: Preview diff of '@' at a specific operation"$'\n'
   H="$H""Alt-L: Preview history at a specific operation"$'\n'
+  H="$H""Alt-O: Preview oplog entry"$'\n'
+  H="$H""Alt-U: Undo operation at oplog entry"$'\n'
   H="$H""Alt-W: Restore oplog working copy into a new '@-' commit"$'\n'
   echo 'VIEW=diff@'		>> $TEMPD/oplog.env
   export JJFZFONELINE
@@ -517,7 +519,9 @@ op-log()
     --header "$H" --header-first \
     --bind "alt-d:execute( sed 's/^VIEW=.*/VIEW=diff@/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-w:execute( $SELF restore@oplog {} )+abort" \
+    --bind "alt-o:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-u:execute( $SELF undo-op@oplog {} )+abort" \
+    --bind "alt-w:execute( $SELF workdir-restore@oplog {} )+abort" \
     --no-tac --no-sort +m --disabled \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF log @ {q} )" \
     < <( jj op log --color=always -T "$OPLOG_ONELINE" )
@@ -525,15 +529,35 @@ op-log()
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
-restore@oplog()
+show@oplog()
+(
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
+)
+FUNCTIONS+=( 'show@oplog' )
+
+undo-op@oplog()
+(
+  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
+  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
+  ( set -x
+    jj op undo $OP
+  ) ||
+    sleep 1
+)
+FUNCTIONS+=( 'undo-op@oplog' )
+
+workdir-restore@oplog()
 (
   set -x
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
-  jj new --insert-before @	# new @-
-  jj restore --from "$C" --to @
+  ( set -x
+    jj new --insert-before @	# new @-
+    jj restore --from "$C" --to @
+  ) ||
+    sleep 1
 )
-FUNCTIONS+=( 'restore@oplog' )
+FUNCTIONS+=( 'workdir-restore@oplog' )
 
 # Squash Commits
 squash-fixup()
@@ -692,7 +716,7 @@ undo()
 KEYBINDINGS["Ctrl-Z"]="undo"
 
 # == Function calling ==
-[[ "${1:-}" =~ ^[a-z0-9_]+ ]] &&
+[[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] &&
   [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] && {
   FUNC="$1" "$@"
   exit $?
