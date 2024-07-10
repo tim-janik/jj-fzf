@@ -495,45 +495,55 @@ squash-fixup()
 )
 KEYBINDINGS["Alt-Q"]="squash-fixup"
 
-# Rebase Revision/Branch/Descendants
-rebase-cmd()
+# Rebase Branch/Source/Revision After/Before/Destination
+rebasing()
 (
   S="$(xrev "$1")"
-  M="$2"		# -r -b -s
-  WHAT="${3:-BRANCH}"	# REVISION BRANCH SOURCE
-  PREVIEW=":"
-  PREVIEW="$PREVIEW && echo && echo jj rebase $M $S -d \$REV && echo"
-  PREVIEW="$PREVIEW && echo $WHAT: && $JJFZFONELINE -r $S && echo"
-  PREVIEW="$PREVIEW && echo DESTINATION: && $JJFZFONELINE -r \$REV && echo"
-  PREVIEW="$PREVIEW && echo COMMON: && $JJFZFONELINE -r 'heads( ::$S & ::'\$REV')'"
-  D=$( $SELF \
-	 selectchange \
-	 "recent7 ~ $S" \
-	 "Destination> " \
-	 "$PREVIEW"
-   ) || exit
-  D="$(rev_changeid "$D")"
-  COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$D & ::$S) ") # maybe >1
-  MESSAGE "$WHAT=$S DESTINATION=$D COMMON='$COMMON'"
-  # -b skips "$COMMON" == "$D"; but -s will rebase
+  temp_dir
+  echo > $TEMPD/rebasing.env
+  echo 'FR=--source'		>> $TEMPD/rebasing.env
+  echo 'TO=--destination'	>> $TEMPD/rebasing.env
+  export JJFZFONELINE
+  PREVIEW=". $TEMPD/rebasing.env"
+  PREVIEW="$PREVIEW"' && echo && echo jj rebase $FR '$S' $TO $REV && echo'
+  PREVIEW="$PREVIEW"' && F=${FR#--} && echo ${F^^}: && $JJFZFONELINE -r '$S' && echo'
+  PREVIEW="$PREVIEW"' && T=${TO#--} && echo ${T^^}: && $JJFZFONELINE -r $REV && echo'
+  PREVIEW="$PREVIEW"' && echo COMMON: && $JJFZFONELINE -r "heads( ::'$S' & ::$REV)"'
+  H=$'\n'
+  H="$H""Alt-B: BRANCH   - Rebase the whole branch relative to destination's ancestors"$'\n'
+  H="$H""Alt-S: SOURCE   - Rebase specified revision together with descendants"$'\n'
+  H="$H""Alt-R: REVISION - Rebase only given revision, moves descendants onto parent"$'\n'
+  H="$H"$'\n'
+  H="$H""Alt-D: DESTINATION - The revision to rebase onto"$'\n'
+  H="$H""Alt-A: AFTER       - The revision to insert after"$'\n'
+  H="$H""Alt-E: BEFORE      - The revision to insert before"$'\n'
+  STARTQUERY="recent7 ~ $S"
+  REV=$("${FZFPOPUP[@]}" \
+	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
+	  --prompt "> " \
+	  --header "$H" --header-first \
+	  --bind "alt-b:execute( sed 's/^FR=.*/FR=--branch/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-s:execute( sed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-r:execute( sed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-d:execute( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-a:execute( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-e:execute( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --no-tac --no-sort +m --disabled \
+	  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
+	  < <( $SELF loadlog "$STARTQUERY" )) &&
+    [[ "$REV" =~ $REVPAT ]] &&
+    REV="${BASH_REMATCH[1]}" ||
+      REV=
+  REV="$(rev_changeid "$REV")"
+  COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$REV & ::$S) ") # maybe >1
+  . $TEMPD/rebasing.env
+  rm -f TEMPD/rebasing.env
+  MESSAGE "COMMON='$COMMON' $FR $S $TO $REV"
   ( set -x
-    jj rebase $M "$S" -d "$D"
+    jj rebase $FR "$S" $TO "$REV"
   ) || sleep 1
 )
-
-# Rebase Branch
-rebase-branch()
-(
-  rebase-cmd "${1:-@}" -b "BRANCH"
-)
-KEYBINDINGS["Alt-L"]="rebase-branch"
-
-# Rebase Descendants
-rebase-descendants()
-(
-  rebase-cmd "${1:-@}" -s "SOURCE"
-)
-KEYBINDINGS["Alt-S"]="rebase-descendants"
+KEYBINDINGS["Alt-R"]="rebasing"
 
 # Tag Creation
 tag()
@@ -552,13 +562,6 @@ tag()
     sleep 1
 )
 KEYBINDINGS["Alt-T"]="tag"
-
-# Rebase Revision
-rebase-revision()
-(
-  rebase-cmd "${1:-@}" -r "REVISION"
-)
-KEYBINDINGS["Alt-R"]="rebase-revision"
 
 # Log flat change history
 log()
