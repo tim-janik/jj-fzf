@@ -621,6 +621,7 @@ rebasing()
     [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
       REV=
+  test -n "$REV" || exit 0
   REV="$(rev_changeid "$REV")"
   COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$REV & ::$S) ") # maybe >1
   . $TEMPD/rebasing.env
