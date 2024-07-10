@@ -220,10 +220,16 @@ FUNCTIONS+=( 'loadlog' )
 diff@()
 (
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
-    sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
+  if tty -s ; then
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
+      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" |	# insert newline between stats and diff
+      $JJFZFPAGER
+  else
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
+      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" 	# insert newline between stats and diff
+  fi
 )
-FUNCTIONS+=( 'diff@' )
+KEYBINDINGS["Ctrl-D"]="diff@"
 
 preview()
 (
