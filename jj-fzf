@@ -9,7 +9,7 @@ STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | branches() | remote_branches() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
-JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
+JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
 FZFSETTINGS=(
@@ -177,6 +177,18 @@ concat(
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
   "\n",
 )'	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+OPLOG_ONELINE='
+label(if(current_operation, "current_operation"),
+  coalesce(
+    if(root, format_root_operation(self)),
+    concat(
+      separate(" ", self.id().short(), self.user(), self.time().start().ago()), " ",
+      self.description().first_line(), " ",
+      if(self.tags(), self.tags().first_line()),
+    ),
+  )
+)
+'
 
 # == Functions ==
 FUNCTIONS=()
@@ -188,13 +200,13 @@ loadlog()
   {
     if test -z "${1:-}" ; then
       # empty query, show all
-      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r '::'
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r '::'
     elif jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
       # use valid revset
-      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r "$1"
+      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r "$1"
     else
       # search pattern, filter on top of all entries
-      jj --no-pager --ignore-working-copy log --color=always -T "$JJFZF_ONELINE" -r :: | {
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r :: | {
 	grep -P "$1" || # invalid patterns like '*' show full log
 	  cat # -P '^\W*$|'"$1"
       }
@@ -205,13 +217,27 @@ loadlog()
 )
 FUNCTIONS+=( 'loadlog' )
 
+diff@()
+(
+  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  if tty -s ; then
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
+      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" |	# insert newline between stats and diff
+      $JJFZFPAGER
+  else
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
+      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" 	# insert newline between stats and diff
+  fi
+)
+KEYBINDINGS["Ctrl-D"]="diff@"
+
 preview()
 (
   R="$(xrev "${1:-@}" 2>/dev/null)" &&
     test -n "$R" ||
       exit
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
     sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
 )
 FUNCTIONS+=( 'preview' )
@@ -354,7 +380,7 @@ diffedit()
   R="$(xrev "${1:-@}")"
   jj diffedit -r "$R"
 )
-KEYBINDINGS["Ctrl-D"]="diffedit"
+KEYBINDINGS["Alt-E"]="diffedit"
 
 # Edit Commit Message
 describe()
@@ -478,6 +504,67 @@ new()
 )
 KEYBINDINGS["Ctrl-N"]="new"
 
+export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
+
+# Oplog
+op-log()
+(
+  RELOAD="reload( exec jj op log --color=always )"
+  temp_dir
+  echo > $TEMPD/oplog.env
+  H="jj op log"$'\n'
+  H="$H""Alt-D: Preview diff of '@' at a specific operation"$'\n'
+  H="$H""Alt-L: Preview history at a specific operation"$'\n'
+  H="$H""Alt-O: Preview oplog entry"$'\n'
+  H="$H""Alt-U: Undo operation at oplog entry"$'\n'
+  H="$H""Alt-W: Restore oplog working copy into a new '@-' commit"$'\n'
+  echo 'VIEW=diff@'		>> $TEMPD/oplog.env
+  export JJFZFONELINE
+  "${FZFPOPUP[@]}" \
+    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
+    --header "$H" --header-first \
+    --bind "alt-d:execute( sed 's/^VIEW=.*/VIEW=diff@/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-o:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-u:execute( $SELF undo-op@oplog {} )+abort" \
+    --bind "alt-w:execute( $SELF workdir-restore@oplog {} )+abort" \
+    --no-tac --no-sort +m --disabled \
+    --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF log @ {q} )" \
+    < <( jj op log --color=always -T "$OPLOG_ONELINE" )
+  rm -f $TEMPD/oplog.env
+)
+KEYBINDINGS["Ctrl-O"]="op-log"
+
+show@oplog()
+(
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
+)
+FUNCTIONS+=( 'show@oplog' )
+
+undo-op@oplog()
+(
+  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
+  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
+  ( set -x
+    jj op undo $OP
+  ) ||
+    sleep 1
+)
+FUNCTIONS+=( 'undo-op@oplog' )
+
+workdir-restore@oplog()
+(
+  set -x
+  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
+  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
+  ( set -x
+    jj new --insert-before @	# new @-
+    jj restore --from "$C" --to @
+  ) ||
+    sleep 1
+)
+FUNCTIONS+=( 'workdir-restore@oplog' )
+
 # Squash Commits
 squash-fixup()
 (
@@ -568,7 +655,7 @@ log()
 (
   R="$(xrev "${1:-@}")"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "::$R" |
+  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "::$R" |
     sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
     $JJFZFPAGER
 )
@@ -635,7 +722,7 @@ undo()
 KEYBINDINGS["Ctrl-Z"]="undo"
 
 # == Function calling ==
-[[ "${1:-}" =~ ^[a-z0-9_]+ ]] &&
+[[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] &&
   [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] && {
   FUNC="$1" "$@"
   exit $?
