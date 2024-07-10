@@ -217,6 +217,14 @@ loadlog()
 )
 FUNCTIONS+=( 'loadlog' )
 
+diff@()
+(
+  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
+    sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
+)
+FUNCTIONS+=( 'diff@' )
+
 preview()
 (
   R="$(xrev "${1:-@}" 2>/dev/null)" &&
@@ -493,18 +501,24 @@ KEYBINDINGS["Ctrl-N"]="new"
 # Oplog
 op-log()
 (
-  HEADER="jj op log"
   RELOAD="reload( exec jj op log --color=always )"
+  temp_dir
+  echo > $TEMPD/oplog.env
+  H="jj op log"$'\n'
+  H="$H""Alt-D: Preview diff of '@' at a specific operation"$'\n'
+  H="$H""Alt-L: Preview history at a specific operation"$'\n'
+  echo 'VIEW=loadlog'		>> $TEMPD/oplog.env
+  export JJFZFONELINE
   export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
-  export E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
   "${FZFPOPUP[@]}" \
-    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\"; $SELF loadlog {q}" \
-    --prompt 'Revset|Regexp> ' \
-    --header "$HEADER" --header-first \
+    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
+    --header "$H" --header-first \
+    --bind "alt-d:execute( sed 's/^VIEW=.*/VIEW=diff@/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --no-tac --no-sort +m --disabled \
-    --bind "change:$RELOAD+refresh-preview" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF log @ {q} )" \
     < <( jj op log --color=always -T "$OPLOG_ONELINE" )
+  rm -f $TEMPD/oplog.env
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
