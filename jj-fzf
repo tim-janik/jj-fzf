@@ -314,13 +314,15 @@ commit()
   # Edit commit msg if mutable
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] || {
-    O="$(rev_description "$R")"
     MSG="$(echo_commit_msg "$R")"
-    user_editor_on_var "COMMIT.txt" MSG ||
+    O="$MSG"
+    user_editor_on_var "COMMIT-$R.txt" MSG ||
       ERROR "Commit cancelled by user"
-    # update commit msg if needed
-    test "$O" == "$MSG" ||
+    test "$O" != "$MSG" && (
+      set -x
       jj describe --no-edit -r "$R" -m "$MSG"
+    ) ||
+      sleep 1
   }
   # open new empty working copy commit
   jj new "$R"
