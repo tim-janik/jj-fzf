@@ -552,7 +552,7 @@ op-log()
     --bind "alt-o:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-u:execute( $SELF undo-op@oplog {} )+abort" \
     --bind "alt-w:execute( $SELF workdir-restore@oplog {} )+abort" \
-    --no-tac --no-sort +m --disabled \
+    --no-tac --no-sort +m \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF log @ {q} )" \
     < <( jj op log --color=always -T "$OPLOG_ONELINE" )
   rm -f $TEMPD/oplog.env
