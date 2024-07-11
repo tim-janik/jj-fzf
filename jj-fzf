@@ -110,7 +110,7 @@ echo_commit_msg()
   readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   test ${#FILES[@]} -gt 0 &&
     printf "%s: \n" "${FILES[@]}" ||
-      echo Empty...
+      echo ""
   # ensure signoff
   echo_signoff
 )
