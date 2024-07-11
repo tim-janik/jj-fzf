@@ -837,13 +837,14 @@ KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
 WHITE="                                                                                "
 HEADER=""
+test "$COLUMNS" -ge 166 && W=3 || { test "$COLUMNS" -ge 114 && W=2 || W=1 ;}
 i=0
 for k in $KEYS ; do
   S="$k: ${HELPKEYS[$k]}"	# printf(1) cannot count UTF-8 continuation chars (0x80-0xBF)
   test ${#S} -lt 26 && S="$S${WHITE:0:$(( 26 - ${#S} ))}"	# so, format like %-26s
   HEADER="$HEADER$S" #$HIGH"
   i=$(($i+1))
-  test 0 == $(($i % 3)) &&
+  test 0 == $(($i % $W)) &&
     HEADER="$HEADER"$'\n' ||
       HEADER="$HEADER "
 done
