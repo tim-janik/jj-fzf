@@ -657,6 +657,24 @@ rebasing()
 )
 KEYBINDINGS["Alt-R"]="rebasing"
 
+# Restore File from @-
+restore-file()
+(
+  R="$(xrev "${1:-@}")"
+  MODE_FILE=$(jj show --tool true -s -T '' |
+		"${FZFPOPUP[@]}" \
+		  --preview 'read M F <<<{} && test -n "$F" || exit; jj --no-pager log --color=always -s --patch -T builtin_log_oneline -r @ -- "$F"' \
+		  --header "Restore File from @- in @" \
+		  )
+  read M F <<<"$MODE_FILE"
+  test -n "$M" -a -n "$F" || return
+  ( set -x
+    jj restore -- "$F"
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-S"]="restore-file"
+
 # Tag Creation
 tag()
 (
