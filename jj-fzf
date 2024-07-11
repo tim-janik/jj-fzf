@@ -559,6 +559,39 @@ op-log()
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
+# Split files
+split-files()
+(
+  R="$(xrev "$1")"
+  # save @
+  AT="$(rev_changeid @)"
+  # show undo hints
+  jj op log -n1
+  echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following split"
+  # adjust working copy, so 'jj split' resulting change_id is predictable
+  test "$R" == "$AT" || (set -x; jj edit -r "$R")
+  # split for n-1 files
+  R1=true # skip first split, need n-1 splits for n files
+  F=$(jj show --tool true -s -T '' -r @)
+  while read M F ; do
+    $R1 && { R1=false; continue; }
+    ( export EDITOR=/usr/bin/true
+      set -x
+      jj split -r @ -- "$F"
+    )
+  done <<<"$F"
+  # restore working copy
+  test "$R" == "$AT" || {
+    EXISTS=$($JJFZFSHOW -r "$AT" -T '"true"' 2>/dev/null) # squash might have killed an empty commit
+    if [[ $EXISTS =~ ^true ]] ; then
+      (set -x; jj edit -r "$AT")
+    else
+      (set -x; jj new -r "@")
+    fi
+  }
+)
+KEYBINDINGS["Alt-P"]="split-files"
+
 show@oplog()
 (
   jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
