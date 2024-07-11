@@ -484,13 +484,12 @@ merge-upstream()
      )
   # edit merge msg
   O="$MSG"
-  user_editor_on_var "MERGE.txt" MSG &&
+  user_editor_on_var "MERGE-$R.txt" MSG &&
     test "$O" != "$MSG" ||
       ERROR "Merge commit cancelled by user"
   # create merge
   jj new -m "$MSG" "$DEST" "$BRANCH" &&
-    jj branch set -B -r @ "$DEST" &&
-    jj git export ||
+    jj branch set -B -r @ "$DEST" ||
       sleep 1
 )
 KEYBINDINGS["Alt-M"]="merge-upstream"
