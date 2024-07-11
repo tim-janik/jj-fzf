@@ -388,14 +388,15 @@ KEYBINDINGS["Alt-E"]="diffedit"
 describe()
 (
   R="$(xrev "${1:-@}")"
-  O="$(rev_description "$R")"
   MSG="$(echo_commit_msg "$R")"
-  user_editor_on_var "COMMIT.txt" MSG ||
+  O="$MSG"
+  user_editor_on_var "CHANGE-$R.txt" MSG ||
     ERROR "Describe cancelled by user"
-  test "$O" == "$MSG" || {
-    jj describe --no-edit -r "$R" -m "$MSG" ||
-      sleep 1
-  }
+  test "$O" != "$MSG" && (
+    set -x
+    jj describe --no-edit -r "$R" -m "$MSG"
+  ) ||
+    sleep 1
 )
 KEYBINDINGS["Ctrl-E"]="describe"
 
