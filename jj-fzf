@@ -36,7 +36,8 @@ temp_dir()
   }
 }
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
-REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
 # Extract JJ revision from first word
 xrev()
 (
@@ -109,7 +110,7 @@ echo_commit_msg()
   readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   test ${#FILES[@]} -gt 0 &&
     printf "%s: \n" "${FILES[@]}" ||
-      echo Empty...
+      echo ""
   # ensure signoff
   echo_signoff
 )
@@ -193,6 +194,7 @@ label(if(current_operation, "current_operation"),
 # == Functions ==
 FUNCTIONS=()
 declare -A KEYBINDINGS
+FIRSTS=""
 
 loadlog()
 (
@@ -312,13 +314,15 @@ commit()
   # Edit commit msg if mutable
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] || {
-    O="$(rev_description "$R")"
     MSG="$(echo_commit_msg "$R")"
-    user_editor_on_var "COMMIT.txt" MSG ||
+    O="$MSG"
+    user_editor_on_var "COMMIT-$R.txt" MSG ||
       ERROR "Commit cancelled by user"
-    # update commit msg if needed
-    test "$O" == "$MSG" ||
+    test "$O" != "$MSG" && (
+      set -x
       jj describe --no-edit -r "$R" -m "$MSG"
+    ) ||
+      sleep 1
   }
   # open new empty working copy commit
   jj new "$R"
@@ -386,14 +390,15 @@ KEYBINDINGS["Alt-E"]="diffedit"
 describe()
 (
   R="$(xrev "${1:-@}")"
-  O="$(rev_description "$R")"
   MSG="$(echo_commit_msg "$R")"
-  user_editor_on_var "COMMIT.txt" MSG ||
+  O="$MSG"
+  user_editor_on_var "CHANGE-$R.txt" MSG ||
     ERROR "Describe cancelled by user"
-  test "$O" == "$MSG" || {
-    jj describe --no-edit -r "$R" -m "$MSG" ||
-      sleep 1
-  }
+  test "$O" != "$MSG" && (
+    set -x
+    jj describe --no-edit -r "$R" -m "$MSG"
+  ) ||
+    sleep 1
 )
 KEYBINDINGS["Ctrl-E"]="describe"
 
@@ -401,8 +406,18 @@ KEYBINDINGS["Ctrl-E"]="describe"
 file-editor()
 (
   R="$(xrev "${1:-@}")"
-  cd "$JJROOT"	# needed for relative paths to match
+  W="$(xrev "@")"
+  # cd root; otherwise revision file paths will mismatch
+  cd "$JJROOT"
+  # read files edited by revision
   readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  # make sure to edit revision
+  test "$W" == "$R" || (
+    IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
+    [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
+    set -x
+    jj $CMD -r "$R"
+  )
   ( set -x
     ${EDITOR:-nano} "${FILES[@]}"
   )
@@ -438,50 +453,43 @@ split-interactive()
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
 
-# Merge into upstream branch
+# Merge into tracked branch
 merge-upstream()
 (
   R="$(xrev "${1:-@}")"
-  cd "$JJROOT" # subdirs may vanish
+  cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   C="$(rev_commitid "$R")"
   BRANCH="$(rev_branches "$R") $C" &&	# pick first branch name or $C
     [[ $BRANCH =~ ([^ ]+) ]] && BRANCH="${BASH_REMATCH[1]}"
   require_git_dir
   # find upstream branch name
-  UPSTREAMNAMES="master trunk main" DEST=
-  for M in $UPSTREAMNAMES ; do
-    test -n "$(git config --get branch.$M.remote)" && DEST="$M" && break
-  done		# check tracking branch
-  test -n "$DEST" ||
-    for M in $UPSTREAMNAMES ; do
-      test -n "$(git rev-parse origin/$M $M 2>/dev/null)" && DEST="$M" && break
-    done	# check matching remote and local branch
-  test -n "$DEST" || ERROR "failed to find upstream merge branch (tried $UPSTREAMNAMES)"
+  [[ $(jj branch list -t) =~ ^([^\ :]+): ]] &&
+    DEST="${BASH_REMATCH[1]}" ||
+      DEST=
+  test -n "$DEST" || ERROR "failed to find tracked upstream branch (from jj branch list -t)"
   # check for work in progress
   git --no-pager diff -U0 "$DEST..$BRANCH" |	# examine all branch changes
-    egrep "^\+.*\b(XXX|WIP|FIXME)\b" &&		# work still to be done
-    WARN="(WARNING: merge diff contains WIP keywords)" || WARN=
+    egrep "^\+.*\b(XXX|WIP|FIXME)\b" &&	# work still to be done
+    WARN="(WARNING: merge diff contains WIP keywords)" ||
+      WARN=
   # create merge msg
-  TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
-  trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
-  SEP="^^^^^^^^^^^^"
-  echo -e "# $SEP DRAFT:  merge $BRANCH into $DEST ${WARN:+$WARN} $SEP # DELETE THIS" > "$TEMPD/MERGE.txt"
-  echo -e "Merge branch '$BRANCH'\n\n* Branch commit log:" >> "$TEMPD/MERGE.txt"
-  git log --pretty=$'\f%s%+b' "$DEST..$BRANCH" |
-    sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
-    sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /' >> "$TEMPD/MERGE.txt"
-  echo_signoff >> "$TEMPD/MERGE.txt"
+  MSG=$( SEP="^^^^^^^^^"
+	 echo -e "# $SEP DRAFT:  merge $BRANCH into $DEST" \
+	      "${WARN:+$WARN}" "$SEP # DELETE THIS"
+	 echo -e "Merge branch '$BRANCH'\n\n* Branch commit log:"
+	 git log --pretty=$'\f%s%+b' "$DEST..$BRANCH" |
+	   sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
+	   sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /'
+	 echo_signoff
+     )
   # edit merge msg
-  HO=`md5sum "$TEMPD/MERGE.txt"`
-  $EDITOR "$TEMPD/MERGE.txt" &&
-    HN=`md5sum "$TEMPD/MERGE.txt"` ||
-      HN="$HO"
-  test "$HO" != "$HN" ||
-    ERROR "Merge cancelled by user"
+  O="$MSG"
+  user_editor_on_var "MERGE-$R.txt" MSG &&
+    test "$O" != "$MSG" ||
+      ERROR "Merge commit cancelled by user"
   # create merge
-  jj new -m "$(cat "$TEMPD/MERGE.txt")" "$DEST" "$BRANCH" &&
+  jj new -m "$MSG" "$DEST" "$BRANCH" &&
     jj branch set -B -r @ "$DEST" ||
-      jj git export ||
       sleep 1
 )
 KEYBINDINGS["Alt-M"]="merge-upstream"
@@ -493,7 +501,7 @@ new-before()
   jj new --insert-before "$R" ||
     sleep 1
 )
-KEYBINDINGS["Alt-N"]="new-before"
+KEYBINDINGS["Alt-N"]="new-before"	FIRSTS="$FIRSTS new-before"
 
 # New
 new()
@@ -502,9 +510,7 @@ new()
   jj new "$R" ||
     sleep 1
 )
-KEYBINDINGS["Ctrl-N"]="new"
-
-export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
+KEYBINDINGS["Ctrl-N"]="new"		FIRSTS="$FIRSTS new"
 
 # Oplog
 op-log()
@@ -621,6 +627,7 @@ rebasing()
     [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
       REV=
+  test -n "$REV" || exit 0
   REV="$(rev_changeid "$REV")"
   COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$REV & ::$S) ") # maybe >1
   . $TEMPD/rebasing.env
@@ -722,17 +729,19 @@ undo()
 KEYBINDINGS["Ctrl-Z"]="undo"
 
 # == Function calling ==
-[[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] &&
-  [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] && {
-  FUNC="$1" "$@"
-  exit $?
-}
+if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
+  [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] &&
+    SYNC='jj status' || # sync JJ after modifications
+      SYNC=:		# skip syncing for preview functions
+  $SYNC >/dev/null
+  FUNC="$1" "$@" && E=$? || E=$?
+  $SYNC >/dev/null || :
+  exit $E
+fi
 
 # == Sync ==
 # Synchronize before changes in git or @ mess up state during jj log
-jj git import --quiet
-jj status >/dev/null
-jj git export --quiet
+jj status
 
 # == Help / Docs ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
@@ -759,7 +768,10 @@ done
 # == FZF ==
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
-  BIND+=( --bind "${k,,}:execute( $SELF ${KEYBINDINGS[$k]} {} {q} )+$RELOAD+refresh-preview" )
+  fun="${KEYBINDINGS[$k]}"
+  postcmd="+refresh-preview"
+  [[ " $FIRSTS " == *" $fun "* ]] && postcmd="$postcmd+first"
+  BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
 done
 
 fzf \
