@@ -758,6 +758,20 @@ restore()
 KEYBINDINGS["Alt-Y"]="restore"
 
 # Undo last JJ op
+subshell()
+(
+  TTY=$(tty 2>/dev/null || tty <&1 2>/dev/null || tty <&2 2>/dev/null)
+  test -n "$TTY" || { echo "$0: subshell: no tty" >&2 ; sleep 1; exit 1; }
+  M="$0: subshell: type 'exit' to leave subshell"
+  echo "$M" | sed 's/./=/g'
+  echo "$M"
+  echo "$M" | sed 's/./=/g'
+  export JJ_FZF=$$
+  exec /usr/bin/env PS1="jj-fzf:${PS1:-<\w>\$ }" /bin/bash -i	<"$TTY" 1>"$TTY" 2>"$TTY"
+)
+KEYBINDINGS["Ctrl-Z"]="subshell"
+
+# Undo last JJ op
 undo()
 (
   jj op undo
