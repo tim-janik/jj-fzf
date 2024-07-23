@@ -762,7 +762,7 @@ undo()
 (
   jj op undo
 )
-KEYBINDINGS["Ctrl-Z"]="undo"
+KEYBINDINGS["Alt-Z"]="undo"
 
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
