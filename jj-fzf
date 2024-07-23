@@ -296,17 +296,6 @@ branch()
 )
 KEYBINDINGS["Alt-B"]="branch"
 
-# Backout Commit
-backout()
-(
-  R="$(xrev "${1:-@}")"
-  ( set -x
-    jj backout -r "$R" -d "$R") ||
-    sleep 1
-  # TODO: move @ to $R
-)
-KEYBINDINGS["Ctrl-B"]="backout"
-
 # Commit (full)
 commit()
 (
@@ -452,6 +441,17 @@ split-interactive()
     sleep 1
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
+
+# Backout Commit
+backout()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj backout -r "$R" -d "$R") ||
+    sleep 1
+  # TODO: move @ to $R
+)
+KEYBINDINGS["Alt-K"]="backout"
 
 # Line History
 line-history()
