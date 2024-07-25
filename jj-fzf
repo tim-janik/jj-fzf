@@ -12,13 +12,14 @@ JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
+JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && exec /bin/bash -i <$T 1>$T 2>$T'
 FZFSETTINGS=(
   --ansi --no-mouse
   --info default
   --layout reverse-list
   --scroll-off 3
   --bind "ctrl-x:jump"
-  --bind "ctrl-z:ignore"
+  --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'right,border-left'
 )
@@ -791,20 +792,6 @@ restore()
 KEYBINDINGS["Alt-Y"]="restore"
 
 # Undo last JJ op
-subshell()
-(
-  TTY=$(tty 2>/dev/null || tty <&1 2>/dev/null || tty <&2 2>/dev/null)
-  test -n "$TTY" || { echo "$0: subshell: no tty" >&2 ; sleep 1; exit 1; }
-  M="$0: subshell: type 'exit' to leave subshell"
-  echo "$M" | sed 's/./=/g'
-  echo "$M"
-  echo "$M" | sed 's/./=/g'
-  export JJ_FZF=$$
-  exec /usr/bin/env PS1="jj-fzf:${PS1:-<\w>\$ }" /bin/bash -i	<"$TTY" 1>"$TTY" 2>"$TTY"
-)
-KEYBINDINGS["Ctrl-Z"]="subshell"
-
-# Undo last JJ op
 undo()
 (
   jj op undo
@@ -862,6 +849,7 @@ fzf \
   "${FZFSETTINGS[@]}" \
   --bind "ctrl-s:execute-silent(jj st)+clear-screen+$RELOAD" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
+  --bind "ctrl-z:execute( $JJSUBSHELL )" \
   --bind "enter:execute( $SELF log {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
