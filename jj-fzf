@@ -692,13 +692,13 @@ rebasing()
 KEYBINDINGS["Alt-R"]="rebasing"
 
 # Restore File from @-
-restore-file()
+restore-file@()
 (
   R="$(xrev "${1:-@}")"
   MODE_FILE=$(jj show --tool true -s -T '' |
 		"${FZFPOPUP[@]}" \
 		  --preview 'read M F <<<{} && test -n "$F" || exit; jj --no-pager log --color=always -s --patch -T builtin_log_oneline -r @ -- "$F"' \
-		  --header "Restore File from @- in @" \
+		  --header "Restore File from @- into @" \
 		  )
   read M F <<<"$MODE_FILE"
   test -n "$M" -a -n "$F" || return
@@ -707,7 +707,7 @@ restore-file()
   ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-S"]="restore-file"
+KEYBINDINGS["Alt-S"]="restore-file@"
 
 # Tag Creation
 tag()
@@ -782,14 +782,6 @@ swap-commits()
   jj rebase -r "$R" --insert-before "$R-"
 )
 KEYBINDINGS["Alt-X"]="swap-commits"
-
-# Restore change
-restore()
-(
-  R="$(xrev "${1:-@}")"
-  jj restore --from "$R" --to @
-)
-KEYBINDINGS["Alt-Y"]="restore"
 
 # Undo last JJ op
 undo()
