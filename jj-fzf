@@ -624,7 +624,7 @@ workdir-restore@oplog()
 FUNCTIONS+=( 'workdir-restore@oplog' )
 
 # Squash Commits
-squash-fixup()
+squash-into-parent()
 (
   R="$(xrev "${1:-@}")"
   W="$(xrev "@")"
@@ -633,12 +633,11 @@ squash-fixup()
       OPT=
   # export EDITOR=true
   ( set -x
-    jj squash -r "$R" $OPT \
-       --use-destination-message
+    jj squash -r "$R" $OPT # --use-destination-message
   ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-Q"]="squash-fixup"
+KEYBINDINGS["Alt-Q"]="squash-into-parent"
 
 # Rebase Branch/Source/Revision After/Before/Destination
 rebasing()
