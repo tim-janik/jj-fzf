@@ -239,6 +239,8 @@ preview()
   R="$(xrev "${1:-@}" 2>/dev/null)" &&
     test -n "$R" ||
       exit
+  # cd root; otherwise diffstat paths will be misleading
+  cd "$JJROOT"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
   jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
     sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
