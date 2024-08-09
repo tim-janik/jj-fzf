@@ -215,8 +215,7 @@ loadlog()
       }
       # TODO: squash entire description into oneline for grep
     fi
-  } | # post process, to give the '@' in --graph a seperate color
-    sed -r $'s/^(\W*)@/\\1\e[31;1m@\e[0m/'
+  }
 )
 FUNCTIONS+=( 'loadlog' )
 
