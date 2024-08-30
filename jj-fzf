@@ -320,7 +320,7 @@ commit()
 KEYBINDINGS["Alt-C"]="commit"
 
 # Delete Branches and Tags
-delbranches()
+delete-refs()
 (
   R="$(xrev "${1:-@}")"
   require_git_dir
@@ -366,7 +366,7 @@ delbranches()
   ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-D"]="delbranches"
+KEYBINDINGS["Alt-D"]="delete-refs"
 
 # diffedit
 diffedit()
