@@ -753,6 +753,7 @@ gitk()
   jj git export --quiet
   COMMIT="$(rev_commitid "$R")"
   cd "$JJROOT"
+  git update-index --refresh || :
   #test -e "$JJROOT/.jj/repo/store/git" && export GIT_DIR="$JJROOT/.jj/repo/store/git" || export GIT_DIR="$JJROOT/.git"
   # readarray -t HEADS < <( jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(::) ' )
   # beware gitk is executable and sh function
