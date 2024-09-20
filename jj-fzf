@@ -766,6 +766,32 @@ duplicate()
 )
 KEYBINDINGS["Alt-U"]="duplicate"
 
+# fixdivergent
+fixdivergent()
+(
+  # extract likely commit ID
+  COMMIT=$(echo " $1 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') ||
+    die 'no divergent commit'
+  DIVERGENT_REVISION_COMMIT=' format_short_change_id_with_hidden_and_divergent_info(self) ++ " " ++ commit_id ++ "\n" '
+  # make sure it is a divergent commit id
+  COMMIT=$(jj log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r "$COMMIT" | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') ||
+    die 'no divergent commit'
+  echo "$SELF fixdivergent $COMMIT" >&2
+  jj log --no-graph -T builtin_log_oneline -r "$COMMIT"
+  # Find change_id for commit
+  R=`jj log --no-graph -T change_id -r "$COMMIT"` ||
+    die 'no divergent revision'
+  # Set @ top newly inserted empty commit before $R
+  ( set -x && jj new --before "$COMMIT" )
+  # Figure new commit ID of $R
+  NEWCOMMIT=$(jj log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r '@+' | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') ||
+    die 'missing new commit before divergent revision'
+  # Squash commit ID of $R into @, auto-deleting the divergent revision
+  ( set -x && jj squash --from "$NEWCOMMIT" --into @ )
+  jj log --no-graph -T builtin_log_oneline -r @
+)
+KEYBINDINGS["Alt-V"]="fixdivergent"
+
 # Gitk View
 gitk()
 (
