@@ -10,7 +10,7 @@ TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() 
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
-JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_oneline"
+JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
 JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && exec /bin/bash -i <$T 1>$T 2>$T'
 FZFSETTINGS=(
@@ -227,12 +227,12 @@ diff@()
 (
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
   if tty -s ; then
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
-      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" |	# insert newline between stats and diff
-      $JJFZFPAGER
+    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
+    } | $JJFZFPAGER
   else
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
-      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" 	# insert newline between stats and diff
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
   fi
 )
 KEYBINDINGS["Ctrl-D"]="diff@"
@@ -251,8 +251,8 @@ preview()
   # cd root; otherwise diffstat paths will be misleading
   cd "$JJROOT"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
-    sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJFZF_SHOWDETAILS" -s -r "$R"
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
 )
 FUNCTIONS+=( 'preview' )
 
