@@ -656,7 +656,7 @@ rebasing()
   S="$(xrev "$1")"
   temp_dir
   echo > $TEMPD/rebasing.env
-  echo 'FR=--source'		>> $TEMPD/rebasing.env
+  echo 'FR=--branch'		>> $TEMPD/rebasing.env
   echo 'TO=--destination'	>> $TEMPD/rebasing.env
   export JJFZFONELINE
   PREVIEW=". $TEMPD/rebasing.env"
