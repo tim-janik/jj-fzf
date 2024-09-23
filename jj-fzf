@@ -170,7 +170,6 @@ if(root,
 )' # ◇⚿
 JJFZF_SHOWDETAILS='
 concat(
-  "◉ ",
   builtin_log_oneline,
   "Change ID: " ++ self.change_id() ++ "\n",
   "Commit ID: " ++ commit_id ++ "\n",
