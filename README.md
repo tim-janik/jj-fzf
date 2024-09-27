@@ -8,23 +8,25 @@ JJ-FZF
 ======
 
 ![jj-fzf-demo1](https://github.com/tim-janik/tools/assets/281887/584952b6-a65c-430a-885c-720012ce4e2f)
-jj-fzf can browse the JJ log, rebase commits, browse jj help, assign branches and much more [jj-fzf-demo1](https://asciinema.org/a/667451)
+JJ-FZF displays previews of the `jj log` history and can squash, branch, commit, rebase, undo and much more [asc](https://asciinema.org/a/667451)
 
 
 <!-- ABOUT -->
 ## About jj-fzf
 
-This is an [fzf](https://github.com/junegunn/fzf) based TUI to aid workflows with [jj](https://github.com/martinvonz/jj/).
+`JJ-FZF` is a text UI for [jj](https://martinvonz.github.io/jj/latest/) based on [fzf](https://junegunn.github.io/fzf/), implemented as a bash shell script.
+The main view centers around `jj log`, providing previews for the `jj diff` or `jj obslog` of every revision.
+Several key bindings are available to quickly perform actions such as squashing, swapping, rebasing, splitting, branching, committing, or abandoning revisions.
+A separate view for the operations log `jj op log` enables fast previews of old commit histories or diffs between operations, making it easy to `jj undo` any previous operation.
+The available hotkeys are always displayed onscreen for simple discoverability.
 
-The exact usage may change as my understanding of JJ grows and as jj-fzf is adapted to new feature releases of jj.
-
-The jj-fzf script is implemented in bash-5.1, using fzf-0.29 and jj-0.19.0.
+The `jj-fzf` script is implemented in bash-5.1, using fzf-0.29 and jj-0.21.0.
 Command line tools like sed, grep are assumed to provide GNU tool semantics.
 
 <!-- USAGE -->
 ## Usage
 
-Start jj-fzf in any jj repository and study the keybindings.
+Start `jj-fzf` in any `jj` repository and study the keybindings.
 The query prompt supports either [jj revset](https://martinvonz.github.io/jj/latest/revsets/) syntax,
 or [PCRE2](https://www.pcre.org/current/doc/html/pcre2syntax.html) regular expression search on the jj log output.
 
