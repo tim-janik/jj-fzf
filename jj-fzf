@@ -10,15 +10,16 @@ TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() 
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
-JJFZFONELINE="jj --no-pager --ignore-working-copy log --no-graph --color=always -T builtin_log_oneline"
+JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
+JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && exec /bin/bash -i <$T 1>$T 2>$T'
 FZFSETTINGS=(
   --ansi --no-mouse
   --info default
   --layout reverse-list
   --scroll-off 3
   --bind "ctrl-x:jump"
-  --bind "ctrl-z:ignore"
+  --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'right,border-left'
 )
@@ -36,13 +37,18 @@ temp_dir()
   }
 }
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
-export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})\ '
+export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '
 export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
 # Extract JJ revision from first word
 xrev()
 (
-  if [[ "$* " =~ $REVPAT ]] ; then	# jj log line
-    rev_changeid "${BASH_REMATCH[1]}"
+  if [[ "$* " =~ $REVPAT ]] ; then      # jj log line
+    if [[ "${BASH_REMATCH[2]}" == '??' ]] ; then   # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
+      echo "${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+      false
+    else
+      rev_changeid "${BASH_REMATCH[1]}"
+    fi
   elif [[ "$*" =~ ^([^\ ]+)$ ]] ; then	# revision identifier w/o whitespace
     rev_changeid "${BASH_REMATCH[1]}"
   fi
@@ -148,7 +154,6 @@ if(root,
         if(author.email(), author.username(), email_placeholder),
         committer.timestamp().local().format("%Y-%m-%d"),
         format_short_commit_id(commit_id),
-        if(immutable, label("description placeholder", "◆")),
         branches,
         tags,
         working_copies,
@@ -165,7 +170,6 @@ if(root,
 )' # ◇⚿
 JJFZF_SHOWDETAILS='
 concat(
-  "◉ ",
   builtin_log_oneline,
   "Change ID: " ++ self.change_id() ++ "\n",
   "Commit ID: " ++ commit_id ++ "\n",
@@ -214,33 +218,56 @@ loadlog()
       }
       # TODO: squash entire description into oneline for grep
     fi
-  } | # post process, to give the '@' in --graph a seperate color
-    sed -r $'s/^(\W*)@/\\1\e[31;1m@\e[0m/'
+  }
 )
 FUNCTIONS+=( 'loadlog' )
+
+toggleobslog()
+{
+  if test -n "${JJFZF_OUTER_TEMPD:-}" ; then
+    if test -e "${JJFZF_OUTER_TEMPD:-}/obslog" ; then
+      rm -f "${JJFZF_OUTER_TEMPD:-}/obslog"
+    else
+      touch "${JJFZF_OUTER_TEMPD:-}/obslog"
+    fi
+  fi
+}
+KEYBINDINGS["Ctrl-B"]="toggleobslog"
 
 diff@()
 (
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
   if tty -s ; then
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
-      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" |	# insert newline between stats and diff
-      $JJFZFPAGER
+    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
+    } | $JJFZFPAGER
   else
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "builtin_log_oneline" -s --git -r "@" |
-      sed -r "0,/^(($E)?diff\b)/{s//\n\1/}" 	# insert newline between stats and diff
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
   fi
 )
 KEYBINDINGS["Ctrl-D"]="diff@"
 
 preview()
 (
-  R="$(xrev "${1:-@}" 2>/dev/null)" &&
-    test -n "$R" ||
-      exit
+  if R="$(xrev "${1:-@}" 2>/dev/null)" ; then
+    test -n "$R" || exit
+  elif [[ "$R" != "${R%??}" ]] ; then # divergent change_id
+    R="${R%??}"
+    jj show -T change_id -r "$R" 2>&1 || :
+    exit
+  else
+    exit
+  fi
+  # display obslog if toggled
+  test -n "${JJFZF_OUTER_TEMPD:-}" -a -e "${JJFZF_OUTER_TEMPD:-}/obslog" && {
+    exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} obslog --color=always -r "$R"
+  }
+  # cd root; otherwise diffstat paths will be misleading
+  cd "$JJROOT"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --no-graph --color=always -T "$JJFZF_SHOWDETAILS" -s --git -r "$R" |
-    sed -r "0,/^(($E)?diff\b)/{s//\n\1/}"	# insert newline between stats and diff
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJFZF_SHOWDETAILS" -s -r "$R"
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
 )
 FUNCTIONS+=( 'preview' )
 
@@ -296,17 +323,6 @@ branch()
 )
 KEYBINDINGS["Alt-B"]="branch"
 
-# Backout Commit
-backout()
-(
-  R="$(xrev "${1:-@}")"
-  ( set -x
-    jj backout -r "$R" -d "$R") ||
-    sleep 1
-  # TODO: move @ to $R
-)
-KEYBINDINGS["Ctrl-B"]="backout"
-
 # Commit (full)
 commit()
 (
@@ -330,7 +346,7 @@ commit()
 KEYBINDINGS["Alt-C"]="commit"
 
 # Delete Branches and Tags
-delbranches()
+delete-refs()
 (
   R="$(xrev "${1:-@}")"
   require_git_dir
@@ -376,7 +392,7 @@ delbranches()
   ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-D"]="delbranches"
+KEYBINDINGS["Alt-D"]="delete-refs"
 
 # diffedit
 diffedit()
@@ -452,6 +468,35 @@ split-interactive()
     sleep 1
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
+
+# Backout Commit
+backout()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj backout -r "$R" -d "$R") ||
+    sleep 1
+  # TODO: move @ to $R
+)
+KEYBINDINGS["Alt-K"]="backout"
+
+# Line History
+line-history()
+(
+  R="$(xrev "${1:-@}")"
+  C="$(rev_commitid "$R")"
+  cd "$JJROOT"	# needed for correct file paths
+  require_git_dir
+  set +o pipefail
+  jj file list -r "$R" |
+    xargs grep -s -n '' |
+    "${FZFPOPUP[@]}" \
+      --preview " git log --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
+      --bind "enter:execute( git log -M -C --find-copies-harder -L{2}:{1} --color $C | $JJFZFPAGER)" \
+      --header "File Line History" \
+      --no-tac --no-sort +m -d:
+)
+KEYBINDINGS["Alt-L"]="line-history"
 
 # Merge into tracked branch
 merge-upstream()
@@ -534,12 +579,45 @@ op-log()
     --bind "alt-o:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-u:execute( $SELF undo-op@oplog {} )+abort" \
     --bind "alt-w:execute( $SELF workdir-restore@oplog {} )+abort" \
-    --no-tac --no-sort +m --disabled \
-    --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF log @ {q} )" \
+    --no-tac --no-sort +m \
+    --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
     < <( jj op log --color=always -T "$OPLOG_ONELINE" )
   rm -f $TEMPD/oplog.env
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
+
+# Split files
+split-files()
+(
+  R="$(xrev "$1")"
+  # save @
+  AT="$(rev_changeid @)"
+  # show undo hints
+  jj op log -n1
+  echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following split"
+  # adjust working copy, so 'jj split' resulting change_id is predictable
+  test "$R" == "$AT" || (set -x; jj edit -r "$R")
+  # split for n-1 files
+  R1=true # skip first split, need n-1 splits for n files
+  F=$(jj show --tool true -s -T '' -r @)
+  while read M F ; do
+    $R1 && { R1=false; continue; }
+    ( export EDITOR=/usr/bin/true
+      set -x
+      jj split -r @ -- "$F"
+    )
+  done <<<"$F"
+  # restore working copy
+  test "$R" == "$AT" || {
+    EXISTS=$($JJFZFSHOW -r "$AT" -T '"true"' 2>/dev/null) # squash might have killed an empty commit
+    if [[ $EXISTS =~ ^true ]] ; then
+      (set -x; jj edit -r "$AT")
+    else
+      (set -x; jj new -r "@")
+    fi
+  }
+)
+KEYBINDINGS["Alt-P"]="split-files"
 
 show@oplog()
 (
@@ -572,7 +650,7 @@ workdir-restore@oplog()
 FUNCTIONS+=( 'workdir-restore@oplog' )
 
 # Squash Commits
-squash-fixup()
+squash-into-parent()
 (
   R="$(xrev "${1:-@}")"
   W="$(xrev "@")"
@@ -581,12 +659,11 @@ squash-fixup()
       OPT=
   # export EDITOR=true
   ( set -x
-    jj squash -r "$R" $OPT \
-       --use-destination-message
+    jj squash -r "$R" $OPT # --use-destination-message
   ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-Q"]="squash-fixup"
+KEYBINDINGS["Alt-Q"]="squash-into-parent"
 
 # Rebase Branch/Source/Revision After/Before/Destination
 rebasing()
@@ -594,7 +671,7 @@ rebasing()
   S="$(xrev "$1")"
   temp_dir
   echo > $TEMPD/rebasing.env
-  echo 'FR=--source'		>> $TEMPD/rebasing.env
+  echo 'FR=--branch'		>> $TEMPD/rebasing.env
   echo 'TO=--destination'	>> $TEMPD/rebasing.env
   export JJFZFONELINE
   PREVIEW=". $TEMPD/rebasing.env"
@@ -639,6 +716,24 @@ rebasing()
 )
 KEYBINDINGS["Alt-R"]="rebasing"
 
+# Restore File from @-
+restore-file@()
+(
+  R="$(xrev "${1:-@}")"
+  MODE_FILE=$(jj show --tool true -s -T '' |
+		"${FZFPOPUP[@]}" \
+		  --preview 'read M F <<<{} && test -n "$F" || exit; jj --no-pager log --color=always -s --patch -T builtin_log_oneline -r @ -- "$F"' \
+		  --header "Restore File from @- into @" \
+		  )
+  read M F <<<"$MODE_FILE"
+  test -n "$M" -a -n "$F" || return
+  ( set -x
+    jj restore -- "$F"
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-S"]="restore-file@"
+
 # Tag Creation
 tag()
 (
@@ -657,15 +752,24 @@ tag()
 )
 KEYBINDINGS["Alt-T"]="tag"
 
-# Log flat change history
-log()
+# Log single change
+logrev()
 (
   R="$(xrev "${1:-@}")"
+  test "${2:-}" = "--all" && R="::$R"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "::$R" |
+  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "$R" |
     sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
     $JJFZFPAGER
 )
+FUNCTIONS+=( 'logrev' )
+
+# Log flat change history
+log()
+{
+  R="$(xrev "${1:-@}")"
+  exec $SELF logrev "$R" --all
+}
 KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
@@ -677,6 +781,32 @@ duplicate()
 )
 KEYBINDINGS["Alt-U"]="duplicate"
 
+# fixdivergent
+fixdivergent()
+(
+  # extract likely commit ID
+  COMMIT=$(echo " $1 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') ||
+    die 'no divergent commit'
+  DIVERGENT_REVISION_COMMIT=' format_short_change_id_with_hidden_and_divergent_info(self) ++ " " ++ commit_id ++ "\n" '
+  # make sure it is a divergent commit id
+  COMMIT=$(jj log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r "$COMMIT" | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') ||
+    die 'no divergent commit'
+  echo "$SELF fixdivergent $COMMIT" >&2
+  jj log --no-graph -T builtin_log_oneline -r "$COMMIT"
+  # Find change_id for commit
+  R=`jj log --no-graph -T change_id -r "$COMMIT"` ||
+    die 'no divergent revision'
+  # Set @ top newly inserted empty commit before $R
+  ( set -x && jj new --before "$COMMIT" )
+  # Figure new commit ID of $R
+  NEWCOMMIT=$(jj log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r '@+' | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') ||
+    die 'missing new commit before divergent revision'
+  # Squash commit ID of $R into @, auto-deleting the divergent revision
+  ( set -x && jj squash --from "$NEWCOMMIT" --into @ )
+  jj log --no-graph -T builtin_log_oneline -r @
+)
+KEYBINDINGS["Alt-V"]="fixdivergent"
+
 # Gitk View
 gitk()
 (
@@ -684,12 +814,13 @@ gitk()
   jj git export --quiet
   COMMIT="$(rev_commitid "$R")"
   cd "$JJROOT"
-  test -e "$JJROOT/.jj/repo/store/git" && export GIT_DIR="$JJROOT/.jj/repo/store/git" || export GIT_DIR="$JJROOT/.git"
-  readarray -t HEADS < <(
-    jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(::) '
-  )
+  git update-index --refresh || :
+  #test -e "$JJROOT/.jj/repo/store/git" && export GIT_DIR="$JJROOT/.jj/repo/store/git" || export GIT_DIR="$JJROOT/.git"
+  # readarray -t HEADS < <( jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(::) ' )
   # beware gitk is executable and sh function
-  env gitk --select-commit=$COMMIT $COMMIT "${HEADS[@]}" --
+  ( set -x
+    exec gitk --branches --tags --remotes --select-commit=$COMMIT $COMMIT HEAD -- # "${HEADS[@]}"
+  )
   jj git import --quiet
 )
 KEYBINDINGS["Ctrl-V"]="gitk"
@@ -713,20 +844,12 @@ swap-commits()
 )
 KEYBINDINGS["Alt-X"]="swap-commits"
 
-# Restore change
-restore()
-(
-  R="$(xrev "${1:-@}")"
-  jj restore --from "$R" --to @
-)
-KEYBINDINGS["Alt-Y"]="restore"
-
 # Undo last JJ op
 undo()
 (
   jj op undo
 )
-KEYBINDINGS["Ctrl-Z"]="undo"
+KEYBINDINGS["Alt-Z"]="undo"
 
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
@@ -754,13 +877,14 @@ KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
 WHITE="                                                                                "
 HEADER=""
+test "$COLUMNS" -ge 166 && W=3 || { test "$COLUMNS" -ge 114 && W=2 || W=1 ;}
 i=0
 for k in $KEYS ; do
   S="$k: ${HELPKEYS[$k]}"	# printf(1) cannot count UTF-8 continuation chars (0x80-0xBF)
   test ${#S} -lt 26 && S="$S${WHITE:0:$(( 26 - ${#S} ))}"	# so, format like %-26s
   HEADER="$HEADER$S" #$HIGH"
   i=$(($i+1))
-  test 0 == $(($i % 3)) &&
+  test 0 == $(($i % $W)) &&
     HEADER="$HEADER"$'\n' ||
       HEADER="$HEADER "
 done
@@ -774,11 +898,17 @@ for k in "${!KEYBINDINGS[@]}" ; do
   BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
 done
 
+if test -z "${TEMPD:-}" ; then
+  temp_dir
+  export JJFZF_OUTER_TEMPD="$TEMPD"
+fi
+
 fzf \
   "${FZFSETTINGS[@]}" \
   --bind "ctrl-s:execute-silent(jj st)+clear-screen+$RELOAD" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
-  --bind "enter:execute( $SELF log {} {q} )+$RELOAD" \
+  --bind "ctrl-z:execute( $JJSUBSHELL )" \
+  --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
   --prompt 'Revset|Regexp> ' \
