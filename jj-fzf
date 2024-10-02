@@ -6,7 +6,7 @@ SELF="$0"
 
 # == Config ==
 STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
-TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | branches() | remote_branches() "'
+TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
@@ -57,8 +57,8 @@ xrev()
 rev_changeid()	( $JJFZFSHOW -T 'change_id' -r "$1" )
 # Look up full commit hash via JJ commit_id
 rev_commitid()	( $JJFZFSHOW -T 'commit_id' -r "$1" )
-# List all branches of a revision
-rev_branches()	( $JJFZFSHOW -T 'concat(separate(" ",branches))' -r "$1" )
+# List all bookmarks of a revision
+rev_bookmarks()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks))' -r "$1" )
 # Get revision description
 rev_description() ( $JJFZFSHOW -T 'concat(description)' -r "$1" )
 # Condense commit empty/description/parent state into a key word
@@ -154,7 +154,7 @@ if(root,
         if(author.email(), author.username(), email_placeholder),
         committer.timestamp().local().format("%Y-%m-%d"),
         format_short_commit_id(commit_id),
-        branches,
+        bookmarks,
         tags,
         working_copies,
         git_head,
@@ -173,7 +173,7 @@ concat(
   builtin_log_oneline,
   "Change ID: " ++ self.change_id() ++ "\n",
   "Commit ID: " ++ commit_id ++ "\n",
-  surround("Refs:      ", "\n", separate(" ", local_branches, remote_branches, tags)),
+  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
   if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
   "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
   "Author:    " ++ format_detailed_signature(author) ++ "\n",
@@ -222,17 +222,18 @@ loadlog()
 )
 FUNCTIONS+=( 'loadlog' )
 
-toggleobslog()
+# Toggle preview of evolution-log
+toggleevolog()
 {
   if test -n "${JJFZF_OUTER_TEMPD:-}" ; then
-    if test -e "${JJFZF_OUTER_TEMPD:-}/obslog" ; then
-      rm -f "${JJFZF_OUTER_TEMPD:-}/obslog"
+    if test -e "${JJFZF_OUTER_TEMPD:-}/evolog" ; then
+      rm -f "${JJFZF_OUTER_TEMPD:-}/evolog"
     else
-      touch "${JJFZF_OUTER_TEMPD:-}/obslog"
+      touch "${JJFZF_OUTER_TEMPD:-}/evolog"
     fi
   fi
 }
-KEYBINDINGS["Ctrl-B"]="toggleobslog"
+KEYBINDINGS["Ctrl-T"]="toggleevolog"
 
 diff@()
 (
@@ -259,9 +260,9 @@ preview()
   else
     exit
   fi
-  # display obslog if toggled
-  test -n "${JJFZF_OUTER_TEMPD:-}" -a -e "${JJFZF_OUTER_TEMPD:-}/obslog" && {
-    exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} obslog --color=always -r "$R"
+  # display evolog if toggled
+  test -n "${JJFZF_OUTER_TEMPD:-}" -a -e "${JJFZF_OUTER_TEMPD:-}/evolog" && {
+    exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$R"
   }
   # cd root; otherwise diffstat paths will be misleading
   cd "$JJROOT"
@@ -304,24 +305,24 @@ abandon()
 )
 KEYBINDINGS["Alt-A"]="abandon"
 
-# Branch Creation
-branch()
+# Bookmark Creation
+bookmark()
 (
   R="$(xrev "${1:-@}")"
-  read -p 'Branch Name: ' B &&
+  read -p 'Bookmark Name: ' B &&
     test -n "$B" ||
       return
   set +o pipefail &&
-    jj --ignore-working-copy branch list "$B" 2>/dev/null |
+    jj --ignore-working-copy bookmark list "$B" 2>/dev/null |
       grep -qF "$B" &&
     S='set -B' || S='create'
   ( set -x
-    jj branch $S "$B" -r "$R"
+    jj bookmark $S "$B" -r "$R"
     jj git export --quiet
   ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-B"]="branch"
+KEYBINDINGS["Alt-B"]="bookmark"
 
 # Commit (full)
 commit()
@@ -345,28 +346,28 @@ commit()
 )
 KEYBINDINGS["Alt-C"]="commit"
 
-# Delete Branches and Tags
+# Delete Bookmarks and Tags
 delete-refs()
 (
   R="$(xrev "${1:-@}")"
   require_git_dir
   jj git export --quiet
   jj git import --quiet
-  # Branch on @ for initial query
-  B=$($JJFZFSHOW -r "$R" -T 'concat(separate(" ",branches))') &&
+  # Find Bookmark on @ for initial query
+  B=$($JJFZFSHOW -r "$R" -T 'concat(separate(" ",bookmarks))') &&
     B="${B%% *}" &&
     test -n "$B" &&
     B=(-q "$B") ||
       B=()
   DEL=$("${FZFPOPUP[@]}" \
   	  --prompt "Delete > " \
-	  --header "Delete Branches or Tags" --header-first \
+	  --header "Delete Bookmarks or Tags" --header-first \
 	  --no-tac --no-sort +m \
 	  -d: --nth 1 "${B[@]}" \
 	  < <(
 	  (
-	    jj branch list | while read n rest ; do
-	      printf "%-28s (branch) %s\n" "$n" "$rest"
+	    jj bookmark list | while read n rest ; do
+	      printf "%-28s (bookmark) %s\n" "$n" "$rest"
 	    done
 	    echo
 	    git tag -n1 | while read n rest ; do
@@ -378,11 +379,11 @@ delete-refs()
   DEL="${DEL%%:*}" # strip :...
   test -n "$DEL" || return
   (
-    jj branch list | fgrep -q "$DEL:" ;
-    echo "branch list check: $?"
-    if set +o pipefail && jj --ignore-working-copy branch list | fgrep -q "$DEL:" ; then
+    jj bookmark list | fgrep -q "$DEL:" ;
+    echo "bookmark list check: $?"
+    if set +o pipefail && jj --ignore-working-copy bookmark list | fgrep -q "$DEL:" ; then
       ( set -x
-	jj branch delete $DEL
+	jj bookmark delete $DEL
 	jj git export --quiet )
     else
       ( set -x
@@ -498,31 +499,31 @@ line-history()
 )
 KEYBINDINGS["Alt-L"]="line-history"
 
-# Merge into tracked branch
+# Merge into tracked bookmark
 merge-upstream()
 (
   R="$(xrev "${1:-@}")"
   cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   C="$(rev_commitid "$R")"
-  BRANCH="$(rev_branches "$R") $C" &&	# pick first branch name or $C
-    [[ $BRANCH =~ ([^ ]+) ]] && BRANCH="${BASH_REMATCH[1]}"
+  BOOKMARK="$(rev_bookmarks "$R") $C" &&	# pick first bookmark name or $C
+    [[ $BOOKMARK =~ ([^ ]+) ]] && BOOKMARK="${BASH_REMATCH[1]}"
   require_git_dir
-  # find upstream branch name
-  [[ $(jj branch list -t) =~ ^([^\ :]+): ]] &&
+  # find upstream bookmark name
+  [[ $(jj bookmark list -t) =~ ^([^\ :]+): ]] &&
     DEST="${BASH_REMATCH[1]}" ||
       DEST=
-  test -n "$DEST" || ERROR "failed to find tracked upstream branch (from jj branch list -t)"
+  test -n "$DEST" || ERROR "failed to find tracked upstream bookmark (from jj bookmark list -t)"
   # check for work in progress
-  git --no-pager diff -U0 "$DEST..$BRANCH" |	# examine all branch changes
+  git --no-pager diff -U0 "$DEST..$BOOKMARK" |	# examine all bookmark changes
     egrep "^\+.*\b(XXX|WIP|FIXME)\b" &&	# work still to be done
     WARN="(WARNING: merge diff contains WIP keywords)" ||
       WARN=
   # create merge msg
   MSG=$( SEP="^^^^^^^^^"
-	 echo -e "# $SEP DRAFT:  merge $BRANCH into $DEST" \
+	 echo -e "# $SEP DRAFT:  merge $BOOKMARK into $DEST" \
 	      "${WARN:+$WARN}" "$SEP # DELETE THIS"
-	 echo -e "Merge branch '$BRANCH'\n\n* Branch commit log:"
-	 git log --pretty=$'\f%s%+b' "$DEST..$BRANCH" |
+	 echo -e "Merge branch '$BOOKMARK'\n\n* Branch commit log:"
+	 git log --pretty=$'\f%s%+b' "$DEST..$BOOKMARK" |
 	   sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
 	   sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /'
 	 echo_signoff
@@ -533,8 +534,8 @@ merge-upstream()
     test "$O" != "$MSG" ||
       ERROR "Merge commit cancelled by user"
   # create merge
-  jj new -m "$MSG" "$DEST" "$BRANCH" &&
-    jj branch set -B -r @ "$DEST" ||
+  jj new -m "$MSG" "$DEST" "$BOOKMARK" &&
+    jj bookmark set -B -r @ "$DEST" ||
       sleep 1
 )
 KEYBINDINGS["Alt-M"]="merge-upstream"
