@@ -871,7 +871,6 @@ jj status
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 HELPKEYS[Ctrl-↑]='preview-up'
 HELPKEYS[Ctrl-↓]='preview-down'
-HELPKEYS[Ctrl-S]='snapshot'
 HELPKEYS[Ctrl-U]='unfiltered-log'
 HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
@@ -906,7 +905,6 @@ fi
 
 fzf \
   "${FZFSETTINGS[@]}" \
-  --bind "ctrl-s:execute-silent(jj st)+clear-screen+$RELOAD" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
   --bind "ctrl-z:execute( $JJSUBSHELL )" \
   --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
