@@ -247,7 +247,7 @@ diff@()
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
   fi
 )
-KEYBINDINGS["Ctrl-D"]="diff@"
+FUNCTIONS+=( 'diff@' )
 
 preview()
 (
