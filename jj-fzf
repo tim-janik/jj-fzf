@@ -453,7 +453,7 @@ diffedit()
 )
 KEYBINDINGS["Alt-E"]="diffedit"
 
-# Edit Commit Message
+# Describe Commit Message
 describe()
 (
   R="$(xrev "${1:-@}")"
@@ -467,7 +467,7 @@ describe()
   ) ||
     sleep 1
 )
-KEYBINDINGS["Ctrl-E"]="describe"
+KEYBINDINGS["Ctrl-D"]="describe"
 
 # File Editor
 file-editor()
