@@ -222,17 +222,18 @@ loadlog()
 )
 FUNCTIONS+=( 'loadlog' )
 
-toggleobslog()
+# Toggle preview of evolution-log
+toggleevolog()
 {
   if test -n "${JJFZF_OUTER_TEMPD:-}" ; then
-    if test -e "${JJFZF_OUTER_TEMPD:-}/obslog" ; then
-      rm -f "${JJFZF_OUTER_TEMPD:-}/obslog"
+    if test -e "${JJFZF_OUTER_TEMPD:-}/evolog" ; then
+      rm -f "${JJFZF_OUTER_TEMPD:-}/evolog"
     else
-      touch "${JJFZF_OUTER_TEMPD:-}/obslog"
+      touch "${JJFZF_OUTER_TEMPD:-}/evolog"
     fi
   fi
 }
-KEYBINDINGS["Ctrl-B"]="toggleobslog"
+KEYBINDINGS["Ctrl-T"]="toggleevolog"
 
 diff@()
 (
@@ -259,9 +260,9 @@ preview()
   else
     exit
   fi
-  # display obslog if toggled
-  test -n "${JJFZF_OUTER_TEMPD:-}" -a -e "${JJFZF_OUTER_TEMPD:-}/obslog" && {
-    exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} obslog --color=always -r "$R"
+  # display evolog if toggled
+  test -n "${JJFZF_OUTER_TEMPD:-}" -a -e "${JJFZF_OUTER_TEMPD:-}/evolog" && {
+    exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$R"
   }
   # cd root; otherwise diffstat paths will be misleading
   cd "$JJROOT"
