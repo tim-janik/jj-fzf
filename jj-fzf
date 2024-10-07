@@ -944,8 +944,8 @@ done
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
-  postcmd="+refresh-preview"
-  [[ " $FIRSTS " == *" $fun "* ]] && postcmd="$postcmd+first"
+  postcmd=""
+  [[ " $FIRSTS " == *" $fun "* ]] && postcmd="+first"
   BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
 done
 
