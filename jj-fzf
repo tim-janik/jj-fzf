@@ -597,7 +597,7 @@ new-before()
   jj new --insert-before "$R" ||
     sleep 1
 )
-KEYBINDINGS["Alt-N"]="new-before"	FIRSTS="$FIRSTS new-before"
+KEYBINDINGS["Alt-N"]="new-before"
 
 # New
 new()
