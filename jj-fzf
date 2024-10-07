@@ -4,6 +4,31 @@ set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: $*" >&2; exit 127 ; }
 SELF="$0"
 
+# == PREVIEW fast path ==
+export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# lines start, ignore --graph, parse revision letters, catch '??'-postfix
+if test -n "${JJFZF_OUTER_TEMPD:-}" -a -n "${JJ_CONFIG:-}" \
+	-a "${1:-}" == preview					# preview command, nested invocation
+then
+  if [[ "${2:-}" =~ $REVPAT ]]					# match beginning of jj log line
+  then
+    cd "$(jj --ignore-working-copy root)"			# ensure root relative diffstat paths
+    if [[ "${BASH_REMATCH[2]}" == '??' ]]			# divergent change_id
+    then
+      # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
+      jj --no-pager --ignore-working-copy show -T builtin_log_oneline -r "${BASH_REMATCH[1]}" 2>&1 || :
+    elif test -e "${JJFZF_OUTER_TEMPD:-}/evolog" 		# display evolog if toggled
+    then
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "${BASH_REMATCH[1]}"
+    else							# show commit and diff
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T 'jj_fzf_showdetails' -s -r "${BASH_REMATCH[1]}"
+      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "${BASH_REMATCH[1]}"
+    fi
+  else								# no valid revision
+    true
+  fi
+  exit 0
+fi
+
 # == Config ==
 STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
@@ -229,20 +254,6 @@ if(root,
     ),
   )
 )' # ◇⚿
-JJFZF_SHOWDETAILS='
-concat(
-  builtin_log_oneline,
-  "Change ID: " ++ self.change_id() ++ "\n",
-  "Commit ID: " ++ commit_id ++ "\n",
-  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
-  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
-  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
-  "Author:    " ++ format_detailed_signature(author) ++ "\n",
-  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
-  indent("    ",
-    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
-  "\n",
-)'	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 OPLOG_ONELINE='
 label(if(current_operation, "current_operation"),
   coalesce(
@@ -309,29 +320,6 @@ diff@()
   fi
 )
 FUNCTIONS+=( 'diff@' )
-
-preview()
-(
-  if R="$(xrev "${1:-@}" 2>/dev/null)" ; then
-    test -n "$R" || exit
-  elif [[ "$R" != "${R%??}" ]] ; then # divergent change_id
-    R="${R%??}"
-    jj show -T change_id -r "$R" 2>&1 || :
-    exit
-  else
-    exit
-  fi
-  # display evolog if toggled
-  test -n "${JJFZF_OUTER_TEMPD:-}" -a -e "${JJFZF_OUTER_TEMPD:-}/evolog" && {
-    exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$R"
-  }
-  # cd root; otherwise diffstat paths will be misleading
-  cd "$JJROOT"
-  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJFZF_SHOWDETAILS" -s -r "$R"
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
-)
-FUNCTIONS+=( 'preview' )
 
 # Select Change ID
 selectchange()
@@ -820,7 +808,7 @@ logrev()
   R="$(xrev "${1:-@}")"
   test "${2:-}" = "--all" && R="::$R"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "$R" |
+  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ jj_fzf_showdetails' -r "$R" |
     sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
     $JJFZFPAGER
 )
