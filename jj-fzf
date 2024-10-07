@@ -922,7 +922,7 @@ jj status
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 HELPKEYS[Ctrl-↑]='preview-up'
 HELPKEYS[Ctrl-↓]='preview-down'
-HELPKEYS[Ctrl-U]='unfiltered-log'
+HELPKEYS[Ctrl-U]='clear-filter'
 HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
@@ -944,6 +944,10 @@ done
 TRACK=--track	# not in fzf-0.29
 FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
 
+# == RELOAD ==
+JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
+RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
+
 # == FZF ==
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
@@ -960,16 +964,15 @@ fi
 jj_config >"$TEMPD/jjfzfconfig.toml"
 export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
 
+export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
 fzf \
   "${FZFSETTINGS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
-  --bind "ctrl-z:execute( $JJSUBSHELL )" \
+  --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   $TRACK \
   --preview " exec $SELF preview {} {q} " \
-  --prompt 'Revset|Regexp> ' \
   --header "$HEADER" --header-first \
-  --no-tac --no-sort +m --disabled \
-  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
-  < <( $SELF loadlog "$STARTQUERY" ) || :
+  --prompt '  :: > ' \
+  --no-tac --no-sort +m
