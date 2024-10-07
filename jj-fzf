@@ -27,6 +27,67 @@ FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 RELOAD="reload( exec $SELF loadlog {q} )"
 TEMPD=
 
+# == JJ_CONFIG ==
+jj_config() {
+  cat <<-__EOF__
+	[revset-aliases]
+	recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "
+	[template-aliases]
+	# parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+	jj_fzf_oneline = '''
+	if(root,
+	  format_root_commit(self),
+	  label(if(current_working_copy, "working_copy"),
+	    concat(
+	      separate(" ",
+	        format_short_change_id_with_hidden_and_divergent_info(self),
+	        if(author.email(), author.username(), email_placeholder),
+	        committer.timestamp().local().format("%Y-%m-%d"),
+	        format_short_commit_id(commit_id),
+	        bookmarks,
+	        tags,
+	        working_copies,
+	        git_head,
+	        if(conflict, label("conflict", "conflict")),
+	        if(empty, label("empty", "(empty)")),
+	        if(description,
+	          description.first_line(),
+	          label(if(empty, "empty"), description_placeholder),
+	        ),
+	      ) ++ "\n",
+	    ),
+	  )
+	)'''
+	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+	jj_fzf_showdetails = '''
+	concat(
+	  builtin_log_oneline,
+	  "Change ID: " ++ self.change_id() ++ "\n",
+	  "Commit ID: " ++ commit_id ++ "\n",
+	  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
+	  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
+	  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
+	  "Author:    " ++ format_detailed_signature(author) ++ "\n",
+	  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
+	  indent("    ",
+	    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
+	  "\n",
+	)'''
+	[colors]
+	"node working_copy" = { fg = "red", bold = true }
+	"empty" = "blue"
+	"empty description placeholder" = "blue"
+	"description placeholder" = "blue"
+	"working_copy empty" = "blue"
+	"working_copy empty description placeholder" = "blue"
+	"working_copy description placeholder" = "blue"
+	bookmarks =  "bright green"
+	tags = { fg = "yellow", bold = true }
+	"diff removed token" = { underline = false }
+	"diff added token" = { underline = false }
+	__EOF__
+}
+
 # == Utils ==
 # Create temporary dir, assigns $TEMPD
 temp_dir()
@@ -902,6 +963,8 @@ if test -z "${TEMPD:-}" ; then
   temp_dir
   export JJFZF_OUTER_TEMPD="$TEMPD"
 fi
+jj_config >"$TEMPD/jjfzfconfig.toml"
+export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
 
 fzf \
   "${FZFSETTINGS[@]}" \
