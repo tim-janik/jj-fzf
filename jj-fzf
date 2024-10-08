@@ -44,6 +44,7 @@ FZFSETTINGS=(
   --layout reverse-list
   --scroll-off 3
   --bind "ctrl-x:jump"
+  --bind 'home:first,end:last'
   --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'right,border-left'
