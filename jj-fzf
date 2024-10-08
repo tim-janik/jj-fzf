@@ -515,8 +515,21 @@ KEYBINDINGS["Ctrl-H"]="help"
 split-interactive()
 (
   R="$(xrev "$1")"
-  jj split --interactive -r "$R" ||
-    sleep 1
+  # Use $EDITOR to implement --split-with-no-description, truncate the first
+  # (original) description, but keep the description for subsequent edits
+  temp_dir
+  cat > $TEMPD/trunc1st.sh <<-\__EOF__
+	#!/bin/bash
+	set -Eeuo pipefail #-x
+	TRUNCATE=y
+	test $TRUNCATE == y && echo -n > "$1" || :
+	sed 's/TRUNCATE=./TRUNCATE=n/' -i "$0"
+	__EOF__
+  chmod +x $TEMPD/trunc1st.sh
+  export EDITOR=$TEMPD/trunc1st.sh
+  ( set -x
+    jj split --interactive -r "$R"
+  ) || sleep 1
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
 
