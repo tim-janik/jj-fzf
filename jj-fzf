@@ -940,6 +940,10 @@ for k in $KEYS ; do
       HEADER="$HEADER "
 done
 
+# == SWITCHES ==
+TRACK=--track	# not in fzf-0.29
+FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
+
 # == FZF ==
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
@@ -962,6 +966,7 @@ fzf \
   --bind "ctrl-z:execute( $JJSUBSHELL )" \
   --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
   "${BIND[@]}" \
+  $TRACK \
   --preview " exec $SELF preview {} {q} " \
   --prompt 'Revset|Regexp> ' \
   --header "$HEADER" --header-first \
