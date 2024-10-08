@@ -603,8 +603,9 @@ KEYBINDINGS["Alt-N"]="new-before"	FIRSTS="$FIRSTS new-before"
 new()
 (
   R="$(xrev "${1:-@}")"
-  jj new "$R" ||
-    sleep 1
+  ( set -x
+    jj new "$R"
+  ) || sleep 1
 )
 KEYBINDINGS["Ctrl-N"]="new"		FIRSTS="$FIRSTS new"
 
