@@ -669,7 +669,7 @@ split-files()
     fi
   }
 )
-KEYBINDINGS["Alt-P"]="split-files"
+KEYBINDINGS["Alt-F"]="split-files"
 
 show@oplog()
 (
