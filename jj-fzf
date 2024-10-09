@@ -4,6 +4,31 @@ set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: $*" >&2; exit 127 ; }
 SELF="$0"
 
+# == PREVIEW fast path ==
+export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# lines start, ignore --graph, parse revision letters, catch '??'-postfix
+if test -n "${JJFZF_OUTER_TEMPD:-}" -a -n "${JJ_CONFIG:-}" \
+	-a "${1:-}" == preview					# preview command, nested invocation
+then
+  if [[ "${2:-}" =~ $REVPAT ]]					# match beginning of jj log line
+  then
+    cd "$(jj --ignore-working-copy root)"			# ensure root relative diffstat paths
+    if [[ "${BASH_REMATCH[2]}" == '??' ]]			# divergent change_id
+    then
+      # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
+      jj --no-pager --ignore-working-copy show -T builtin_log_oneline -r "${BASH_REMATCH[1]}" 2>&1 || :
+    elif test -e "${JJFZF_OUTER_TEMPD:-}/evolog" 		# display evolog if toggled
+    then
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "${BASH_REMATCH[1]}"
+    else							# show commit and diff
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T 'jj_fzf_showdetails' -s -r "${BASH_REMATCH[1]}"
+      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "${BASH_REMATCH[1]}"
+    fi
+  else								# no valid revision
+    true
+  fi
+  exit 0
+fi
+
 # == Config ==
 STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
@@ -19,6 +44,7 @@ FZFSETTINGS=(
   --layout reverse-list
   --scroll-off 3
   --bind "ctrl-x:jump"
+  --bind 'home:first,end:last'
   --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'right,border-left'
@@ -26,6 +52,67 @@ FZFSETTINGS=(
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 RELOAD="reload( exec $SELF loadlog {q} )"
 TEMPD=
+
+# == JJ_CONFIG ==
+jj_config() {
+  cat <<-__EOF__
+	[revset-aliases]
+	recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "
+	[template-aliases]
+	# parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+	jj_fzf_oneline = '''
+	if(root,
+	  format_root_commit(self),
+	  label(if(current_working_copy, "working_copy"),
+	    concat(
+	      separate(" ",
+	        format_short_change_id_with_hidden_and_divergent_info(self),
+	        if(author.email(), author.username(), email_placeholder),
+	        committer.timestamp().local().format("%Y-%m-%d"),
+	        format_short_commit_id(commit_id),
+	        bookmarks,
+	        tags,
+	        working_copies,
+	        git_head,
+	        if(conflict, label("conflict", "conflict")),
+	        if(empty, label("empty", "(empty)")),
+	        if(description,
+	          description.first_line(),
+	          label(if(empty, "empty"), description_placeholder),
+	        ),
+	      ) ++ "\n",
+	    ),
+	  )
+	)'''
+	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+	jj_fzf_showdetails = '''
+	concat(
+	  builtin_log_oneline,
+	  "Change ID: " ++ self.change_id() ++ "\n",
+	  "Commit ID: " ++ commit_id ++ "\n",
+	  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
+	  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
+	  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
+	  "Author:    " ++ format_detailed_signature(author) ++ "\n",
+	  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
+	  indent("    ",
+	    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
+	  "\n",
+	)'''
+	[colors]
+	"node working_copy" = { fg = "red", bold = true }
+	"empty" = "blue"
+	"empty description placeholder" = "blue"
+	"description placeholder" = "blue"
+	"working_copy empty" = "blue"
+	"working_copy empty description placeholder" = "blue"
+	"working_copy description placeholder" = "blue"
+	bookmarks =  "bright green"
+	tags = { fg = "yellow", bold = true }
+	"diff removed token" = { underline = false }
+	"diff added token" = { underline = false }
+	__EOF__
+}
 
 # == Utils ==
 # Create temporary dir, assigns $TEMPD
@@ -168,20 +255,6 @@ if(root,
     ),
   )
 )' # ◇⚿
-JJFZF_SHOWDETAILS='
-concat(
-  builtin_log_oneline,
-  "Change ID: " ++ self.change_id() ++ "\n",
-  "Commit ID: " ++ commit_id ++ "\n",
-  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
-  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
-  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
-  "Author:    " ++ format_detailed_signature(author) ++ "\n",
-  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
-  indent("    ",
-    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
-  "\n",
-)'	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 OPLOG_ONELINE='
 label(if(current_operation, "current_operation"),
   coalesce(
@@ -248,29 +321,6 @@ diff@()
   fi
 )
 FUNCTIONS+=( 'diff@' )
-
-preview()
-(
-  if R="$(xrev "${1:-@}" 2>/dev/null)" ; then
-    test -n "$R" || exit
-  elif [[ "$R" != "${R%??}" ]] ; then # divergent change_id
-    R="${R%??}"
-    jj show -T change_id -r "$R" 2>&1 || :
-    exit
-  else
-    exit
-  fi
-  # display evolog if toggled
-  test -n "${JJFZF_OUTER_TEMPD:-}" -a -e "${JJFZF_OUTER_TEMPD:-}/evolog" && {
-    exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$R"
-  }
-  # cd root; otherwise diffstat paths will be misleading
-  cd "$JJROOT"
-  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJFZF_SHOWDETAILS" -s -r "$R"
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
-)
-FUNCTIONS+=( 'preview' )
 
 # Select Change ID
 selectchange()
@@ -547,14 +597,15 @@ new-before()
   jj new --insert-before "$R" ||
     sleep 1
 )
-KEYBINDINGS["Alt-N"]="new-before"	FIRSTS="$FIRSTS new-before"
+KEYBINDINGS["Alt-N"]="new-before"
 
 # New
 new()
 (
   R="$(xrev "${1:-@}")"
-  jj new "$R" ||
-    sleep 1
+  ( set -x
+    jj new "$R"
+  ) || sleep 1
 )
 KEYBINDINGS["Ctrl-N"]="new"		FIRSTS="$FIRSTS new"
 
@@ -759,7 +810,7 @@ logrev()
   R="$(xrev "${1:-@}")"
   test "${2:-}" = "--all" && R="::$R"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ '"$JJFZF_SHOWDETAILS" -r "$R" |
+  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ jj_fzf_showdetails' -r "$R" |
     sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
     $JJFZFPAGER
 )
@@ -871,7 +922,7 @@ jj status
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 HELPKEYS[Ctrl-↑]='preview-up'
 HELPKEYS[Ctrl-↓]='preview-down'
-HELPKEYS[Ctrl-U]='unfiltered-log'
+HELPKEYS[Ctrl-U]='clear-filter'
 HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
@@ -889,12 +940,20 @@ for k in $KEYS ; do
       HEADER="$HEADER "
 done
 
+# == SWITCHES ==
+TRACK=--track	# not in fzf-0.29
+FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
+
+# == RELOAD ==
+JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
+RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
+
 # == FZF ==
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
-  postcmd="+refresh-preview"
-  [[ " $FIRSTS " == *" $fun "* ]] && postcmd="$postcmd+first"
+  postcmd=""
+  [[ " $FIRSTS " == *" $fun "* ]] && postcmd="+first"
   BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
 done
 
@@ -902,16 +961,18 @@ if test -z "${TEMPD:-}" ; then
   temp_dir
   export JJFZF_OUTER_TEMPD="$TEMPD"
 fi
+jj_config >"$TEMPD/jjfzfconfig.toml"
+export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
 
+export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
 fzf \
   "${FZFSETTINGS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
-  --bind "ctrl-z:execute( $JJSUBSHELL )" \
+  --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
   "${BIND[@]}" \
+  $TRACK \
   --preview " exec $SELF preview {} {q} " \
-  --prompt 'Revset|Regexp> ' \
   --header "$HEADER" --header-first \
-  --no-tac --no-sort +m --disabled \
-  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
-  < <( $SELF loadlog "$STARTQUERY" ) || :
+  --prompt '  :: > ' \
+  --no-tac --no-sort +m
