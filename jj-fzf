@@ -453,7 +453,7 @@ diffedit()
 )
 KEYBINDINGS["Alt-E"]="diffedit"
 
-# Edit Commit Message
+# Describe Commit Message
 describe()
 (
   R="$(xrev "${1:-@}")"
@@ -467,7 +467,7 @@ describe()
   ) ||
     sleep 1
 )
-KEYBINDINGS["Ctrl-E"]="describe"
+KEYBINDINGS["Ctrl-D"]="describe"
 
 # File Editor
 file-editor()
@@ -515,8 +515,21 @@ KEYBINDINGS["Ctrl-H"]="help"
 split-interactive()
 (
   R="$(xrev "$1")"
-  jj split --interactive -r "$R" ||
-    sleep 1
+  # Use $EDITOR to implement --split-with-no-description, truncate the first
+  # (original) description, but keep the description for subsequent edits
+  temp_dir
+  cat > $TEMPD/trunc1st.sh <<-\__EOF__
+	#!/bin/bash
+	set -Eeuo pipefail #-x
+	TRUNCATE=y
+	test $TRUNCATE == y && echo -n > "$1" || :
+	sed 's/TRUNCATE=./TRUNCATE=n/' -i "$0"
+	__EOF__
+  chmod +x $TEMPD/trunc1st.sh
+  export EDITOR=$TEMPD/trunc1st.sh
+  ( set -x
+    jj split --interactive -r "$R"
+  ) || sleep 1
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
 
@@ -669,7 +682,7 @@ split-files()
     fi
   }
 )
-KEYBINDINGS["Alt-P"]="split-files"
+KEYBINDINGS["Alt-F"]="split-files"
 
 show@oplog()
 (
@@ -878,15 +891,16 @@ gitk()
 KEYBINDINGS["Ctrl-V"]="gitk"
 
 # Edit (New) Working Copy
-working-copy()
+edit-workspace()
 (
   R="$(xrev "${1:-@}")"
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
-  jj $CMD -r "$R" ||
+  ( set -x
+    jj $CMD -r "$R" ) ||
     sleep 1
 )
-KEYBINDINGS["Ctrl-W"]="working-copy"
+KEYBINDINGS["Ctrl-E"]="edit-workspace"
 
 # Swap Commits
 swap-commits()
