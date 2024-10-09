@@ -878,15 +878,16 @@ gitk()
 KEYBINDINGS["Ctrl-V"]="gitk"
 
 # Edit (New) Working Copy
-working-copy()
+edit-workspace()
 (
   R="$(xrev "${1:-@}")"
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
-  jj $CMD -r "$R" ||
+  ( set -x
+    jj $CMD -r "$R" ) ||
     sleep 1
 )
-KEYBINDINGS["Ctrl-W"]="working-copy"
+KEYBINDINGS["Ctrl-E"]="edit-workspace"
 
 # Swap Commits
 swap-commits()
