@@ -1,7 +1,7 @@
 #!/bin/bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: $*" >&2; exit 127 ; }
+SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: $*" >&2; exit 127 ; }
 SELF="$0"
 
 # == PREVIEW fast path ==
@@ -150,23 +150,25 @@ rev_changeid()	( $JJFZFSHOW -T 'change_id' -r "$1" )
 # Look up full commit hash via JJ commit_id
 rev_commitid()	( $JJFZFSHOW -T 'commit_id' -r "$1" )
 # parse commit_id of given divergent change_id or return ""
-divergent_commit()
+divergent_commitid()
 (
-  # extract likely commit ID
-  COMMIT=$(echo " $1 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') ||
-    die 'no divergent commit'
   DIVERGENT_REVISION_COMMIT=' format_short_change_id_with_hidden_and_divergent_info(self) ++ " " ++ commit_id ++ "\n" '
   # make sure it is a divergent commit id
-  COMMIT=$(jj --ignore-working-copy log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r "$COMMIT" | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') &&
+  COMMIT=$(jj --ignore-working-copy log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r "$1" | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') &&
     echo "$COMMIT"
 )
 # Yield the revision change_id or a commit_id if it is divergent
 xrev_or_commit()
 (
-  R="$(xrev "$*")" ||
-    R="$(divergent_commit "$*")"
-  test -n "$R" || return 1
-  echo "$R"
+  if R="$(xrev "$*")" ; then
+    echo "$R"
+  else
+    # extract likely commit ID from divergent revision
+    COMMIT=$(echo " $* " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') && {
+      # validates commit of divergent change
+      divergent_commitid "$COMMIT"
+    }
+  fi
 )
 # List all bookmarks of a revision
 rev_bookmarks()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks))' -r "$1" )
@@ -633,7 +635,8 @@ KEYBINDINGS["Alt-M"]="merge-upstream"
 # New --insert-before
 new-before()
 (
-  R="$(xrev "${1:-@}")"
+  R="$(xrev_or_commit "${1:-@}")" ||
+    die "no such revision"
   ( set -x
     jj new --insert-before "$R"
   ) || sleep 1
@@ -643,7 +646,8 @@ KEYBINDINGS["Alt-N"]="new-before"
 # New
 new()
 (
-  R="$(xrev "${1:-@}")"
+  R="$(xrev_or_commit "${1:-@}")" ||
+    die "no such revision"
   ( set -x
     jj new "$R"
   ) || sleep 1
@@ -874,31 +878,30 @@ duplicate()
 )
 KEYBINDINGS["Alt-U"]="duplicate"
 
-# fixdivergent
-fixdivergent()
+# vivifydivergent
+vivifydivergent()
 (
-  # extract likely commit ID
-  COMMIT=$(echo " $1 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') ||
-    die 'no divergent commit'
-  DIVERGENT_REVISION_COMMIT=' format_short_change_id_with_hidden_and_divergent_info(self) ++ " " ++ commit_id ++ "\n" '
-  # make sure it is a divergent commit id
-  COMMIT=$(jj log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r "$COMMIT" | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') ||
-    die 'no divergent commit'
-  echo "$SELF fixdivergent $COMMIT" >&2
+  # fetch commit_id of a divergent revision
+  COMMIT="$(xrev_or_commit "${1:-@}")" &&
+    COMMIT=$(divergent_commitid "$COMMIT") ||
+      die 'no divergent revision'
+  echo "$SELF vivifydivergent $COMMIT" >&2
   jj log --no-graph -T builtin_log_oneline -r "$COMMIT"
   # Find change_id for commit
   R=`jj log --no-graph -T change_id -r "$COMMIT"` ||
     die 'no divergent revision'
-  # Set @ top newly inserted empty commit before $R
-  ( set -x && jj new --before "$COMMIT" )
+  # Set @ to newly inserted empty commit before $R
+  ( set -x
+    jj new --before "$COMMIT" )
   # Figure new commit ID of $R
-  NEWCOMMIT=$(jj log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r '@+' | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') ||
-    die 'missing new commit before divergent revision'
+  NEWCOMMIT=$(divergent_commitid '@+') ||
+    die 'lost divergent revision after new'
   # Squash commit ID of $R into @, auto-deleting the divergent revision
-  ( set -x && jj squash --from "$NEWCOMMIT" --into @ )
+  ( set -x
+    jj squash --from "$NEWCOMMIT" --into @ )
   jj log --no-graph -T builtin_log_oneline -r @
 )
-KEYBINDINGS["Alt-V"]="fixdivergent"
+KEYBINDINGS["Alt-V"]="vivifydivergent"
 
 # Gitk View
 gitk()
@@ -921,7 +924,8 @@ KEYBINDINGS["Ctrl-V"]="gitk"
 # Edit (New) Working Copy
 edit-workspace()
 (
-  R="$(xrev "${1:-@}")"
+  R="$(xrev_or_commit "${1:-@}")" ||
+    die "no such revision"
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
   ( set -x
