@@ -597,9 +597,11 @@ merge-upstream()
     test "$O" != "$MSG" ||
       ERROR "Merge commit cancelled by user"
   # create merge
-  jj new -m "$MSG" "$DEST" "$BOOKMARK" &&
-    jj bookmark set -B -r @ "$DEST" ||
-      sleep 1
+  ( set -x
+    jj new -m "$MSG" "$DEST" "$BOOKMARK" &&
+      jj bookmark set -B -r @ "$DEST"
+  ) ||
+    sleep 1
 )
 KEYBINDINGS["Alt-M"]="merge-upstream"
 
@@ -607,8 +609,9 @@ KEYBINDINGS["Alt-M"]="merge-upstream"
 new-before()
 (
   R="$(xrev "${1:-@}")"
-  jj new --insert-before "$R" ||
-    sleep 1
+  ( set -x
+    jj new --insert-before "$R"
+  ) || sleep 1
 )
 KEYBINDINGS["Alt-N"]="new-before"
 
@@ -720,7 +723,7 @@ squash-into-parent()
   R="$(xrev "${1:-@}")"
   W="$(xrev "@")"
   test "$W" == "$R" &&
-    OPT='--keep-emptied' ||
+    OPT='--keep-emptied' || # preserve workspace change_id
       OPT=
   # export EDITOR=true
   ( set -x
