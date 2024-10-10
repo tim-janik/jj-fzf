@@ -12,16 +12,21 @@ then
   if [[ "${2:-}" =~ $REVPAT ]]					# match beginning of jj log line
   then
     cd "$(jj --ignore-working-copy root)"			# ensure root relative diffstat paths
+    REVISION="${BASH_REMATCH[1]}"
     if [[ "${BASH_REMATCH[2]}" == '??' ]]			# divergent change_id
     then
       # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
       jj --no-pager --ignore-working-copy show -T builtin_log_oneline -r "${BASH_REMATCH[1]}" 2>&1 || :
-    elif test -e "${JJFZF_OUTER_TEMPD:-}/evolog" 		# display evolog if toggled
+      REVISION=$(echo " $2 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') || exit 0	# find likely commit id
+      echo
+      echo
+    fi
+    if test -e "${JJFZF_OUTER_TEMPD:-}/evolog" 			# display evolog if toggled
     then
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "${BASH_REMATCH[1]}"
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$REVISION"
     else							# show commit and diff
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T 'jj_fzf_showdetails' -s -r "${BASH_REMATCH[1]}"
-      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "${BASH_REMATCH[1]}"
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T 'jj_fzf_showdetails' -s -r "$REVISION"
+      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION"
     fi
   else								# no valid revision
     true
