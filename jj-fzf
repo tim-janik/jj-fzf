@@ -35,6 +35,7 @@ then
 fi
 
 # == Config ==
+declare -A DOC
 STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
 # JJ repository
@@ -322,6 +323,7 @@ loadlog()
 FUNCTIONS+=( 'loadlog' )
 
 # Toggle preview of evolution-log
+DOC['toggleevolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
 toggleevolog()
 {
   if test -n "${JJFZF_OUTER_TEMPD:-}" ; then
@@ -372,6 +374,7 @@ selectchange()
 FUNCTIONS+=( 'selectchange' )
 
 # Abandon Revision
+DOC['abandon']='Use `jj abandon` to remove the currently selected revision (or divergent commit) from the history.'
 abandon()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -383,6 +386,7 @@ abandon()
 KEYBINDINGS["Alt-A"]="abandon"
 
 # Bookmark Creation
+DOC['bookmark']='Use `jj bookmark {create|set -B}` to (re-)assign a bookmark name to the currently selected revision.'
 bookmark()
 (
   R="$(xrev "${1:-@}")"
@@ -402,6 +406,7 @@ bookmark()
 KEYBINDINGS["Alt-B"]="bookmark"
 
 # Commit (full)
+DOC['commit']='Use `jj commit` to describe the currently selected revision and create a new child revision.'
 commit()
 (
   R="$(xrev "${1:-@}")"
@@ -424,6 +429,7 @@ commit()
 KEYBINDINGS["Alt-C"]="commit"
 
 # Delete Bookmarks and Tags
+DOC['delete-refs']='Use `jj bookmark list+delete` to list, selected and delete bookmarks and tags.'
 delete-refs()
 (
   R="$(xrev "${1:-@}")"
@@ -473,6 +479,7 @@ delete-refs()
 KEYBINDINGS["Alt-D"]="delete-refs"
 
 # diffedit
+DOC['diffedit']='Use `jj diffedit` to modify the content diff of the currently selected revision.'
 diffedit()
 (
   R="$(xrev "${1:-@}")"
@@ -481,6 +488,7 @@ diffedit()
 KEYBINDINGS["Alt-E"]="diffedit"
 
 # Describe Commit Message
+DOC['describe']='Use `jj describe` to describe the currently selected revision.'
 describe()
 (
   R="$(xrev "${1:-@}")"
@@ -497,6 +505,7 @@ describe()
 KEYBINDINGS["Ctrl-D"]="describe"
 
 # File Editor
+DOC['file-editor']='Use `jj edit` to switch to the currently selected revision and opens the files touched by this revision in `$EDITOR`.'
 file-editor()
 (
   R="$(xrev "${1:-@}")"
@@ -519,8 +528,14 @@ file-editor()
 KEYBINDINGS["Ctrl-F"]="file-editor"
 
 # Help with JJ commands
+DOC['help']='Show the *jj-fzf* help or browse the help descriptions of the currently seleected *jj* command in the `jj help` text.'
 help()
 (
+  H=$'JJ-FZF\n'
+  H="$H"$'\n'
+  H="$H"$'JJ-FZF is an FZF based wrapper around the Jujutsu VCS.\n'
+  H="$H"$'FZF is the fuzzy file browser that provides line based selections and preview.\n'
+  H="$H"$'\n'
   JJCMDS=:
   for w in $( LANG=C
 	      jj --help |
@@ -532,13 +547,14 @@ help()
     --header-first --no-sort \
     --header "jj --help" \
     --nth 1 \
-    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help" \
+    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help || $SELF --help" \
     --bind "enter:execute( test -n {1} || exit; { [[ $JJCMDS =~ :{1}: ]] && jj {1} --help || jj help ;} | $JJFZFPAGER )+abort" \
-    < <(jj help)
+    < <(echo "$H" && jj help)
 )
 KEYBINDINGS["Ctrl-H"]="help"
 
 # Split change
+DOC['split-interactive']='Use `jj split` to interactively select content diff hunks to be split into a new commit. No text editor is invoked and the new commit gets an empty description.'
 split-interactive()
 (
   R="$(xrev "$1")"
@@ -561,6 +577,7 @@ split-interactive()
 KEYBINDINGS["Alt-I"]="split-interactive"
 
 # Backout Commit
+DOC['backout']='Use `jj backout` to create a new (disconnected) commit that reverts the currently selected revision.'
 backout()
 (
   R="$(xrev "${1:-@}")"
@@ -572,6 +589,7 @@ backout()
 KEYBINDINGS["Alt-K"]="backout"
 
 # Line History
+DOC['line-history']='WIP: View history of each line.'
 line-history()
 (
   R="$(xrev "${1:-@}")"
@@ -590,6 +608,7 @@ line-history()
 KEYBINDINGS["Alt-L"]="line-history"
 
 # Merge into tracked bookmark
+DOC['merge-upstream']='Use `jj new TRACKED CURRENT` to create a marge commit from the first *TRACKED* bookmark and the selected *CURRENT* revision/bookmark.'
 merge-upstream()
 (
   R="$(xrev "${1:-@}")"
@@ -633,6 +652,7 @@ merge-upstream()
 KEYBINDINGS["Alt-M"]="merge-upstream"
 
 # New --insert-before
+DOC['new-before']='Use `jj new --insert-before` to create and insert a new commit before the currently selected revision.'
 new-before()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -644,6 +664,7 @@ new-before()
 KEYBINDINGS["Alt-N"]="new-before"
 
 # New
+DOC['new']='Use `jj new` to create a new commit on top of the currently selected revision.'
 new()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -684,6 +705,7 @@ op-log()
 KEYBINDINGS["Ctrl-O"]="op-log"
 
 # Split files
+DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
 split-files()
 (
   R="$(xrev "$1")"
@@ -747,6 +769,7 @@ workdir-restore@oplog()
 FUNCTIONS+=( 'workdir-restore@oplog' )
 
 # Squash Commits
+DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision into its parent.'
 squash-into-parent()
 (
   R="$(xrev "${1:-@}")"
@@ -763,6 +786,7 @@ squash-into-parent()
 KEYBINDINGS["Alt-Q"]="squash-into-parent"
 
 # Rebase Branch/Source/Revision After/Before/Destination
+DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
 rebasing()
 (
   S="$(xrev "$1")"
@@ -832,6 +856,7 @@ restore-file@()
 KEYBINDINGS["Alt-S"]="restore-file@"
 
 # Tag Creation
+DOC['tag']='Enter a tag name to create a new unsigned, annotated tag at the selected revision with `git tag`.'
 tag()
 (
   R="$(xrev "${1:-@}")"
@@ -862,6 +887,7 @@ logrev()
 FUNCTIONS+=( 'logrev' )
 
 # Log flat change history
+DOC['log']='Use `jj log` to browse the history including patches, starting from the selected revision.'
 log()
 {
   R="$(xrev "${1:-@}")"
@@ -870,15 +896,19 @@ log()
 KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
+DOC['duplicate']='Use `jj duplicate` to duplicate the selected revision by creating a new commit with the same changes.'
 duplicate()
 (
   R="$(xrev "${1:-@}")"
-  jj duplicate "$R" ||
+  ( set -x
+    jj duplicate "$R"
+  ) ||
     sleep 1
 )
 KEYBINDINGS["Alt-U"]="duplicate"
 
 # vivifydivergent
+DOC['vivifydivergent']='When a revision has more than one visible commit, it becomes a divergent revision. This command uses `jj new+squash …` to create a new *change_id* for the currently selected divergent revision, effectively resolving the divergence.'
 vivifydivergent()
 (
   # fetch commit_id of a divergent revision
@@ -904,6 +934,7 @@ vivifydivergent()
 KEYBINDINGS["Alt-V"]="vivifydivergent"
 
 # Gitk View
+DOC['gitk']='Start `gitk` to browse the *Git* history of the repository.'
 gitk()
 (
   R="$(xrev "${1:-@}")"
@@ -922,6 +953,7 @@ gitk()
 KEYBINDINGS["Ctrl-V"]="gitk"
 
 # Edit (New) Working Copy
+DOC['edit-workspace']='Use `jj {edit|new}` to set the currently selected revision as the working-copy revision. Will create a new commit if the selected revision is immutable.'
 edit-workspace()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -935,6 +967,7 @@ edit-workspace()
 KEYBINDINGS["Ctrl-E"]="edit-workspace"
 
 # Swap Commits
+DOC['swap-commits']='Use `jj rebase --insert-before` to quickly swap the selected revision with the revision immediately before it.'
 swap-commits()
 (
   R="$(xrev "${1:-@}")"
@@ -948,6 +981,61 @@ undo()
   jj op undo
 )
 KEYBINDINGS["Alt-Z"]="undo"
+
+# == --help ==
+HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
+HELPKEYS[Ctrl-↑]='preview-up'
+DOC['preview-up']='Scroll the preview window.'
+HELPKEYS[Ctrl-↓]='preview-down'
+DOC['preview-down']='Scroll the preview window.'
+HELPKEYS[Ctrl-U]='clear-filter'
+DOC['clear-filter']='Discard the current *fzf* query string.'
+HELPKEYS[recent7]='default revset'
+KEYS="${!HELPKEYS[@]}"
+KEYS=$(sort <<<"${KEYS// /$'\n'}")
+if [[ "${1:-}" = --help ]] ; then
+  ( :
+    cat <<-\__EOF__
+	# JJ-FZF
+	 
+	The **jj-fzf** shell script is a convenience script that wraps a number of
+	jj commands, based on the `jj log` graph view. The commands executed to
+	modify history are printed on stderr for the user to retrace the repository
+	modifications.
+	All commands are available via the following Keyboard shortcuts:
+	__EOF__
+    for k in $KEYS ; do
+      NAME="${HELPKEYS[$k]}"
+      echo
+      echo "*$k:* **$NAME**"
+      D="${DOC[$NAME]:-}"
+      test -z "$D" ||
+	echo "$D" | fold -s -w78 | sed 's/^/  /'
+    done
+  ) | (
+    B=$'\e[1m'              # Bold
+    T=$'\e[32;1;4m'         # Title
+    C=$'\e[36m'             # Code
+    I=$'\e[3m'              # Italic
+    U=$'\e[4m'              # Underline
+    Z=$'\e[0;24m'           # Reset
+    W='[][<>{}A-Z| $@a-z0-9 ←-⇿ :…+-]'      # Word like chars (english)
+    SEDSCRIPT="
+    s/\r\`\`\`+\w*(([^\`]*|\`[^\`])+)\r\`\`\`+/$C\1$Z\n/g           # Code block with backticks
+    s/\r~~~+\w*(([^~]*|~[^~])+)\r~~~+/$C\1$Z\n/g                    # Code block with tilde
+    s/(^|\r)##* ([^\r]+)[ #]*\r/\1$T\2$Z\r/g        # Headings (Title)
+    s/(\r\s?\s?)[-*] (\w+\b:)?/\1$B* \2$Z/g         # List bullet
+    s/(\s)\*\*($W+)\*\*/\1$B\2$Z/g          # Bold
+    s/(\s)\*($W+)\*([^*])/\1$I\2$Z\3/g              # Italic
+    s/(\s)_($W+)_([^_])/\1$U\2$Z\3/g                # Underline
+    s/(\s)\`($W+)\`([^\`])/\1$C\2$Z\3/g             # Code
+    s/\r?<!--([^-]|-[^-]|--[^>])*-->//g             # Html Comments
+    s,(\bhttps?://[^ ()\r]+),$U\1$Z,g               # Link
+    "
+    tr \\n \\r | sed -re "$SEDSCRIPT" | tr \\r \\n
+  )
+  exit 0
+fi
 
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
@@ -965,13 +1053,6 @@ fi
 jj status
 
 # == Help / Docs ==
-HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
-HELPKEYS[Ctrl-↑]='preview-up'
-HELPKEYS[Ctrl-↓]='preview-down'
-HELPKEYS[Ctrl-U]='clear-filter'
-HELPKEYS[recent7]='default revset'
-KEYS="${!HELPKEYS[@]}"
-KEYS=$(sort <<<"${KEYS// /$'\n'}")
 WHITE="                                                                                "
 HEADER=""
 test "$COLUMNS" -ge 166 && W=3 || { test "$COLUMNS" -ge 114 && W=2 || W=1 ;}
