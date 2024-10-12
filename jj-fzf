@@ -969,7 +969,7 @@ edit-workspace()
 KEYBINDINGS["Ctrl-E"]="edit-workspace"
 
 # Swap Commits
-DOC['swap-commits']='Use `jj rebase --insert-before` to quickly swap the selected revision with the revision immediately before it.'
+DOC['swap-commits']='Use `jj rebase --insert-before` to quickly swap the currenly selected revision with the revision immediately before it.'
 swap-commits()
 (
   R="$(xrev "${1:-@}")"
@@ -978,9 +978,13 @@ swap-commits()
 KEYBINDINGS["Alt-X"]="swap-commits"
 
 # Undo last JJ op
+DOC['undo']='Use `jj op undo` to undo the last operation performed by `jj`.'
 undo()
 (
-  jj op undo
+  ( set -x
+    jj op undo
+  ) ||
+    sleep 1
 )
 KEYBINDINGS["Alt-Z"]="undo"
 
