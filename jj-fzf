@@ -105,7 +105,7 @@ jj_config() {
 	  "\n",
 	)'''
 	[colors]
-	"node working_copy" = { fg = "red", bold = true }
+	# "node working_copy" = { fg = "red", bold = true }
 	"empty" = "blue"
 	"empty description placeholder" = "blue"
 	"description placeholder" = "blue"
