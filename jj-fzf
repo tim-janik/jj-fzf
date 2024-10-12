@@ -392,27 +392,35 @@ bookmark()
 KEYBINDINGS["Alt-B"]="bookmark"
 
 # Commit (full)
-DOC['commit']='Use `jj commit` to describe the currently selected revision and create a new child revision.'
+DOC['commit']='Use `jj commit` to describe the currently selected revision and create a new child revision as working-copy.'
 commit()
 (
   R="$(xrev "${1:-@}")"
-  # Edit commit msg if mutable
+  W="$(xrev "@")"
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
-  [[ $IMMU =~ ^true ]] || {
-    MSG="$(echo_commit_msg "$R")"
-    O="$MSG"
+  MSG="$(echo_commit_msg "$R")"
+  O="$MSG"
+  if test "$R" == "$W" -a "$IMMU" != true ; then
     user_editor_on_var "COMMIT-$R.txt" MSG ||
       ERROR "Commit cancelled by user"
-    test "$O" != "$MSG" && (
-      set -x
-      jj describe --no-edit -r "$R" -m "$MSG"
-    ) ||
-      sleep 1
-  }
-  # open new empty working copy commit
-  jj new "$R"
+    test "$O" != "$MSG" &&
+      ( set -x
+	jj commit -m "$MSG"
+      ) || sleep 1
+  else # R is @ and mutable
+    [[ $IMMU =~ ^true ]] || {
+      user_editor_on_var "COMMIT-$R.txt" MSG ||
+	ERROR "Commit cancelled by user"
+      test "$O" != "$MSG" &&
+	( set -x
+	  jj describe --no-edit -r "$R" -m "$MSG"
+	) || sleep 1
+    }
+    # open new empty working copy commit
+    jj new "$R"
+  fi
 )
-KEYBINDINGS["Alt-C"]="commit"
+KEYBINDINGS["Alt-C"]="commit"		FIRSTS="$FIRSTS commit"
 
 # Delete Bookmarks and Tags
 DOC['delete-refs']='Use `jj bookmark list+delete` to list, selected and delete bookmarks and tags.'
