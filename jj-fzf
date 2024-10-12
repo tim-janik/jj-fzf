@@ -837,23 +837,24 @@ rebasing()
 )
 KEYBINDINGS["Alt-R"]="rebasing"
 
-# Restore File from @-
-restore-file@()
+# Restore File
+DOC['restore-file']='Start a dialog to select a file from the currently selected revision and use `jj restore` to restore the file into the working copy.'
+restore-file()
 (
   R="$(xrev "${1:-@}")"
-  MODE_FILE=$(jj show --tool true -s -T '' |
+  MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
 		"${FZFPOPUP[@]}" \
-		  --preview 'read M F <<<{} && test -n "$F" || exit; jj --no-pager log --color=always -s --patch -T builtin_log_oneline -r @ -- "$F"' \
-		  --header "Restore File from @- into @" \
+		  --preview 'read M F <<<{} && test -n \"$F\" || exit; jj --no-pager --ignore-working-copy log --color=always -s --patch -T builtin_log_oneline -r "'"$R"'" -- "$F"' \
+		  --header "Restore File into @" \
 		  )
   read M F <<<"$MODE_FILE"
   test -n "$M" -a -n "$F" || return
   ( set -x
-    jj restore -- "$F"
+    jj restore --from "$R" -- "$F"
   ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-S"]="restore-file@"
+KEYBINDINGS["Alt-S"]="restore-file"
 
 # Tag Creation
 DOC['tag']='Enter a tag name to create a new unsigned, annotated tag at the selected revision with `git tag`.'
