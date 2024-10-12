@@ -336,20 +336,6 @@ toggleevolog()
 }
 KEYBINDINGS["Ctrl-T"]="toggleevolog"
 
-diff@()
-(
-  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  if tty -s ; then
-    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
-    } | $JJFZFPAGER
-  else
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
-  fi
-)
-FUNCTIONS+=( 'diff@' )
-
 # Select Change ID
 selectchange()
 (
@@ -676,33 +662,78 @@ new()
 KEYBINDINGS["Ctrl-N"]="new"		FIRSTS="$FIRSTS new"
 
 # Oplog
+DOC['op-log']='Use `jj op log` to browse the recent operations log. Use hotkeys to change the preview between diff, history and oplog entry mode. Undo the selected operation or restore its working copy into a new commit.'
 op-log()
 (
   RELOAD="reload( exec jj op log --color=always )"
   temp_dir
   echo > $TEMPD/oplog.env
   H="jj op log"$'\n'
-  H="$H""Alt-D: Preview diff of '@' at a specific operation"$'\n'
-  H="$H""Alt-L: Preview history at a specific operation"$'\n'
-  H="$H""Alt-O: Preview oplog entry"$'\n'
-  H="$H""Alt-U: Undo operation at oplog entry"$'\n'
-  H="$H""Alt-W: Restore oplog working copy into a new '@-' commit"$'\n'
-  echo 'VIEW=diff@'		>> $TEMPD/oplog.env
+  H="$H""Ctrl-D: Preview diff of '@' at a specific operation"$'\n'
+  H="$H""Ctrl-L: Preview history at a specific operation"$'\n'
+  H="$H""Ctrl-E: Preview the oplog entry of an operation"$'\n'
+  H="$H""Alt-W: Restore working copy of the selected operation into a new commit"$'\n'
+  H="$H""Alt-Z: Undo the selected operation entry"$'\n'
+  echo 'VIEW=diff@oplog'		>> $TEMPD/oplog.env
   export JJFZFONELINE
   "${FZFPOPUP[@]}" \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
     --header "$H" --header-first \
-    --bind "alt-d:execute( sed 's/^VIEW=.*/VIEW=diff@/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-o:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-u:execute( $SELF undo-op@oplog {} )+abort" \
-    --bind "alt-w:execute( $SELF workdir-restore@oplog {} )+abort" \
+    --bind "ctrl-d:execute( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-e:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-w:execute( $SELF wdrestore@oplog {} )+abort" \
+    --bind "alt-z:execute( $SELF undo-op@oplog {} )+abort" \
     --no-tac --no-sort +m \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
     < <( jj op log --color=always -T "$OPLOG_ONELINE" )
   rm -f $TEMPD/oplog.env
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
+
+diff@oplog()
+(
+  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  if tty -s ; then
+    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
+    } | $JJFZFPAGER
+  else
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
+  fi
+)
+FUNCTIONS+=( 'diff@oplog' )
+
+show@oplog()
+(
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
+)
+FUNCTIONS+=( 'show@oplog' )
+
+undo-op@oplog()
+(
+  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
+  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
+  ( set -x
+    jj op undo $OP
+  ) ||
+    sleep 1
+)
+FUNCTIONS+=( 'undo-op@oplog' )
+
+wdrestore@oplog()
+(
+  set -x
+  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
+  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
+  ( set -x
+    jj new @
+    jj restore --from "$C" --to @
+  ) ||
+    sleep 1
+)
+FUNCTIONS+=( 'wdrestore@oplog' )
 
 # Split files
 DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
@@ -737,36 +768,6 @@ split-files()
   }
 )
 KEYBINDINGS["Alt-F"]="split-files"
-
-show@oplog()
-(
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-)
-FUNCTIONS+=( 'show@oplog' )
-
-undo-op@oplog()
-(
-  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
-  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
-  ( set -x
-    jj op undo $OP
-  ) ||
-    sleep 1
-)
-FUNCTIONS+=( 'undo-op@oplog' )
-
-workdir-restore@oplog()
-(
-  set -x
-  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
-  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
-  ( set -x
-    jj new --insert-before @	# new @-
-    jj restore --from "$C" --to @
-  ) ||
-    sleep 1
-)
-FUNCTIONS+=( 'workdir-restore@oplog' )
 
 # Squash Commits
 DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision into its parent.'
