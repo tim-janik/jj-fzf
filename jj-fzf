@@ -939,16 +939,23 @@ log()
 KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
-DOC['duplicate']='Use `jj duplicate` to duplicate the selected revision by creating a new commit with the same changes.'
+DOC['duplicate']='Use `jj duplicate` to duplicate the selected revision by creating a new commit with the same changes that becomes the new working-copy.'
 duplicate()
 (
   R="$(xrev "${1:-@}")"
+  A=( $(rev_children "$R-") )
   ( set -x
     jj duplicate "$R"
-  ) ||
-    sleep 1
+  ) || sleep 1
+  B=( $(rev_children "$R-") )
+  C=() && diff_arrays A B C
+  [ ${#C[@]} -eq 1 ] ||
+    die "failed to find newly created revision duplicate"
+  ( set -x
+    jj edit -r "${C[0]}"
+  ) || sleep 1
 )
-KEYBINDINGS["Alt-U"]="duplicate"
+KEYBINDINGS["Alt-U"]="duplicate"	FIRSTS="$FIRSTS duplicate"
 
 # vivifydivergent
 DOC['vivifydivergent']='When a revision has more than one visible commit, it becomes a divergent revision. This command uses `jj new+squash …` to create a new *change_id* for the currently selected divergent revision, effectively resolving the divergence.'
