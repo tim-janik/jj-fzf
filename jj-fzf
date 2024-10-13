@@ -428,16 +428,17 @@ commit()
   MSG="$(echo_commit_msg "$R")"
   O="$MSG"
   if test "$R" == "$W" -a "$IMMU" != true ; then
-    user_editor_on_var "COMMIT-$R.txt" MSG ||
-      ERROR "Commit cancelled by user"
-    test "$O" != "$MSG" &&
+    user_editor_on_var "COMMIT-$R.txt" MSG &&
+      test "$O" != "$MSG" ||
+	ERROR "Commit cancelled by user"
       ( set -x
 	jj commit -m "$MSG"
       ) || sleep 1
   else # R is @ and mutable
     [[ $IMMU =~ ^true ]] || {
-      user_editor_on_var "COMMIT-$R.txt" MSG ||
-	ERROR "Commit cancelled by user"
+      user_editor_on_var "COMMIT-$R.txt" MSG &&
+	test "$O" != "$MSG" ||
+	  ERROR "Commit cancelled by user"
       test "$O" != "$MSG" &&
 	( set -x
 	  jj describe --no-edit -r "$R" -m "$MSG"
