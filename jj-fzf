@@ -1,7 +1,7 @@
 #!/bin/bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: $*" >&2; sleep 1; exit 127 ; }
+SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: $*" >&2; exit 127 ; }
 SELF="$0"
 
 # == PREVIEW fast path ==
@@ -56,6 +56,7 @@ FZFSETTINGS=(
   --preview-window 'right,border-left'
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
+JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
 RELOAD="reload( exec $SELF loadlog {q} )"
 TEMPD=
 
@@ -648,48 +649,95 @@ line-history()
 KEYBINDINGS["Alt-L"]="line-history"
 
 # Merge into tracked bookmark
-DOC['merge-upstream']='Use `jj new TRACKED CURRENT` to create a marge commit from the first *TRACKED* bookmark and the selected *CURRENT* revision/bookmark.'
-merge-upstream()
+DOC['merging']='Start a dialog to select parents for a new merge commit, using `jj new REVISIONS...`. For exactly two parents, a default commit message is suggested. Commits with no description are ignored.'
+merging()
 (
-  R="$(xrev "${1:-@}")"
+  P="$(xrev "${1:-@}")"
   cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
-  C="$(rev_commitid "$R")"
-  BOOKMARK="$(rev_bookmarks "$R") $C" &&	# pick first bookmark name or $C
-    [[ $BOOKMARK =~ ([^ ]+) ]] && BOOKMARK="${BASH_REMATCH[1]}"
-  require_git_dir
-  # find upstream bookmark name
+  temp_dir
+  # Find tracked upstream revision
   [[ $(jj bookmark list -t) =~ ^([^\ :]+): ]] &&
-    DEST="${BASH_REMATCH[1]}" ||
-      DEST=
-  test -n "$DEST" || ERROR "failed to find tracked upstream bookmark (from jj bookmark list -t)"
-  # check for work in progress
-  git --no-pager diff -U0 "$DEST..$BOOKMARK" |	# examine all bookmark changes
-    egrep "^\+.*\b(XXX|WIP|FIXME)\b" &&	# work still to be done
-    WARN="(WARNING: merge diff contains WIP keywords)" ||
-      WARN=
-  # create merge msg
-  MSG=$( SEP="^^^^^^^^^"
-	 echo -e "# $SEP DRAFT:  merge $BOOKMARK into $DEST" \
-	      "${WARN:+$WARN}" "$SEP # DELETE THIS"
-	 echo -e "Merge branch '$BOOKMARK'\n\n* Branch commit log:"
-	 git log --pretty=$'\f%s%+b' "$DEST..$BOOKMARK" |
-	   sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
-	   sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /'
-	 echo_signoff
-     )
-  # edit merge msg
-  O="$MSG"
-  user_editor_on_var "MERGE-$R.txt" MSG &&
-    test "$O" != "$MSG" ||
+    UPSTREAM="${BASH_REMATCH[1]}" || UPSTREAM=
+  echo 0 > $TEMPD/upstream.toggle
+  export JJFZFONELINE REVPAT TEMPD UPSTREAM P
+  # Parse jj log lines into merging.revs
+  merging_revs()
+  (
+    declare -A counts_
+    echo -n > $TEMPD/merging.revs
+    test "$(cat $TEMPD/upstream.toggle)" -eq 1 -a -n "$UPSTREAM" &&
+      R=$(jj --no-pager --ignore-working-copy show --tool true -r "$UPSTREAM" -T 'if(description, change_id)') &&
+      test -n "$R" && {
+	echo "$UPSTREAM" >> $TEMPD/merging.revs
+	counts_["$R"]=1	# use change_id for deduplication
+      }
+    LINES=("$@") && REVERSED=() && reverse_array LINES REVERSED
+    for ARG in ". $P " "${REVERSED[@]}" ; do
+      [[ "$ARG" =~ $REVPAT ]] || continue
+      R=$(jj --no-pager --ignore-working-copy show --tool true -r "${BASH_REMATCH[1]}" -T 'if(description, change_id)')
+      test -n "$R" && test -z "${counts_[$R]:-}" || continue
+      echo "$R" >> $TEMPD/merging.revs
+      counts_["$R"]=1
+    done
+  )
+  # Preview merge command for merging.revs
+  merging_preview()
+  (
+    echo && echo jj new `cat $TEMPD/merging.revs` && echo
+    test "$(cat $TEMPD/upstream.toggle)" -eq 1 &&
+      echo "Upstream: $UPSTREAM" ||
+	echo ''
+    echo && echo 'Parents:'
+    while read R ; do
+      $JJFZFONELINE -r "$R"
+    done < $TEMPD/merging.revs
+  )
+  # Provide functions for FZF
+  export -f merging_revs merging_preview reverse_array
+  # FZF popup to select parent list
+  H=$'Select parents commits to merge\n'
+  H="$H""Alt-U: Toggle upstream bookmark as merge parent"$'\n'
+  export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
+  "${FZFPOPUP[@]}" \
+	  --preview "merging_revs {+} && merging_preview" \
+	  --header "$H" --header-first \
+	  --bind "alt-u:execute( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
+	  --no-tac --no-sort -m \
+	  --prompt "+> " > $TEMPD/selections.txt &&
+    mapfile -t selections < $TEMPD/selections.txt &&
+    merging_revs "${selections[@]}" &&
+    mapfile -t REVS < $TEMPD/merging.revs &&
+    test "${#REVS[@]}" -gt 0 ||
       ERROR "Merge commit cancelled by user"
-  # create merge
+  # Create merge message
+  JJNEW_ARGS=("${REVS[@]}")
+  test "${#REVS[@]}" -eq 2 && {
+    MSG=$( SEP="^^^^^^^^^"
+	   echo -e "# $SEP DRAFT:  merge ${REVS[1]} into ${REVS[0]}" \
+		"${WARN:+$WARN}" "$SEP # DELETE THIS"
+	   echo -e "Merge branch '${REVS[1]}'\n\n* Branch commit log:"
+	   git log --pretty=$'\f%s%+b' $(rev_commitid "${REVS[0]}")...$(rev_commitid "${REVS[1]}") |
+	     sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
+	     sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /'
+	   echo_signoff
+       )
+    # edit merge msg
+    O="$MSG"
+    user_editor_on_var "MERGE-MSG.txt" MSG &&
+      test "$O" != "$MSG" ||
+	ERROR "Merge commit cancelled by user"
+    JJNEW_ARGS+=(-m "$MSG")
+  }
+  # Merge revisions
   ( set -x
-    jj new -m "$MSG" "$DEST" "$BOOKMARK" &&
-      jj bookmark set -B -r @ "$DEST"
-  ) ||
-    sleep 1
+    jj new "${JJNEW_ARGS[@]}"
+  ) && {
+    test "$(cat $TEMPD/upstream.toggle)" -ne 1 ||
+      ( set -x
+	jj bookmark set -B -r @ "$UPSTREAM" )
+  } || sleep 1
 )
-KEYBINDINGS["Alt-M"]="merge-upstream"
+KEYBINDINGS["Alt-M"]="merging"		FIRSTS="$FIRSTS merging"
 
 # New --insert-before
 DOC['new-before']='Use `jj new --insert-before` to create and insert a new commit before the currently selected revision.'
@@ -1139,7 +1187,6 @@ TRACK=--track	# not in fzf-0.29
 FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
 
 # == RELOAD ==
-JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
 RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
 
 # == FZF ==
