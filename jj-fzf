@@ -349,8 +349,8 @@ loadlog()
 FUNCTIONS+=( 'loadlog' )
 
 # Toggle preview of evolution-log
-DOC['toggleevolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
-toggleevolog()
+DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
+toggle-evolog()
 {
   if test -n "${JJFZF_OUTER_TEMPD:-}" ; then
     if test -e "${JJFZF_OUTER_TEMPD:-}/evolog" ; then
@@ -360,7 +360,7 @@ toggleevolog()
     fi
   fi
 }
-KEYBINDINGS["Ctrl-T"]="toggleevolog"
+KEYBINDINGS["Ctrl-T"]="toggle-evolog"
 
 # Select Change ID
 selectchange()
