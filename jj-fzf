@@ -189,22 +189,23 @@ rev_children()
   jj --no-pager --ignore-working-copy log --no-graph -r "all: $1+" -T 'change_id++"\n"'
 )
 
-# diff_arrays A B C - store the elements from A without elements from B in C
+# diff_arrays BEFORE AFTER RESULT - store the elements from AFTER without elements from BEFORE in RESULT
 diff_arrays()
 {
-  local -n array_A_=$1
-  local -n array_B_=$2
-  local -n array_C_=$3
+  local -n array_O_=$1
+  local -n array_N_=$2
+  local -n array_R_=$3
   declare -A counts_
   # Mark elements in A
-  for elem in "${array_A_[@]}" ; do
+  for elem in "${array_O_[@]}" ; do
     counts_["$elem"]=1
   done
   # Add all of B to C if not in A
-  for elem in "${array_B_[@]}"; do
+  for elem in "${array_N_[@]}"; do
     test -z "${counts_[$elem]:-}" &&
-      array_C_+=("$elem")
+      array_R_+=("$elem") # || echo "SKIP: $elem : ${counts_[$elem]:-}"
   done
+  true
 }
 
 # Require .git directory and set GIT_DIR
