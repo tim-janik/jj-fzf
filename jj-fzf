@@ -53,7 +53,7 @@ FZFSETTINGS=(
   --bind 'home:first,end:last'
   --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
-  --preview-window 'right,border-left'
+  --preview-window 'wrap,right,border-left'
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
