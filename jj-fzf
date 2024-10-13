@@ -189,6 +189,17 @@ rev_children()
   jj --no-pager --ignore-working-copy log --no-graph -r "all: $1+" -T 'change_id++"\n"'
 )
 
+# reverse_array ORIG REVERSED - copy the elements from ORIG in REVERSED in reverse order
+reverse_array()
+{
+  local -n array_O_=$1
+  local -n array_R_=$2
+  # Loop in reverse order
+  for ((i=${#array_O_[@]}-1; i>=0; i--)); do
+    array_R_+=("${array_O_[i]}")
+  done
+}
+
 # diff_arrays BEFORE AFTER RESULT - store the elements from AFTER without elements from BEFORE in RESULT
 diff_arrays()
 {
