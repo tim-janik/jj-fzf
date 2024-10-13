@@ -1,7 +1,7 @@
 #!/bin/bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: $*" >&2; exit 127 ; }
+SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: $*" >&2; sleep 1; exit 127 ; }
 SELF="$0"
 
 # == PREVIEW fast path ==
@@ -175,12 +175,38 @@ xrev_or_commit()
 rev_bookmarks()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks))' -r "$1" )
 # Get revision description
 rev_description() ( $JJFZFSHOW -T 'concat(description)' -r "$1" )
+
 # Condense commit empty/description/parent state into a key word
 rev_edpstate()
 (
   export EDPSTATE='separate("-", if(empty, "empty", "diff"), if(description, "description", "silent"), "p" ++ self.parents().len()) ++ "\n"'
   $JJFZFSHOW -r "$1" -T "$EDPSTATE" # empty-description-p2 diff-silent-p1 etc
 )
+
+# List children of a revision
+rev_children()
+(
+  jj --no-pager --ignore-working-copy log --no-graph -r "all: $1+" -T 'change_id++"\n"'
+)
+
+# diff_arrays A B C - store the elements from A without elements from B in C
+diff_arrays()
+{
+  local -n array_A_=$1
+  local -n array_B_=$2
+  local -n array_C_=$3
+  declare -A counts_
+  # Mark elements in A
+  for elem in "${array_A_[@]}" ; do
+    counts_["$elem"]=1
+  done
+  # Add all of B to C if not in A
+  for elem in "${array_B_[@]}"; do
+    test -z "${counts_[$elem]:-}" &&
+      array_C_+=("$elem")
+  done
+}
+
 # Require .git directory and set GIT_DIR
 require_git_dir()
 {
@@ -392,27 +418,35 @@ bookmark()
 KEYBINDINGS["Alt-B"]="bookmark"
 
 # Commit (full)
-DOC['commit']='Use `jj commit` to describe the currently selected revision and create a new child revision.'
+DOC['commit']='Use `jj commit` to describe the currently selected revision and create a new child revision as working-copy.'
 commit()
 (
   R="$(xrev "${1:-@}")"
-  # Edit commit msg if mutable
+  W="$(xrev "@")"
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
-  [[ $IMMU =~ ^true ]] || {
-    MSG="$(echo_commit_msg "$R")"
-    O="$MSG"
+  MSG="$(echo_commit_msg "$R")"
+  O="$MSG"
+  if test "$R" == "$W" -a "$IMMU" != true ; then
     user_editor_on_var "COMMIT-$R.txt" MSG ||
       ERROR "Commit cancelled by user"
-    test "$O" != "$MSG" && (
-      set -x
-      jj describe --no-edit -r "$R" -m "$MSG"
-    ) ||
-      sleep 1
-  }
-  # open new empty working copy commit
-  jj new "$R"
+    test "$O" != "$MSG" &&
+      ( set -x
+	jj commit -m "$MSG"
+      ) || sleep 1
+  else # R is @ and mutable
+    [[ $IMMU =~ ^true ]] || {
+      user_editor_on_var "COMMIT-$R.txt" MSG ||
+	ERROR "Commit cancelled by user"
+      test "$O" != "$MSG" &&
+	( set -x
+	  jj describe --no-edit -r "$R" -m "$MSG"
+	) || sleep 1
+    }
+    # open new empty working copy commit
+    jj new "$R"
+  fi
 )
-KEYBINDINGS["Alt-C"]="commit"
+KEYBINDINGS["Alt-C"]="commit"		FIRSTS="$FIRSTS commit"
 
 # Delete Bookmarks and Tags
 DOC['delete-refs']='Use `jj bookmark list+delete` to list, selected and delete bookmarks and tags.'
@@ -563,16 +597,23 @@ split-interactive()
 KEYBINDINGS["Alt-I"]="split-interactive"
 
 # Backout Commit
-DOC['backout']='Use `jj backout` to create a new (disconnected) commit that reverts the currently selected revision.'
+DOC['backout']='Use `jj backout` to create a new commit on top of the currently selected revision that undoes the changes in its parent and becomes the new working-copy.'
 backout()
 (
   R="$(xrev "${1:-@}")"
+  A=( $(rev_children "$R") )
   ( set -x
-    jj backout -r "$R" -d "$R") ||
-    sleep 1
-  # TODO: move @ to $R
+    jj backout -r "$R" -d "$R"
+  ) || sleep 1
+  B=( $(rev_children "$R") )
+  C=() && diff_arrays A B C
+  [ ${#C[@]} -eq 1 ] ||
+    die "failed to find newly created backout revision"
+  ( set -x
+    jj edit -r "${C[0]}"
+  ) || sleep 1
 )
-KEYBINDINGS["Alt-K"]="backout"
+KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
 # Line History
 DOC['line-history']='WIP: View history of each line.'
@@ -898,16 +939,23 @@ log()
 KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
-DOC['duplicate']='Use `jj duplicate` to duplicate the selected revision by creating a new commit with the same changes.'
+DOC['duplicate']='Use `jj duplicate` to duplicate the selected revision by creating a new commit with the same changes that becomes the new working-copy.'
 duplicate()
 (
   R="$(xrev "${1:-@}")"
+  A=( $(rev_children "$R-") )
   ( set -x
     jj duplicate "$R"
-  ) ||
-    sleep 1
+  ) || sleep 1
+  B=( $(rev_children "$R-") )
+  C=() && diff_arrays A B C
+  [ ${#C[@]} -eq 1 ] ||
+    die "failed to find newly created revision duplicate"
+  ( set -x
+    jj edit -r "${C[0]}"
+  ) || sleep 1
 )
-KEYBINDINGS["Alt-U"]="duplicate"
+KEYBINDINGS["Alt-U"]="duplicate"	FIRSTS="$FIRSTS duplicate"
 
 # vivifydivergent
 DOC['vivifydivergent']='When a revision has more than one visible commit, it becomes a divergent revision. This command uses `jj new+squash …` to create a new *change_id* for the currently selected divergent revision, effectively resolving the divergence.'
