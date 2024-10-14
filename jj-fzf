@@ -1130,14 +1130,15 @@ jj_config >"$TEMPD/jjfzfconfig.toml"
 export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
 
 export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
-exec fzf \
-     "${FZFSETTINGS[@]}" \
-     --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
-     --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
-     --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
-     "${BIND[@]}" \
-     $TRACK \
-     --preview " exec $SELF preview {} {q} " \
-     --header "$HEADER" --header-first \
-     --prompt '  :: > ' \
-     --no-tac --no-sort +m
+fzf \
+  "${FZFSETTINGS[@]}" \
+  --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
+  --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
+  --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
+  "${BIND[@]}" \
+  $TRACK \
+  --preview " exec $SELF preview {} {q} " \
+  --header "$HEADER" --header-first \
+  --prompt '  :: > ' \
+  --no-tac --no-sort +m
+# Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
