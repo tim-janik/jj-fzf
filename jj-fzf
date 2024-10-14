@@ -483,7 +483,7 @@ delete-refs()
       B=()
   DEL=$("${FZFPOPUP[@]}" \
   	  --prompt "Delete > " \
-	  --header "Delete Bookmarks or Tags" --header-first \
+	  --header $'\n'"Delete selected Bookmark or Tag" --header-first \
 	  --no-tac --no-sort +m \
 	  -d: --nth 1 "${B[@]}" \
 	  < <(
@@ -700,20 +700,20 @@ merging()
   # Provide functions for FZF
   export -f merging_revs merging_preview reverse_array
   # FZF popup to select parent list
-  H=$'Select parents commits to merge\n'
-  H="$H""Alt-U: Toggle upstream bookmark as merge parent"$'\n'
+  H=$'\n'
+  H="$H""Alt-U: Toggle merging into Upstream bookmark"$'\n'
   export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
   "${FZFPOPUP[@]}" \
 	  --preview "merging_revs {+} && merging_preview" \
+	  --prompt "Merge +> " \
 	  --header "$H" --header-first \
 	  --bind "alt-u:execute( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
-	  --no-tac --no-sort -m \
-	  --prompt "+> " > $TEMPD/selections.txt &&
+	  --no-tac --no-sort -m > $TEMPD/selections.txt &&
     mapfile -t selections < $TEMPD/selections.txt &&
     merging_revs "${selections[@]}" &&
     mapfile -t REVS < $TEMPD/merging.revs &&
     test "${#REVS[@]}" -gt 0 ||
-      ERROR "Merge commit cancelled by user"
+      exit # Merge cancelled
   # Create merge message
   JJNEW_ARGS=("${REVS[@]}")
   test "${#REVS[@]}" -eq 2 && {
@@ -775,16 +775,18 @@ op-log()
   RELOAD="reload( exec jj op log --color=always )"
   temp_dir
   echo > $TEMPD/oplog.env
-  H="jj op log"$'\n'
+  H=$'\n'
   H="$H""Ctrl-D: Preview diff of '@' at a specific operation"$'\n'
   H="$H""Ctrl-L: Preview history at a specific operation"$'\n'
   H="$H""Ctrl-E: Preview the oplog entry of an operation"$'\n'
+  H="$H"$'\n'
   H="$H""Alt-W: Restore working copy of the selected operation into a new commit"$'\n'
   H="$H""Alt-Z: Undo the selected operation entry"$'\n'
   echo 'VIEW=diff@oplog'		>> $TEMPD/oplog.env
   export JJFZFONELINE
   "${FZFPOPUP[@]}" \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
+    --prompt "Operation > " \
     --header "$H" --header-first \
     --bind "ctrl-d:execute( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
