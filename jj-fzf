@@ -111,6 +111,19 @@ jj_config() {
 	    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
 	  "\n",
 	)'''
+	# Simple oneline version for the oplog; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+	jj_fzf_oplog_oneline = '''
+	label(if(current_operation, "current_operation"),
+	  coalesce(
+	    if(root, format_root_operation(self)),
+	    concat(
+	      separate(" ", self.id().short(), self.user(), self.time().start().ago()), " ",
+	      self.description().first_line(), " ",
+	      if(self.tags(), self.tags().first_line()),
+	    ),
+	  )
+	)'''
+	# Adjust colors for FZF display
 	[colors]
 	# "node working_copy" = { fg = "red", bold = true }
 	"empty" = "blue"
@@ -755,37 +768,34 @@ op-log()
   H=$'\n'
   H="$H""Ctrl-D: Preview diff of '@' at a specific operation"$'\n'
   H="$H""Ctrl-L: Preview history at a specific operation"$'\n'
-  H="$H""Ctrl-E: Preview the oplog entry of an operation"$'\n'
   H="$H"$'\n'
   H="$H""Alt-W: Restore working copy of the selected operation into a new commit"$'\n'
   H="$H""Alt-Z: Undo the selected operation entry"$'\n'
   echo 'VIEW=diff@oplog'		>> $TEMPD/oplog.env
-  export JJFZFONELINE
+  export FZF_DEFAULT_COMMAND="jj --no-pager --ignore-working-copy op log --color=always -T jj_fzf_oplog_oneline"
   "${FZFPOPUP[@]}" \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
     --prompt "Operation > " \
     --header "$H" --header-first \
     --bind "ctrl-d:execute( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=log@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-e:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-w:execute( $SELF wdrestore@oplog {} )+abort" \
     --bind "alt-z:execute( $SELF undo-op@oplog {} )+abort" \
-    --no-tac --no-sort +m \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
-    < <( jj op log --color=always -T "$OPLOG_ONELINE" )
-  rm -f $TEMPD/oplog.env
+    --no-tac --no-sort +m
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
 log@oplog()
 (
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
   "${JJLOGCMD[@]}"
 )
 FUNCTIONS+=( 'log@oplog' )
 
 diff@oplog()
 (
-  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
   if tty -s ; then
     { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
@@ -796,12 +806,6 @@ diff@oplog()
   fi
 )
 FUNCTIONS+=( 'diff@oplog' )
-
-show@oplog()
-(
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-)
-FUNCTIONS+=( 'show@oplog' )
 
 undo-op@oplog()
 (
