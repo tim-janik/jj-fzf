@@ -41,7 +41,6 @@ sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
 
 # == Config ==
 declare -A DOC
-STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
@@ -62,7 +61,6 @@ FZFSETTINGS=(
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
-RELOAD="reload( exec $SELF loadlog {q} )"
 TEMPD=
 
 # == JJ_CONFIG ==
@@ -312,46 +310,6 @@ user_editor_on_var()
   return 1
 }
 
-# == Oneline Template ==
-# https://github.com/martinvonz/jj/blob/main/docs/templates.md#commit-type
-# https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml # builtin_log_oneline
-JJFZF_ONELINE='
-if(root,
-  format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
-    concat(
-      separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(self),
-        if(author.email(), author.username(), email_placeholder),
-        committer.timestamp().local().format("%Y-%m-%d"),
-        format_short_commit_id(commit_id),
-        bookmarks,
-        tags,
-        working_copies,
-        git_head,
-        if(conflict, label("conflict", "conflict")),
-        if(empty, label("empty", "(empty)")),
-        if(description,
-          description.first_line(),
-          label(if(empty, "empty"), description_placeholder),
-        ),
-      ) ++ "\n",
-    ),
-  )
-)' # ◇⚿
-OPLOG_ONELINE='
-label(if(current_operation, "current_operation"),
-  coalesce(
-    if(root, format_root_operation(self)),
-    concat(
-      separate(" ", self.id().short(), self.user(), self.time().start().ago()), " ",
-      self.description().first_line(), " ",
-      if(self.tags(), self.tags().first_line()),
-    ),
-  )
-)
-'
-
 # == Functions ==
 FUNCTIONS=()
 declare -A KEYBINDINGS
@@ -370,29 +328,6 @@ toggle-evolog()
   fi
 }
 KEYBINDINGS["Ctrl-T"]="toggle-evolog"
-
-# Select Change ID
-selectchange()
-(
-  STARTQUERY="${1:- recent7 }"
-  PROMPT="${2:-> }"
-  PREVIEW="${3:-}"
-  HEADER="${4:-}"
-  test -n "$PREVIEW" || PREVIEW="$SELF preview {} {q}"
-  REV=$("${FZFPOPUP[@]}" \
-	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
-	  --prompt "$PROMPT" \
-	  --header "$HEADER" --header-first \
-	  --no-tac --no-sort +m --disabled \
-	  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
-	  < <( $SELF loadlog "$STARTQUERY" )
-     ) &&
-    [[ "$REV" =~ $REVPAT ]] &&
-    echo "${BASH_REMATCH[1]}" &&
-    exit 0
-  exit 1
-)
-FUNCTIONS+=( 'selectchange' )
 
 # Abandon Revision
 DOC['abandon']='Use `jj abandon` to remove the currently selected revision (or divergent commit) from the history.'
