@@ -344,28 +344,6 @@ FUNCTIONS=()
 declare -A KEYBINDINGS
 FIRSTS=""
 
-loadlog()
-(
-  cd "$JJROOT" # create root relative file names
-  {
-    if test -z "${1:-}" ; then
-      # empty query, show all
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r '::'
-    elif jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
-      # use valid revset
-      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r "$1"
-    else
-      # search pattern, filter on top of all entries
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r :: | {
-	grep -P "$1" || # invalid patterns like '*' show full log
-	  cat # -P '^\W*$|'"$1"
-      }
-      # TODO: squash entire description into oneline for grep
-    fi
-  }
-)
-FUNCTIONS+=( 'loadlog' )
-
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
 toggle-evolog()
@@ -788,7 +766,7 @@ op-log()
     --prompt "Operation > " \
     --header "$H" --header-first \
     --bind "ctrl-d:execute( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=log@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-e:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-w:execute( $SELF wdrestore@oplog {} )+abort" \
     --bind "alt-z:execute( $SELF undo-op@oplog {} )+abort" \
@@ -798,6 +776,12 @@ op-log()
   rm -f $TEMPD/oplog.env
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
+
+log@oplog()
+(
+  "${JJLOGCMD[@]}"
+)
+FUNCTIONS+=( 'log@oplog' )
 
 diff@oplog()
 (
