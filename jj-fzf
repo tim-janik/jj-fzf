@@ -246,10 +246,6 @@ require_git_dir()
 	  die "$PWD: failed to find .git store"
     }
 }
-MESSAGE()
-{
-  echo "#${FUNC:+ $FUNC:}" "$*"
-}
 ERROR()
 {
   FUNC="${FUNC:-$0}"
@@ -857,10 +853,8 @@ rebasing()
       REV=
   test -n "$REV" || exit 0
   REV="$(rev_changeid "$REV")"
-  COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$REV & ::$S) ") # maybe >1
   . $TEMPD/rebasing.env
   rm -f TEMPD/rebasing.env
-  MESSAGE "COMMON='$COMMON' $FR $S $TO $REV"
   ( set -x
     jj rebase $FR "$S" $TO "$REV"
   ) || sleep 1
