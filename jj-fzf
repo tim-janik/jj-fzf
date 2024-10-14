@@ -921,10 +921,12 @@ log()
 KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
-DOC['duplicate']='Use `jj duplicate` to duplicate the selected revision by creating a new commit with the same changes that becomes the new working-copy.'
+DOC['duplicate']='Use `jj duplicate` to duplicate the changes of the currently selected revision and applies the changes on top of the working-copy.'
 duplicate()
 (
   R="$(xrev "${1:-@}")"
+  W="$(xrev "@")"
+  test "$R" == "$W" && exit
   A=( $(rev_children "$R-") )
   ( set -x
     jj duplicate "$R"
@@ -934,7 +936,8 @@ duplicate()
   [ ${#C[@]} -eq 1 ] ||
     die "failed to find newly created revision duplicate"
   ( set -x
-    jj edit -r "${C[0]}"
+    jj new
+    jj squash --from "${C[0]}"
   ) || sleep 1
 )
 KEYBINDINGS["Alt-U"]="duplicate"	FIRSTS="$FIRSTS duplicate"
