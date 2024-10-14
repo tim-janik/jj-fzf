@@ -429,9 +429,8 @@ bookmark()
     S='set -B' || S='create'
   ( set -x
     jj bookmark $S "$B" -r "$R"
-    jj git export --quiet
-  ) ||
-    sleep 1
+  ) && jj git export --quiet ||
+      sleep 1
 )
 KEYBINDINGS["Alt-B"]="bookmark"
 
@@ -505,12 +504,12 @@ delete-refs()
     echo "bookmark list check: $?"
     if set +o pipefail && jj --ignore-working-copy bookmark list | fgrep -q "$DEL:" ; then
       ( set -x
-	jj bookmark delete $DEL
-	jj git export --quiet )
+	jj bookmark delete $DEL )
+      jj git export --quiet
     else
       ( set -x
-	git tag -d "$DEL"
-	jj git import --quiet )
+	git tag -d "$DEL" )
+      jj git import --quiet
     fi
   ) ||
     sleep 1
@@ -977,9 +976,9 @@ tag()
   M="$(git log -1 --oneline "$C")"
   ( set -x
     git tag -a "$B" -m "$M" "$C"
-    jj git import --quiet
-  ) ||
-    sleep 1
+  ) &&
+    jj git import --quiet ||
+      sleep 1
 )
 KEYBINDINGS["Alt-T"]="tag"
 
