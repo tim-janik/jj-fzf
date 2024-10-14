@@ -451,6 +451,18 @@ diffedit()
 )
 KEYBINDINGS["Alt-E"]="diffedit"
 
+# Reset commit author
+DOC['author-reset']='Use `jj describe --reset-author` to reset the author and email of the currently selected revision.'
+author-reset()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj describe --reset-author --no-edit -r "$R"
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Ctrl-A"]="author-reset"
+
 # Describe Commit Message
 DOC['describe']='Use `jj describe` to describe the currently selected revision.'
 describe()
