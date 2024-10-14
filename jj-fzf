@@ -916,10 +916,10 @@ rebasing()
   H="$H""Alt-D: DESTINATION - The revision to rebase onto"$'\n'
   H="$H""Alt-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Alt-E: BEFORE      - The revision to insert before"$'\n'
-  STARTQUERY="recent7 ~ $S"
+  export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
   REV=$("${FZFPOPUP[@]}" \
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
-	  --prompt "> " \
+	  --prompt "Rebase > " \
 	  --header "$H" --header-first \
 	  --bind "alt-b:execute( sed 's/^FR=.*/FR=--branch/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-s:execute( sed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
@@ -927,9 +927,7 @@ rebasing()
 	  --bind "alt-d:execute( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-a:execute( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-e:execute( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --no-tac --no-sort +m --disabled \
-	  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
-	  < <( $SELF loadlog "$STARTQUERY" )) &&
+	  --no-tac --no-sort +m ) &&
     [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
       REV=
