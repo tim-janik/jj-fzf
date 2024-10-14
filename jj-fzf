@@ -1141,3 +1141,4 @@ fzf \
   --header "$HEADER" --header-first \
   --prompt '  :: > ' \
   --no-tac --no-sort +m
+# Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
