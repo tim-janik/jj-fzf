@@ -5,7 +5,7 @@ SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **
 SELF="$0"
 
 # == PREVIEW fast path ==
-export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# lines start, ignore --graph, parse revision letters, catch '??'-postfix
+export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
 if test -n "${JJFZF_OUTER_TEMPD:-}" -a -n "${JJ_CONFIG:-}" \
 	-a "${1:-}" == preview					# preview command, nested invocation
 then
@@ -34,9 +34,13 @@ then
   exit 0
 fi
 
+# == Check Deps ==
+jj --version | grep -Eq 'jj [1-9]\.|jj 0\.2[2-9]\.|jj 0.[3-9][0-9]' || die 'jj-0.22 is required'
+fzf --help | grep -Fq ' --header-first' || die 'fzf-0.29 is required'
+sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
+
 # == Config ==
 declare -A DOC
-STARTQUERY="recent7"	# query must include heads(mutable()) to observe duplicate/backout/etc results
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
@@ -57,7 +61,6 @@ FZFSETTINGS=(
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
-RELOAD="reload( exec $SELF loadlog {q} )"
 TEMPD=
 
 # == JJ_CONFIG ==
@@ -106,6 +109,19 @@ jj_config() {
 	    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
 	  "\n",
 	)'''
+	# Simple oneline version for the oplog; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+	jj_fzf_oplog_oneline = '''
+	label(if(current_operation, "current_operation"),
+	  coalesce(
+	    if(root, format_root_operation(self)),
+	    concat(
+	      separate(" ", self.id().short(), self.user(), self.time().start().ago()), " ",
+	      self.description().first_line(), " ",
+	      if(self.tags(), self.tags().first_line()),
+	    ),
+	  )
+	)'''
+	# Adjust colors for FZF display
 	[colors]
 	# "node working_copy" = { fg = "red", bold = true }
 	"empty" = "blue"
@@ -230,10 +246,6 @@ require_git_dir()
 	  die "$PWD: failed to find .git store"
     }
 }
-MESSAGE()
-{
-  echo "#${FUNC:+ $FUNC:}" "$*"
-}
 ERROR()
 {
   FUNC="${FUNC:-$0}"
@@ -294,72 +306,10 @@ user_editor_on_var()
   return 1
 }
 
-# == Oneline Template ==
-# https://github.com/martinvonz/jj/blob/main/docs/templates.md#commit-type
-# https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml # builtin_log_oneline
-JJFZF_ONELINE='
-if(root,
-  format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
-    concat(
-      separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(self),
-        if(author.email(), author.username(), email_placeholder),
-        committer.timestamp().local().format("%Y-%m-%d"),
-        format_short_commit_id(commit_id),
-        bookmarks,
-        tags,
-        working_copies,
-        git_head,
-        if(conflict, label("conflict", "conflict")),
-        if(empty, label("empty", "(empty)")),
-        if(description,
-          description.first_line(),
-          label(if(empty, "empty"), description_placeholder),
-        ),
-      ) ++ "\n",
-    ),
-  )
-)' # ◇⚿
-OPLOG_ONELINE='
-label(if(current_operation, "current_operation"),
-  coalesce(
-    if(root, format_root_operation(self)),
-    concat(
-      separate(" ", self.id().short(), self.user(), self.time().start().ago()), " ",
-      self.description().first_line(), " ",
-      if(self.tags(), self.tags().first_line()),
-    ),
-  )
-)
-'
-
 # == Functions ==
 FUNCTIONS=()
 declare -A KEYBINDINGS
 FIRSTS=""
-
-loadlog()
-(
-  cd "$JJROOT" # create root relative file names
-  {
-    if test -z "${1:-}" ; then
-      # empty query, show all
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r '::'
-    elif jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy log --no-graph -T 'change_id' -r "$1" >/dev/null 2>&1 ; then
-      # use valid revset
-      jj --config-toml "$TOMLCFG" --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r "$1"
-    else
-      # search pattern, filter on top of all entries
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T "$JJFZF_ONELINE" -r :: | {
-	grep -P "$1" || # invalid patterns like '*' show full log
-	  cat # -P '^\W*$|'"$1"
-      }
-      # TODO: squash entire description into oneline for grep
-    fi
-  }
-)
-FUNCTIONS+=( 'loadlog' )
 
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
@@ -374,29 +324,6 @@ toggle-evolog()
   fi
 }
 KEYBINDINGS["Ctrl-T"]="toggle-evolog"
-
-# Select Change ID
-selectchange()
-(
-  STARTQUERY="${1:- recent7 }"
-  PROMPT="${2:-> }"
-  PREVIEW="${3:-}"
-  HEADER="${4:-}"
-  test -n "$PREVIEW" || PREVIEW="$SELF preview {} {q}"
-  REV=$("${FZFPOPUP[@]}" \
-	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
-	  --prompt "$PROMPT" \
-	  --header "$HEADER" --header-first \
-	  --no-tac --no-sort +m --disabled \
-	  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
-	  < <( $SELF loadlog "$STARTQUERY" )
-     ) &&
-    [[ "$REV" =~ $REVPAT ]] &&
-    echo "${BASH_REMATCH[1]}" &&
-    exit 0
-  exit 1
-)
-FUNCTIONS+=( 'selectchange' )
 
 # Abandon Revision
 DOC['abandon']='Use `jj abandon` to remove the currently selected revision (or divergent commit) from the history.'
@@ -424,9 +351,8 @@ bookmark()
     S='set -B' || S='create'
   ( set -x
     jj bookmark $S "$B" -r "$R"
-    jj git export --quiet
-  ) ||
-    sleep 1
+  ) && jj git export --quiet ||
+      sleep 1
 )
 KEYBINDINGS["Alt-B"]="bookmark"
 
@@ -478,7 +404,7 @@ delete-refs()
       B=()
   DEL=$("${FZFPOPUP[@]}" \
   	  --prompt "Delete > " \
-	  --header "Delete Bookmarks or Tags" --header-first \
+	  --header $'\n'"Delete selected Bookmark or Tag" --header-first \
 	  --no-tac --no-sort +m \
 	  -d: --nth 1 "${B[@]}" \
 	  < <(
@@ -500,12 +426,12 @@ delete-refs()
     echo "bookmark list check: $?"
     if set +o pipefail && jj --ignore-working-copy bookmark list | fgrep -q "$DEL:" ; then
       ( set -x
-	jj bookmark delete $DEL
-	jj git export --quiet )
+	jj bookmark delete $DEL )
+      jj git export --quiet
     else
       ( set -x
-	git tag -d "$DEL"
-	jj git import --quiet )
+	git tag -d "$DEL" )
+      jj git import --quiet
     fi
   ) ||
     sleep 1
@@ -695,20 +621,20 @@ merging()
   # Provide functions for FZF
   export -f merging_revs merging_preview reverse_array
   # FZF popup to select parent list
-  H=$'Select parents commits to merge\n'
-  H="$H""Alt-U: Toggle upstream bookmark as merge parent"$'\n'
+  H=$'\n'
+  H="$H""Alt-U: Toggle merging into Upstream bookmark"$'\n'
   export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
   "${FZFPOPUP[@]}" \
 	  --preview "merging_revs {+} && merging_preview" \
+	  --prompt "Merge +> " \
 	  --header "$H" --header-first \
 	  --bind "alt-u:execute( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
-	  --no-tac --no-sort -m \
-	  --prompt "+> " > $TEMPD/selections.txt &&
+	  --no-tac --no-sort -m > $TEMPD/selections.txt &&
     mapfile -t selections < $TEMPD/selections.txt &&
     merging_revs "${selections[@]}" &&
     mapfile -t REVS < $TEMPD/merging.revs &&
     test "${#REVS[@]}" -gt 0 ||
-      ERROR "Merge commit cancelled by user"
+      exit # Merge cancelled
   # Create merge message
   JJNEW_ARGS=("${REVS[@]}")
   test "${#REVS[@]}" -eq 2 && {
@@ -770,32 +696,37 @@ op-log()
   RELOAD="reload( exec jj op log --color=always )"
   temp_dir
   echo > $TEMPD/oplog.env
-  H="jj op log"$'\n'
+  H=$'\n'
   H="$H""Ctrl-D: Preview diff of '@' at a specific operation"$'\n'
   H="$H""Ctrl-L: Preview history at a specific operation"$'\n'
-  H="$H""Ctrl-E: Preview the oplog entry of an operation"$'\n'
+  H="$H"$'\n'
   H="$H""Alt-W: Restore working copy of the selected operation into a new commit"$'\n'
   H="$H""Alt-Z: Undo the selected operation entry"$'\n'
   echo 'VIEW=diff@oplog'		>> $TEMPD/oplog.env
-  export JJFZFONELINE
+  export FZF_DEFAULT_COMMAND="jj --no-pager --ignore-working-copy op log --color=always -T jj_fzf_oplog_oneline"
   "${FZFPOPUP[@]}" \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
+    --prompt "Operation > " \
     --header "$H" --header-first \
     --bind "ctrl-d:execute( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=loadlog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-e:execute( sed 's/^VIEW=.*/VIEW=show@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=log@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-w:execute( $SELF wdrestore@oplog {} )+abort" \
     --bind "alt-z:execute( $SELF undo-op@oplog {} )+abort" \
-    --no-tac --no-sort +m \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
-    < <( jj op log --color=always -T "$OPLOG_ONELINE" )
-  rm -f $TEMPD/oplog.env
+    --no-tac --no-sort +m
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
+log@oplog()
+(
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
+  "${JJLOGCMD[@]}"
+)
+FUNCTIONS+=( 'log@oplog' )
+
 diff@oplog()
 (
-  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
   if tty -s ; then
     { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
@@ -806,12 +737,6 @@ diff@oplog()
   fi
 )
 FUNCTIONS+=( 'diff@oplog' )
-
-show@oplog()
-(
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-)
-FUNCTIONS+=( 'show@oplog' )
 
 undo-op@oplog()
 (
@@ -911,10 +836,10 @@ rebasing()
   H="$H""Alt-D: DESTINATION - The revision to rebase onto"$'\n'
   H="$H""Alt-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Alt-E: BEFORE      - The revision to insert before"$'\n'
-  STARTQUERY="recent7 ~ $S"
+  export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
   REV=$("${FZFPOPUP[@]}" \
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
-	  --prompt "> " \
+	  --prompt "Rebase > " \
 	  --header "$H" --header-first \
 	  --bind "alt-b:execute( sed 's/^FR=.*/FR=--branch/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-s:execute( sed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
@@ -922,18 +847,14 @@ rebasing()
 	  --bind "alt-d:execute( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-a:execute( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-e:execute( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --no-tac --no-sort +m --disabled \
-	  --bind "change:$RELOAD+refresh-preview" -q "$STARTQUERY" \
-	  < <( $SELF loadlog "$STARTQUERY" )) &&
+	  --no-tac --no-sort +m ) &&
     [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
       REV=
   test -n "$REV" || exit 0
   REV="$(rev_changeid "$REV")"
-  COMMON=$(jj --ignore-working-copy log --no-graph -T 'change_id++" "' -r " heads(::$REV & ::$S) ") # maybe >1
   . $TEMPD/rebasing.env
   rm -f TEMPD/rebasing.env
-  MESSAGE "COMMON='$COMMON' $FR $S $TO $REV"
   ( set -x
     jj rebase $FR "$S" $TO "$REV"
   ) || sleep 1
@@ -972,9 +893,9 @@ tag()
   M="$(git log -1 --oneline "$C")"
   ( set -x
     git tag -a "$B" -m "$M" "$C"
-    jj git import --quiet
-  ) ||
-    sleep 1
+  ) &&
+    jj git import --quiet ||
+      sleep 1
 )
 KEYBINDINGS["Alt-T"]="tag"
 
@@ -1206,14 +1127,14 @@ jj_config >"$TEMPD/jjfzfconfig.toml"
 export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
 
 export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
-fzf \
-  "${FZFSETTINGS[@]}" \
-  --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
-  --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
-  --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
-  "${BIND[@]}" \
-  $TRACK \
-  --preview " exec $SELF preview {} {q} " \
-  --header "$HEADER" --header-first \
-  --prompt '  :: > ' \
-  --no-tac --no-sort +m
+exec fzf \
+     "${FZFSETTINGS[@]}" \
+     --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
+     --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
+     --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
+     "${BIND[@]}" \
+     $TRACK \
+     --preview " exec $SELF preview {} {q} " \
+     --header "$HEADER" --header-first \
+     --prompt '  :: > ' \
+     --no-tac --no-sort +m
