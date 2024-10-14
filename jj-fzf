@@ -144,6 +144,7 @@ temp_dir()
   test -n "$TEMPD" || {
     TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
     trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
+    echo "$$" > $TEMPD/jj-fzf.pid
   }
 }
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
