@@ -930,24 +930,28 @@ log()
 KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
-DOC['duplicate']='Use `jj duplicate` to duplicate the changes of the currently selected revision and applies the changes on top of the working-copy.'
+DOC['duplicate']='Use `jj duplicate` to duplicate the changes of the currently selected revision and apply the changes on top of the working-copy.'
 duplicate()
 (
   R="$(xrev "${1:-@}")"
+  # ensure empty working copy
+  test $(rev_edpstate @) == empty-silent-p1 || {
+    ( set -x; jj new ) || die
+  }
+  # record working-copy and children before/after, then duplicate
   W="$(xrev "@")"
-  test "$R" == "$W" && exit
   A=( $(rev_children "$R-") )
   ( set -x
     jj duplicate "$R"
-  ) || sleep 1
+  ) || die
   B=( $(rev_children "$R-") )
+  # find duplicate commit, move into @-
   C=() && diff_arrays A B C
   [ ${#C[@]} -eq 1 ] ||
     die "failed to find newly created revision duplicate"
   ( set -x
-    jj new
-    jj squash --from "${C[0]}"
-  ) || sleep 1
+    jj rebase -r "${C[0]}" --insert-before "$W"
+  ) || die
 )
 KEYBINDINGS["Alt-U"]="duplicate"	FIRSTS="$FIRSTS duplicate"
 
