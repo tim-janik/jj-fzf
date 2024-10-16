@@ -541,21 +541,26 @@ split-interactive()
 KEYBINDINGS["Alt-I"]="split-interactive"
 
 # Backout Commit
-DOC['backout']='Use `jj backout` to create a new commit that undoes the changes made by the currently selected revision and applies the changes on top of the working-copy.'
+DOC['backout']='Use `jj backout` to create a new commit that undoes the changes made by the currently selected revision and apply the changes on top of the working-copy.'
 backout()
 (
   R="$(xrev "${1:-@}")"
-  A=( $(rev_children "@") )
+  # use working copy as destination, unless it is empty
+  test $(rev_edpstate @) == empty-silent-p1 &&
+    D=@- ||
+      D=@
+  # record working-copy and children before/after, then backout
+  A=( $(rev_children "$D") )
   ( set -x
-    jj backout -r "$R" -d "@"
-  ) || sleep 1
-  B=( $(rev_children "@") )
+    jj backout -r "$R" -d "$D"
+  ) || die
+  B=( $(rev_children "$D") )
   C=() && diff_arrays A B C
   [ ${#C[@]} -eq 1 ] ||
     die "failed to find newly created backout revision"
   ( set -x
-    jj edit -r "${C[0]}"
-  ) || sleep 1
+    jj new "${C[0]}"
+  ) || die
 )
 KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
