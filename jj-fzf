@@ -817,6 +817,23 @@ split-files()
 )
 KEYBINDINGS["Alt-F"]="split-files"
 
+# Fetch and push to remote Git repositories
+DOC['push-remote']='Use `jj git fetch --all-remotes` and `jj git push --tracked` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
+push-remote()
+(
+  ( set -x
+    jj git fetch --all-remotes
+    jj git push --tracked --dry-run
+  ) || die
+  read -p 'Really push to remote? ' YN
+  [[ "${YN:0:1}" =~ [yY] ]] && {
+    ( set -x
+      jj git push --tracked
+    ) || die
+  }
+)
+KEYBINDINGS["Ctrl-P"]="push-remote"
+
 # Squash Commits
 DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision into its parent.'
 squash-into-parent()
