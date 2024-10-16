@@ -1,7 +1,7 @@
 #!/bin/bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: $*" >&2; exit 127 ; }
+SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 SELF="$0"
 
 # == PREVIEW fast path ==
@@ -541,21 +541,26 @@ split-interactive()
 KEYBINDINGS["Alt-I"]="split-interactive"
 
 # Backout Commit
-DOC['backout']='Use `jj backout` to create a new commit that undoes the changes made by the currently selected revision and applies the changes on top of the working-copy.'
+DOC['backout']='Use `jj backout` to create a new commit that undoes the changes made by the currently selected revision and apply the changes on top of the working-copy.'
 backout()
 (
   R="$(xrev "${1:-@}")"
-  A=( $(rev_children "@") )
+  # use working copy as destination, unless it is empty
+  test $(rev_edpstate @) == empty-silent-p1 &&
+    D=@- ||
+      D=@
+  # record working-copy and children before/after, then backout
+  A=( $(rev_children "$D") )
   ( set -x
-    jj backout -r "$R" -d "@"
-  ) || sleep 1
-  B=( $(rev_children "@") )
+    jj backout -r "$R" -d "$D"
+  ) || die
+  B=( $(rev_children "$D") )
   C=() && diff_arrays A B C
   [ ${#C[@]} -eq 1 ] ||
     die "failed to find newly created backout revision"
   ( set -x
-    jj edit -r "${C[0]}"
-  ) || sleep 1
+    jj new "${C[0]}"
+  ) || die
 )
 KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
@@ -925,24 +930,28 @@ log()
 KEYBINDINGS["Ctrl-L"]="log"
 
 # Duplicate Commit
-DOC['duplicate']='Use `jj duplicate` to duplicate the changes of the currently selected revision and applies the changes on top of the working-copy.'
+DOC['duplicate']='Use `jj duplicate` to duplicate the changes of the currently selected revision and apply the changes on top of the working-copy.'
 duplicate()
 (
   R="$(xrev "${1:-@}")"
+  # ensure empty working copy
+  test $(rev_edpstate @) == empty-silent-p1 || {
+    ( set -x; jj new ) || die
+  }
+  # record working-copy and children before/after, then duplicate
   W="$(xrev "@")"
-  test "$R" == "$W" && exit
   A=( $(rev_children "$R-") )
   ( set -x
     jj duplicate "$R"
-  ) || sleep 1
+  ) || die
   B=( $(rev_children "$R-") )
+  # find duplicate commit, move into @-
   C=() && diff_arrays A B C
   [ ${#C[@]} -eq 1 ] ||
     die "failed to find newly created revision duplicate"
   ( set -x
-    jj new
-    jj squash --from "${C[0]}"
-  ) || sleep 1
+    jj rebase -r "${C[0]}" --insert-before "$W"
+  ) || die
 )
 KEYBINDINGS["Alt-U"]="duplicate"	FIRSTS="$FIRSTS duplicate"
 
