@@ -451,6 +451,18 @@ diffedit()
 )
 KEYBINDINGS["Alt-E"]="diffedit"
 
+# Reset commit author
+DOC['author-reset']='Use `jj describe --reset-author` to reset the author and email of the currently selected revision.'
+author-reset()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj describe --reset-author --no-edit -r "$R"
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Ctrl-A"]="author-reset"
+
 # Describe Commit Message
 DOC['describe']='Use `jj describe` to describe the currently selected revision.'
 describe()
@@ -805,7 +817,24 @@ split-files()
 )
 KEYBINDINGS["Alt-F"]="split-files"
 
-# Squash Commits
+# Fetch and push to remote Git repositories
+DOC['push-remote']='Use `jj git fetch --all-remotes` and `jj git push --tracked` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
+push-remote()
+(
+  ( set -x
+    jj git fetch --all-remotes
+    jj git push --tracked --dry-run
+  ) || die
+  read -p 'Really push to remote? ' YN
+  [[ "${YN:0:1}" =~ [yY] ]] && {
+    ( set -x
+      jj git push --tracked
+    ) || die
+  }
+)
+KEYBINDINGS["Ctrl-P"]="push-remote"
+
+# Squash Into Parent
 DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision into its parent.'
 squash-into-parent()
 (
@@ -821,6 +850,18 @@ squash-into-parent()
     sleep 1
 )
 KEYBINDINGS["Alt-Q"]="squash-into-parent"
+
+# Squash @ Commit
+DOC['squash-@-into']='Use `jj squash` to move the changes from the working copy into the currently selected revision.'
+squash-@-into()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj squash --keep-emptied --into "$R" # --use-destination-message
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-W"]="squash-@-into"
 
 # Rebase Branch/Source/Revision After/Before/Destination
 DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
