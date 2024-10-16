@@ -952,7 +952,9 @@ KEYBINDINGS["Alt-T"]="tag"
 # Log single change
 logrev()
 (
-  R="$(xrev "${1:-@}")"
+  R="$(xrev_or_commit "${1:-@}")" ||
+    die "no such revision"
+  cd "$JJROOT" # show root relative file names
   test "${2:-}" = "--all" && R="::$R"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
   jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ jj_fzf_showdetails' -r "$R" |
