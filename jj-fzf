@@ -834,7 +834,7 @@ push-remote()
 )
 KEYBINDINGS["Ctrl-P"]="push-remote"
 
-# Squash Commits
+# Squash Into Parent
 DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision into its parent.'
 squash-into-parent()
 (
@@ -850,6 +850,18 @@ squash-into-parent()
     sleep 1
 )
 KEYBINDINGS["Alt-Q"]="squash-into-parent"
+
+# Squash @ Commit
+DOC['squash-@-into']='Use `jj squash` to move the changes from the working copy into the currently selected revision.'
+squash-@-into()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj squash --keep-emptied --into "$R" # --use-destination-message
+  ) ||
+    sleep 1
+)
+KEYBINDINGS["Alt-W"]="squash-@-into"
 
 # Rebase Branch/Source/Revision After/Before/Destination
 DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
