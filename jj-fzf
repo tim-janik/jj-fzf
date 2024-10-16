@@ -66,6 +66,9 @@ TEMPD=
 # == JJ_CONFIG ==
 jj_config() {
   cat <<-__EOF__
+	[snapshot]
+	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
+	auto-track = "none()"
 	[revset-aliases]
 	recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "
 	[template-aliases]
@@ -1079,18 +1082,20 @@ fi
 
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
-  [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] &&
-    SYNC='jj status' || # sync JJ after modifications
-      SYNC=:		# skip syncing for preview functions
-  $SYNC >/dev/null
+  # Sync JJ with working-copy before func, probably has JJ_CONFIG: snapshot.auto-track="none()"
+  jj status >/dev/null
   FUNC="$1" "$@" && E=$? || E=$?
-  $SYNC >/dev/null || :
+  # Sync JJ after modifications, so user snapshot config and snapshot errors take effect
+ ( unset JJ_CONFIG ; jj status || : ) >/dev/null
   exit $E
 fi
 
 # == Sync ==
-# Synchronize before changes in git or @ mess up state during jj log
-jj status
+# Sync JJ before starting FZF, so user snapshot config and snapshot errors take effect
+( unset JJ_CONFIG
+  set -x
+  jj status
+) || exit $?
 
 # == Help / Docs ==
 WHITE="                                                                                "
