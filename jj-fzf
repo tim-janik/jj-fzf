@@ -314,6 +314,7 @@ user_editor_on_var()
 FUNCTIONS=()
 declare -A KEYBINDINGS
 FIRSTS=""
+NEXTS=""
 
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
@@ -1022,7 +1023,7 @@ vivifydivergent()
     jj squash --from "$NEWCOMMIT" --into @ )
   jj log --no-graph -T builtin_log_oneline -r @
 )
-KEYBINDINGS["Alt-V"]="vivifydivergent"
+KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
 # Gitk View
 DOC['gitk']='Start `gitk` to browse the *Git* history of the repository.'
@@ -1177,6 +1178,7 @@ for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
   postcmd=""
   [[ " $FIRSTS " == *" $fun "* ]] && postcmd="+first"
+  [[ " $NEXTS " == *" $fun "* ]] && postcmd="+down"
   BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
 done
 
