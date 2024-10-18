@@ -688,7 +688,7 @@ merging()
 KEYBINDINGS["Alt-M"]="merging"		FIRSTS="$FIRSTS merging"
 
 # New --insert-before
-DOC['new-before']='Use `jj new --insert-before` to create and insert a new commit before the currently selected revision.'
+DOC['new-before']='Use `jj new --insert-before` to create and insert a new revision before the currently selected revision (or divergent commit).'
 new-before()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -700,7 +700,7 @@ new-before()
 KEYBINDINGS["Alt-N"]="new-before"
 
 # New
-DOC['new']='Use `jj new` to create a new commit on top of the currently selected revision.'
+DOC['new']='Use `jj new` to create a new revision on top of the currently selected revision (or divergent commit).'
 new()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -1045,7 +1045,7 @@ gitk()
 KEYBINDINGS["Ctrl-V"]="gitk"
 
 # Edit (New) Working Copy
-DOC['edit-workspace']='Use `jj {edit|new}` to set the currently selected revision as the working-copy revision. Will create a new commit if the selected revision is immutable.'
+DOC['edit-workspace']='Use `jj {edit|new}` to set the currently selected revision (or divergent commit) as the working-copy revision. Will create a new empty commit if the selected revision is immutable.'
 edit-workspace()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
