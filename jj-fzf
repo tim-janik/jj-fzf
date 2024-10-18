@@ -1101,13 +1101,22 @@ swap-commits()
 KEYBINDINGS["Alt-X"]="swap-commits"
 
 # Undo last JJ op
-DOC['undo']='Use `jj op undo` to undo the last operation performed by `jj`.'
+DOC['undo']='Use `jj op undo` to undo the last operation performed by `jj` that was not in itself undone or an undo operation.'
 undo()
 (
+  temp_dir
+  # turn each undone operation "123abc" into an sed delete command
+  undone_log |
+    sed -r 's|([a-f0-9]+)|	/\\b\1/d	|' > $TEMPD/delops.sed
+  # list operation IDs, skipping undone ones
+  jj op log --no-graph -T 'self.id().short(16) ++ " " ++ self.description().first_line() ++ "\n"' |
+    sed -rf $TEMPD/delops.sed > $TEMPD/undoable-ops.lst
+  # fetch first
+  read op rest < $TEMPD/undoable-ops.lst
+  # read -p "Undo $op? " YN ; [[ "${YN:0:1}" =~ [yY] ]] || exit
   ( set -x
-    jj op undo
-  ) ||
-    sleep 1
+    jj op undo $op
+  ) || sleep 1
 )
 KEYBINDINGS["Alt-Z"]="undo"
 
