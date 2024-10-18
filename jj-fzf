@@ -524,9 +524,9 @@ help()
     --header-first --no-sort \
     --header "jj --help" \
     --nth 1 \
-    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help || $SELF --help" \
+    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help || $SELF --help --color" \
     --bind "enter:execute( test -n {1} || exit; { [[ $JJCMDS =~ :{1}: ]] && jj {1} --help || jj help ;} | $JJFZFPAGER )+abort" \
-    < <(echo "$H" && jj help)
+    < <(echo "$H" && jj --color=always help)
 )
 KEYBINDINGS["Ctrl-H"]="help"
 
@@ -1090,6 +1090,7 @@ HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
 if [[ "${1:-}" = --help ]] ; then
+  [[ " $* " =~ --color ]] && COLOR=true || COLOR=false
   ( :
     cat <<-\__EOF__
 	# JJ-FZF
@@ -1128,7 +1129,9 @@ if [[ "${1:-}" = --help ]] ; then
     s/\r?<!--([^-]|-[^-]|--[^>])*-->//g             # Html Comments
     s,(\bhttps?://[^ ()\r]+),$U\1$Z,g               # Link
     "
-    tr \\n \\r | sed -re "$SEDSCRIPT" | tr \\r \\n
+    tr \\n \\r |
+      { $COLOR && sed -re "$SEDSCRIPT" || cat ; } |
+      tr \\r \\n
   )
   exit 0
 fi
