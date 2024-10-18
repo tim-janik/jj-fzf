@@ -112,16 +112,21 @@ jj_config() {
 	    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
 	  "\n",
 	)'''
-	# Simple oneline version for the oplog; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+	# Provide special oplog marker that can be parsed for undone operations
+	builtin_op_log_node = '''
+	coalesce(
+	  if(current_operation, label("current_operation", "@")), "○",
+	)'''
+	# Oneline oplog with 16 character ids, parsed later on; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 	jj_fzf_oplog_oneline = '''
 	label(if(current_operation, "current_operation"),
 	  coalesce(
 	    if(root, format_root_operation(self)),
 	    concat(
-	      separate(" ", self.id().short(), self.user(), self.time().start().ago()), " ",
+	      separate(" ", self.id().short(16), self.user(), self.time().start().ago()), " ",
 	      self.description().first_line(), " ",
 	      if(self.tags(), self.tags().first_line()),
-	    ),
+	    )
 	  )
 	)'''
 	# Adjust colors for FZF display
@@ -711,6 +716,34 @@ new()
 )
 KEYBINDINGS["Ctrl-N"]="new"		FIRSTS="$FIRSTS new"
 
+# Log undone operations
+undone_log()
+(
+  # list all oplog descriptions, find description with "undo operation 123abc"
+  T='coalesce( self.description().first_line(), " ") ++ "\n"'
+  jj --no-pager --ignore-working-copy op log --no-graph --color=never -T "$T" |
+    sed -nr '
+    	# turn "undo operation 123abc" into an exact id with 16 characters
+	/^undo operation [a-f0-9]{16}/s/^undo operation ([a-f0-9]{16}).*/\1/
+	T;	# goto EOS unless the previous s/// matched
+	P;	# print line replaced by s///
+  '
+)
+FUNCTIONS+=( 'undone_log' )
+
+# Show `jj op log` but mark undone operations with '-'
+oplog_oneline()
+(
+  temp_dir
+  # turn each undone and undo operation on "123abc" into a new sed commands that replaces this operations graph character
+  undone_log |
+    sed -r 's/([a-f0-9]+)/	s|○(.*\1)|-\\1|		/' > $TEMPD/undone.sed
+  # show operation log, filtered through the above sed script to alter markers for undone ops
+  jj --no-pager --ignore-working-copy op log --color=always -T jj_fzf_oplog_oneline |
+    sed -rf $TEMPD/undone.sed	# beware, script needs to ignore ANSI color escape sequences
+)
+FUNCTIONS+=( 'oplog_oneline' )
+
 # Oplog
 DOC['op-log']='Use `jj op log` to browse the recent operations log. Use hotkeys to change the preview between diff, history and oplog entry mode. Undo the selected operation or restore its working copy into a new commit.'
 op-log()
@@ -725,7 +758,7 @@ op-log()
   H="$H""Alt-W: Restore working copy of the selected operation into a new commit"$'\n'
   H="$H""Alt-Z: Undo the selected operation entry"$'\n'
   echo 'VIEW=diff@oplog'		>> $TEMPD/oplog.env
-  export FZF_DEFAULT_COMMAND="jj --no-pager --ignore-working-copy op log --color=always -T jj_fzf_oplog_oneline"
+  export FZF_DEFAULT_COMMAND="$SELF oplog_oneline"
   "${FZFPOPUP[@]}" \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
     --prompt "Operation > " \
