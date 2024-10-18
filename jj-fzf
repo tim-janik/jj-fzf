@@ -314,6 +314,7 @@ user_editor_on_var()
 FUNCTIONS=()
 declare -A KEYBINDINGS
 FIRSTS=""
+NEXTS=""
 
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
@@ -523,9 +524,9 @@ help()
     --header-first --no-sort \
     --header "jj --help" \
     --nth 1 \
-    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help || $SELF --help" \
+    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help || $SELF --help --color" \
     --bind "enter:execute( test -n {1} || exit; { [[ $JJCMDS =~ :{1}: ]] && jj {1} --help || jj help ;} | $JJFZFPAGER )+abort" \
-    < <(echo "$H" && jj help)
+    < <(echo "$H" && jj --color=always help)
 )
 KEYBINDINGS["Ctrl-H"]="help"
 
@@ -687,7 +688,7 @@ merging()
 KEYBINDINGS["Alt-M"]="merging"		FIRSTS="$FIRSTS merging"
 
 # New --insert-before
-DOC['new-before']='Use `jj new --insert-before` to create and insert a new commit before the currently selected revision.'
+DOC['new-before']='Use `jj new --insert-before` to create and insert a new revision before the currently selected revision (or divergent commit).'
 new-before()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -699,7 +700,7 @@ new-before()
 KEYBINDINGS["Alt-N"]="new-before"
 
 # New
-DOC['new']='Use `jj new` to create a new commit on top of the currently selected revision.'
+DOC['new']='Use `jj new` to create a new revision on top of the currently selected revision (or divergent commit).'
 new()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -952,7 +953,9 @@ KEYBINDINGS["Alt-T"]="tag"
 # Log single change
 logrev()
 (
-  R="$(xrev "${1:-@}")"
+  R="$(xrev_or_commit "${1:-@}")" ||
+    die "no such revision"
+  cd "$JJROOT" # show root relative file names
   test "${2:-}" = "--all" && R="::$R"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
   jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ jj_fzf_showdetails' -r "$R" |
@@ -1020,7 +1023,7 @@ vivifydivergent()
     jj squash --from "$NEWCOMMIT" --into @ )
   jj log --no-graph -T builtin_log_oneline -r @
 )
-KEYBINDINGS["Alt-V"]="vivifydivergent"
+KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
 # Gitk View
 DOC['gitk']='Start `gitk` to browse the *Git* history of the repository.'
@@ -1042,7 +1045,7 @@ gitk()
 KEYBINDINGS["Ctrl-V"]="gitk"
 
 # Edit (New) Working Copy
-DOC['edit-workspace']='Use `jj {edit|new}` to set the currently selected revision as the working-copy revision. Will create a new commit if the selected revision is immutable.'
+DOC['edit-workspace']='Use `jj {edit|new}` to set the currently selected revision (or divergent commit) as the working-copy revision. Will create a new empty commit if the selected revision is immutable.'
 edit-workspace()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -1087,6 +1090,7 @@ HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
 if [[ "${1:-}" = --help ]] ; then
+  [[ " $* " =~ --color ]] && COLOR=true || COLOR=false
   ( :
     cat <<-\__EOF__
 	# JJ-FZF
@@ -1125,7 +1129,9 @@ if [[ "${1:-}" = --help ]] ; then
     s/\r?<!--([^-]|-[^-]|--[^>])*-->//g             # Html Comments
     s,(\bhttps?://[^ ()\r]+),$U\1$Z,g               # Link
     "
-    tr \\n \\r | sed -re "$SEDSCRIPT" | tr \\r \\n
+    tr \\n \\r |
+      { $COLOR && sed -re "$SEDSCRIPT" || cat ; } |
+      tr \\r \\n
   )
   exit 0
 fi
@@ -1175,6 +1181,7 @@ for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
   postcmd=""
   [[ " $FIRSTS " == *" $fun "* ]] && postcmd="+first"
+  [[ " $NEXTS " == *" $fun "* ]] && postcmd="+down"
   BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
 done
 
