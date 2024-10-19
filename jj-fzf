@@ -917,9 +917,9 @@ rebasing()
   H="$H""Alt-S: SOURCE   - Rebase specified revision together with descendants"$'\n'
   H="$H""Alt-R: REVISION - Rebase only given revision, moves descendants onto parent"$'\n'
   H="$H"$'\n'
-  H="$H""Alt-D: DESTINATION - The revision to rebase onto"$'\n'
-  H="$H""Alt-A: AFTER       - The revision to insert after"$'\n'
-  H="$H""Alt-E: BEFORE      - The revision to insert before"$'\n'
+  H="$H""Ctrl-A: AFTER       - The revision to insert after"$'\n'
+  H="$H""Ctrl-B: BEFORE      - The revision to insert before"$'\n'
+  H="$H""Ctrl-D: DESTINATION - The revision to rebase onto"$'\n'
   export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
   REV=$("${FZFPOPUP[@]}" \
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
@@ -928,9 +928,9 @@ rebasing()
 	  --bind "alt-b:execute( sed 's/^FR=.*/FR=--branch/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-s:execute( sed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-r:execute( sed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-d:execute( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-a:execute( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-e:execute( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "ctrl-d:execute( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "ctrl-a:execute( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "ctrl-b:execute( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --no-tac --no-sort +m ) &&
     [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
