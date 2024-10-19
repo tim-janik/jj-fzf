@@ -660,7 +660,8 @@ merging()
 	  --prompt "Merge +> " \
 	  --header "$H" --header-first \
 	  --bind "alt-u:execute( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
-	  --no-tac --no-sort -m > $TEMPD/selections.txt &&
+	  -m --color=pointer:grey \
+	  --no-tac --no-sort > $TEMPD/selections.txt &&
     mapfile -t selections < $TEMPD/selections.txt &&
     merging_revs "${selections[@]}" &&
     mapfile -t REVS < $TEMPD/merging.revs &&
