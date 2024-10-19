@@ -38,6 +38,7 @@ fi
 jj --version | grep -Eq 'jj [1-9]\.|jj 0\.2[2-9]\.|jj 0.[3-9][0-9]' || die 'jj-0.22 is required'
 fzf --help | grep -Fq ' --header-first' || die 'fzf-0.29 is required'
 sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
+TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
 
 # == Config ==
 declare -A DOC
@@ -60,6 +61,7 @@ FZFSETTINGS=(
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'wrap,right,border-left'
   --bind=ctrl-alt-x:"execute-silent($INFO_BINDING)+clear-screen"
+  $TRACK
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
@@ -1211,10 +1213,6 @@ for k in $KEYS ; do
       HEADER="$HEADER "
 done
 
-# == SWITCHES ==
-TRACK=--track	# not in fzf-0.29
-FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
-
 # == RELOAD ==
 RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
 
@@ -1242,7 +1240,6 @@ fzf \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
   "${BIND[@]}" \
-  $TRACK \
   --preview " exec $SELF preview {} {q} " \
   --header "$HEADER" --header-first \
   --prompt '  :: > ' \
