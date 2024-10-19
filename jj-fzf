@@ -1128,7 +1128,6 @@ HELPKEYS[Ctrl-↓]='preview-down'
 DOC['preview-down']='Scroll the preview window.'
 HELPKEYS[Ctrl-U]='clear-filter'
 DOC['clear-filter']='Discard the current *fzf* query string.'
-HELPKEYS[recent7]='default revset'
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}")
 if [[ "${1:-}" = --help ]] ; then
