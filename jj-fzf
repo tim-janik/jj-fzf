@@ -757,7 +757,7 @@ op-log()
   H="$H"$'\n'
   H="$H""Alt-W: Restore working copy of the selected operation into a new commit"$'\n'
   H="$H""Alt-Z: Undo the selected operation entry"$'\n'
-  echo 'VIEW=diff@oplog'		>> $TEMPD/oplog.env
+  echo 'VIEW=log@oplog'		>> $TEMPD/oplog.env
   export FZF_DEFAULT_COMMAND="$SELF oplog_oneline"
   "${FZFPOPUP[@]}" \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
@@ -775,7 +775,7 @@ KEYBINDINGS["Ctrl-O"]="op-log"
 log@oplog()
 (
   jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-  "${JJLOGCMD[@]}"
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -r '::' -T jj_fzf_oneline # builtin_log_oneline
 )
 FUNCTIONS+=( 'log@oplog' )
 
