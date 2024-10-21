@@ -457,7 +457,9 @@ DOC['diffedit']='Use `jj diffedit` to modify the content diff of the currently s
 diffedit()
 (
   R="$(xrev "${1:-@}")"
-  jj diffedit -r "$R"
+  ( set -x
+    jj diffedit -r "$R"
+  ) || sleep 1
 )
 KEYBINDINGS["Alt-E"]="diffedit"
 
