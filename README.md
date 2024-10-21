@@ -33,6 +33,15 @@ the preview windows shows commit and diff information.
 When a key binding is pressed to modify the history, the corresponding `jj` command with its
 arguments is displayed on stderr.
 
+<!-- FEATURES -->
+## Features
+
+### Merging Commits
+
+This screencast demonstrates how to merge commits using the `jj-fzf` command-line tool. It begins by selecting a revision to base the merge commit on, then starts the merge dialog with `Alt+M`. For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit. More commits can also be merged, and in such cases, `Ctrl+D` can be used to describe the merge commit afterward.
+
+![merge-commit](https://github.com/user-attachments/assets/b26c8a6c-a7b8-4a73-9632-4c0196c0dfda)
+
 <!-- LICENSE -->
 ## License
 
