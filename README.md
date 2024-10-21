@@ -27,8 +27,11 @@ Command line tools like sed, grep are assumed to provide GNU tool semantics.
 ## Usage
 
 Start `jj-fzf` in any `jj` repository and study the keybindings.
-The query prompt supports either [jj revset](https://martinvonz.github.io/jj/latest/revsets/) syntax,
-or [PCRE2](https://www.pcre.org/current/doc/html/pcre2syntax.html) regular expression search on the jj log output.
+Various `jj` commands are accesible through `Alt` and `Ctrl` key bindings.
+The query prompt can be used to filter the *oneline* revision display from the `jj log` output and
+the preview windows shows commit and diff information.
+When a key binding is pressed to modify the history, the corresponding `jj` command with its
+arguments is displayed on stderr.
 
 <!-- LICENSE -->
 ## License
