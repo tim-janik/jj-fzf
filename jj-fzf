@@ -38,6 +38,7 @@ fi
 jj --version | grep -Eq 'jj [1-9]\.|jj 0\.2[2-9]\.|jj 0.[3-9][0-9]' || die 'jj-0.22 is required'
 fzf --help | grep -Fq ' --header-first' || die 'fzf-0.29 is required'
 sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
+TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
 
 # == Config ==
 declare -A DOC
@@ -48,6 +49,7 @@ JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
 JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && exec /bin/bash -i <$T 1>$T 2>$T'
+INFO_BINDING=" fzf </dev/null >/dev/tty 2>&1 --prompt '        '  --disabled --layout=reverse --height 1 --margin 4 --padding 4 --border=block --no-info --no-scrollbar --no-clear --bind=enter:print-query "
 FZFSETTINGS=(
   --ansi --no-mouse
   --info default
@@ -58,6 +60,8 @@ FZFSETTINGS=(
   --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'wrap,right,border-left'
+  --bind=ctrl-alt-x:"execute-silent($INFO_BINDING)+clear-screen"
+  $TRACK
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
 JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
@@ -656,7 +660,8 @@ merging()
 	  --prompt "Merge +> " \
 	  --header "$H" --header-first \
 	  --bind "alt-u:execute( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
-	  --no-tac --no-sort -m > $TEMPD/selections.txt &&
+	  -m --color=pointer:grey \
+	  --no-tac --no-sort > $TEMPD/selections.txt &&
     mapfile -t selections < $TEMPD/selections.txt &&
     merging_revs "${selections[@]}" &&
     mapfile -t REVS < $TEMPD/merging.revs &&
@@ -1209,10 +1214,6 @@ for k in $KEYS ; do
       HEADER="$HEADER "
 done
 
-# == SWITCHES ==
-TRACK=--track	# not in fzf-0.29
-FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
-
 # == RELOAD ==
 RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
 
@@ -1240,7 +1241,6 @@ fzf \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
   "${BIND[@]}" \
-  $TRACK \
   --preview " exec $SELF preview {} {q} " \
   --header "$HEADER" --header-first \
   --prompt '  :: > ' \
