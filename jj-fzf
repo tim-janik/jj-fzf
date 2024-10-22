@@ -41,6 +41,7 @@ sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
 TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
 
 # == Config ==
+export FZF_DEFAULT_OPTS=	# prevent user defaults from messing up the layout
 declare -A DOC
 TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
 # JJ repository
