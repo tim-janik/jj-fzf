@@ -575,7 +575,7 @@ backout()
   test $(rev_edpstate @) == empty-silent-p1 &&
     D=@- ||
       D=@
-  # record working-copy and children before/after, then backout
+  # record base commit children before/after, then backout
   A=( $(rev_children "$D") )
   ( set -x
     jj backout -r "$R" -d "$D"
@@ -585,7 +585,7 @@ backout()
   [ ${#C[@]} -eq 1 ] ||
     die "failed to find newly created backout revision"
   ( set -x
-    jj new "${C[0]}"
+    jj edit "${C[0]}"
   ) || die
 )
 KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
