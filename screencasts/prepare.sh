@@ -147,7 +147,7 @@ render_cast()
 	 -c:v libx264 -crf 24 -tune animation -preset placebo \
 	 -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
          -y "$SCREENCAST.mp4" &
-    gif2webp "$SCREENCAST.gif" -min_size -o "$SCREENCAST.webp" &
+    gif2webp "$SCREENCAST.gif" -min_size -metadata all -o "$SCREENCAST.webp" &
     wait
   )
   ls -l "$SCREENCAST"*
@@ -205,14 +205,15 @@ make_repo()
     jj bookmark set trunk --allow-backwards -r @-
     [[ $DONE =~ 3tips ]] && exit
 
-    jj new $A $B
+    jj new $A $B -m "Merging '$A' and '$B'"
+    M1=`jj log --no-graph -T change_id -r @`
     [[ $DONE =~ merged ]] && exit
 
-    jj backout -r $L -d @ && jj new @+ && jj rebase -r @- --insert-after $A-
+    jj backout -r $L -d @ && jj edit @+ && jj rebase -r @ --insert-after $A-
     jj rebase -b trunk -d @
     [[ $DONE =~ backout ]] && exit
 
-    jj new trunk
+    jj new trunk $M1 -m "Merge into trunk"
     [[ $DONE =~ squashall ]] && (
       EDITOR=/bin/true jj squash --from 'root()+::@-' --to @ -m ""
       jj bookmark delete trunk gitdev jjdev
