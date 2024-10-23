@@ -91,7 +91,7 @@ find_asciinema_pid()
 # Start recording with asciinema in a dedicated terminal, using $W x $H, etc
 start_asciinema()
 {
-  DIR="$(readlink -f "${1:-.}")"
+  DIR="$(readlink -f "${1:-.}")" ; shift
   temp_dir
   # set -x
   # Simplify nano exit to Ctrl+X, also avoids exposing absolute file paths
@@ -103,10 +103,16 @@ start_asciinema()
     export JJ_CONFIG=/dev/null
     tmux new-session -P -d -x $W -y $H -s $SESSION
   ) >$TEMPD/session
-  echo "session: $SESSION"
-  tmux set-option -t $SESSION -g status off
+  echo "tmux-session: $SESSION"
+  tmux set-option -t $SESSION status off
   tmux send-keys -t $SESSION 'PS1="> "; EDITOR="/usr/bin/nano --rcfile '$TEMPD/nanorc'" ; '
+  tmux resize-window -t $SESSION -x $W -y $H
   tmux send-keys -t $SESSION $'clear\n'
+  while [ $# -gt 0 ] ; do
+    tmux send-keys -t $SESSION "$1"
+    shift
+  done
+  sleep 0.05
   gnome-terminal --geometry $W"x"$H -t $SESSION --zoom $Z  -- \
 		 asciinema rec --overwrite "$ASCIINEMA_SCREENCAST.cast" -c "tmux attach-session -t $SESSION -f read-only"
   while test -z "$(find_asciinema_pid)" ; do
@@ -211,6 +217,8 @@ make_repo()
       EDITOR=/bin/true jj squash --from 'root()+::@-' --to @ -m ""
       jj bookmark delete trunk gitdev jjdev
     )
+
+    true
   )
 
   ls -ald $R/*
