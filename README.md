@@ -41,7 +41,7 @@ This screencast demonstrates how to merge commits using the `jj-fzf` command-lin
 
 ![merge-commit](https://github.com/user-attachments/assets/b26c8a6c-a7b8-4a73-9632-4c0196c0dfda)
 
-### Splitting Large Changes
+### Splitting Commits
 
 This screencast demonstrates how to handle large changes in the working copy using `jj-fzf`.
 It begins by splitting individual files into separate commits (`Alt+F`), then interactively splits (`Alt+I`) a longer diff into smaller commits.
