@@ -7,9 +7,8 @@
 JJ-FZF
 ======
 
-![jj-fzf-demo1](https://github.com/tim-janik/tools/assets/281887/584952b6-a65c-430a-885c-720012ce4e2f)
-JJ-FZF displays previews of the `jj log` history and can squash, branch, commit, rebase, undo and much more [asc](https://asciinema.org/a/667451)
-
+![JJ-FZF Intro](https://github.com/user-attachments/assets/7e7df6f1-519f-4d84-bc56-46254f4b3a4c)
+**JJ-FZF Introduction:** [Asciicast](https://asciinema.org/a/683464) [MP4](https://github.com/user-attachments/assets/5e5d5729-890c-4e82-b6a4-a79c6a164de9)
 
 <!-- ABOUT -->
 ## About jj-fzf
