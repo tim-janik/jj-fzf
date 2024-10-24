@@ -662,7 +662,7 @@ merging()
 	  --preview "merging_revs {+} && merging_preview" \
 	  --prompt "Merge +> " \
 	  --header "$H" --header-first \
-	  --bind "alt-u:execute( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
+	  --bind "alt-u:execute-silent( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
 	  -m --color=pointer:grey \
 	  --no-tac --no-sort > $TEMPD/selections.txt &&
     mapfile -t selections < $TEMPD/selections.txt &&
@@ -771,10 +771,10 @@ op-log()
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
     --prompt "Operation > " \
     --header "$H" --header-first \
-    --bind "ctrl-d:execute( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-l:execute( sed 's/^VIEW=.*/VIEW=log@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-w:execute( $SELF wdrestore@oplog {} )+abort" \
-    --bind "alt-z:execute( $SELF undo-op@oplog {} )+abort" \
+    --bind "ctrl-d:execute-silent( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-l:execute-silent( sed 's/^VIEW=.*/VIEW=log@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-w:execute-silent( $SELF wdrestore@oplog {} )+abort" \
+    --bind "alt-z:execute-silent( $SELF undo-op@oplog {} )+abort" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
     --no-tac --no-sort +m
 )
@@ -933,12 +933,12 @@ rebasing()
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
 	  --prompt "Rebase > " \
 	  --header "$H" --header-first \
-	  --bind "alt-b:execute( sed 's/^FR=.*/FR=--branch/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-s:execute( sed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-r:execute( sed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "ctrl-d:execute( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "ctrl-a:execute( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "ctrl-b:execute( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-b:execute-silent( sed 's/^FR=.*/FR=--branch/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-s:execute-silent( sed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-r:execute-silent( sed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "ctrl-d:execute-silent( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "ctrl-a:execute-silent( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "ctrl-b:execute-silent( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --no-tac --no-sort +m ) &&
     [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
@@ -1241,7 +1241,7 @@ export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
 fzf \
   "${FZFSETTINGS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
-  --bind "ctrl-z:execute( $JJSUBSHELL )+execute( jj --no-pager st )+$RELOAD" \
+  --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager st )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
