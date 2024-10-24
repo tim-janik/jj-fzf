@@ -77,10 +77,10 @@ K C-x; P	# nano
 # DIFF-EDIT
 X 'Alt+E starts `jj diffedit` to select diff hunks to keep'
 K M-e; P;
-K F a Down Down Down Space; P
+K F; K a; K Down 3; K Space; P
 K c; P
 K C-d; S; K End; P
-K BSpace BSpace BSpace BSpace BSpace BSpace BSpace; P
+K BSpace 7; P
 K C-x; P	# nano
 
 # UNDO

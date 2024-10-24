@@ -59,7 +59,7 @@ T()
 { txt="$*" && for (( i=0; i<${#txt}; i++ )); do tmux send-keys -t $SESSION -l "${txt:$i:1}" ; sleep $t ; done ; }
 # send key
 K()
-{ while test $# -ne 0 ; do tmux send-keys -t $SESSION "$1" ; sleep $k ; shift ; done }
+( N="${2:-1}";  for (( i=0 ; i<$N; i++ )); do tmux send-keys -t $SESSION "$1" ; sleep $k ; done )
 Enter() { K "Enter" ; P; }
 # synchronize (with other programs)
 S()
