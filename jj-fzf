@@ -64,7 +64,7 @@ FZFSETTINGS=(
   --bind=ctrl-alt-x:"execute-silent($INFO_BINDING)+clear-screen"
   $TRACK
 )
-FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,2%,5%,2% --border)
+FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
 JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
 TEMPD=
 
@@ -418,6 +418,7 @@ delete-refs()
     B=(-q "$B") ||
       B=()
   DEL=$("${FZFPOPUP[@]}" \
+	  --border-label '-[ DELETE ]-' --color=border:red,label:red \
   	  --prompt "Delete > " \
 	  --header $'\n'"Delete selected Bookmark or Tag" --header-first \
 	  --no-tac --no-sort +m \
@@ -533,6 +534,7 @@ help()
     JJCMDS="$JJCMDS$w:"
   done
   "${FZFPOPUP[@]}" \
+    --border-label '-[ HELP ]-' \
     --header-first --no-sort \
     --header "jj --help" \
     --nth 1 \
@@ -601,6 +603,7 @@ line-history()
   jj file list -r "$R" |
     xargs grep -s -n '' |
     "${FZFPOPUP[@]}" \
+      --border-label '-[ LINE HISTORY (WIP) ]-' --color=border:yellow,label:yellow \
       --preview " git log --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
       --bind "enter:execute( git log -M -C --find-copies-harder -L{2}:{1} --color $C | $JJFZFPAGER)" \
       --header "File Line History" \
@@ -660,6 +663,7 @@ merging()
   export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
   "${FZFPOPUP[@]}" \
 	  --preview "merging_revs {+} && merging_preview" \
+	  --border-label '-[ MERGING ]-' --color=border:bright-blue,label:bright-blue \
 	  --prompt "Merge +> " \
 	  --header "$H" --header-first \
 	  --bind "alt-u:execute-silent( sed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
@@ -769,6 +773,7 @@ op-log()
   export FZF_DEFAULT_COMMAND="$SELF oplog_oneline"
   "${FZFPOPUP[@]}" \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
+    --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
     --prompt "Operation > " \
     --header "$H" --header-first \
     --bind "ctrl-d:execute-silent( sed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
@@ -930,6 +935,7 @@ rebasing()
   H="$H""Ctrl-D: DESTINATION - The revision to rebase onto"$'\n'
   export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
   REV=$("${FZFPOPUP[@]}" \
+	  --border-label '-[ REBASE ]-' --color=border:green,label:green \
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
 	  --prompt "Rebase > " \
 	  --header "$H" --header-first \
@@ -960,6 +966,7 @@ restore-file()
   R="$(xrev "${1:-@}")"
   MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
 		"${FZFPOPUP[@]}" \
+		  --border-label '-[ REBASE ]-' --color=border:blue,label:blue \
 		  --preview 'read M F <<<{} && test -n \"$F\" || exit; jj --no-pager --ignore-working-copy log --color=always -s --patch -T builtin_log_oneline -r "'"$R"'" -- "$F"' \
 		  --header "Restore File into @" \
 		  )
