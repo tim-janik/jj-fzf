@@ -35,13 +35,6 @@ arguments is displayed on stderr.
 <!-- FEATURES -->
 ## Features
 
-### Merging Commits
-
-This screencast demonstrates how to merge commits using the `jj-fzf` command-line tool. It begins by selecting a revision to base the merge commit on, then starts the merge dialog with `Alt+M`. For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit. More commits can also be merged, and in such cases, `Ctrl+D` can be used to describe the merge commit afterward.
-
-![merge-commit](https://github.com/user-attachments/assets/ffa3c957-5ef8-4a31-8472-a974d7b1e710)
-**Mergin Commits:** [Asciicast](https://asciinema.org/a/684021) [MP4](https://github.com/user-attachments/assets/5eb8b7ea-667c-489f-b1fe-e4292d0a1009)
-
 ### Splitting Commits
 
 This screencast demonstrates how to handle large changes in the working copy using `jj-fzf`.
@@ -52,6 +45,16 @@ and all changes can be undone step by step using `Alt+Z`.
 
 ![Splitting Commits](https://github.com/user-attachments/assets/d4af7859-180e-4ecf-872c-285fbf72c81f)
 **Splitting Commits:** [Asciicast](https://asciinema.org/a/684020) [MP4](https://github.com/user-attachments/assets/6e1a837d-4a36-4afd-ad7e-d1ce45925011)
+
+### Merging Commits
+
+This screencast demonstrates how to merge commits using the `jj-fzf` command-line tool.
+It begins by selecting a revision to base the merge commit on, then starts the merge dialog with `Alt+M`.
+For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit.
+More commits can also be merged, and in such cases, `Ctrl+D` can be used to describe the merge commit afterward.
+
+![Mergin Commits](https://github.com/user-attachments/assets/ffa3c957-5ef8-4a31-8472-a974d7b1e710)
+**Mergin Commits:** [Asciicast](https://asciinema.org/a/684021) [MP4](https://github.com/user-attachments/assets/5eb8b7ea-667c-489f-b1fe-e4292d0a1009)
 
 
 <!-- LICENSE -->
