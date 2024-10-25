@@ -619,7 +619,7 @@ merging()
   cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   temp_dir
   # Find tracked upstream revision
-  [[ $(jj bookmark list -t) =~ ^([^\ :]+): ]] &&
+  [[ $(jj bookmark list -t | grep -vE ' \(deleted\)|^ ') =~ ^([^\ :]+): ]] &&
     UPSTREAM="${BASH_REMATCH[1]}" || UPSTREAM=
   echo 0 > $TEMPD/upstream.toggle
   export JJFZFONELINE REVPAT TEMPD UPSTREAM P
