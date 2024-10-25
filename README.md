@@ -50,8 +50,8 @@ Diffs can also be edited using the diffedit command (`Alt+E`) to select specific
 Throughout, commit messages are updated with the describe command (`Ctrl+D`),
 and all changes can be undone step by step using `Alt+Z`.
 
-![Splitting Large Changes](https://github.com/user-attachments/assets/11959d8f-82d9-4921-9562-19343419a67d) 
-**Splitting Large Changes:** [Asciicast](https://asciinema.org/a/682905) [MP4](https://github.com/user-attachments/assets/d44813df-957e-4f2e-a170-53895ee84b78)
+![Splitting Commits](https://github.com/user-attachments/assets/d4af7859-180e-4ecf-872c-285fbf72c81f)
+**Splitting Commits:** [Asciicast](https://asciinema.org/a/684020) [MP4](https://github.com/user-attachments/assets/6e1a837d-4a36-4afd-ad7e-d1ce45925011)
 
 
 <!-- LICENSE -->
