@@ -7,8 +7,8 @@
 JJ-FZF
 ======
 
-![JJ-FZF Intro](https://github.com/user-attachments/assets/7e7df6f1-519f-4d84-bc56-46254f4b3a4c)
-**JJ-FZF Introduction:** [Asciicast](https://asciinema.org/a/683464) [MP4](https://github.com/user-attachments/assets/5e5d5729-890c-4e82-b6a4-a79c6a164de9)
+![JJ-FZF Intro](https://github.com/user-attachments/assets/a4e248d1-15ef-4967-bc8a-35783da45eaa)
+**JJ-FZF Introduction:** [Asciicast](https://asciinema.org/a/684019) [MP4](https://github.com/user-attachments/assets/1dcaceb0-d7f0-437e-9d84-25d5b799fa53)
 
 <!-- ABOUT -->
 ## About jj-fzf
