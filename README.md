@@ -7,9 +7,8 @@
 JJ-FZF
 ======
 
-![jj-fzf-demo1](https://github.com/tim-janik/tools/assets/281887/584952b6-a65c-430a-885c-720012ce4e2f)
-JJ-FZF displays previews of the `jj log` history and can squash, branch, commit, rebase, undo and much more [asc](https://asciinema.org/a/667451)
-
+![JJ-FZF Intro](https://github.com/user-attachments/assets/a4e248d1-15ef-4967-bc8a-35783da45eaa)
+**JJ-FZF Introduction:** [Asciicast](https://asciinema.org/a/684019) [MP4](https://github.com/user-attachments/assets/1dcaceb0-d7f0-437e-9d84-25d5b799fa53)
 
 <!-- ABOUT -->
 ## About jj-fzf
@@ -36,13 +35,7 @@ arguments is displayed on stderr.
 <!-- FEATURES -->
 ## Features
 
-### Merging Commits
-
-This screencast demonstrates how to merge commits using the `jj-fzf` command-line tool. It begins by selecting a revision to base the merge commit on, then starts the merge dialog with `Alt+M`. For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit. More commits can also be merged, and in such cases, `Ctrl+D` can be used to describe the merge commit afterward.
-
-![merge-commit](https://github.com/user-attachments/assets/b26c8a6c-a7b8-4a73-9632-4c0196c0dfda)
-
-### Splitting Large Changes
+### Splitting Commits
 
 This screencast demonstrates how to handle large changes in the working copy using `jj-fzf`.
 It begins by splitting individual files into separate commits (`Alt+F`), then interactively splits (`Alt+I`) a longer diff into smaller commits.
@@ -50,7 +43,28 @@ Diffs can also be edited using the diffedit command (`Alt+E`) to select specific
 Throughout, commit messages are updated with the describe command (`Ctrl+D`),
 and all changes can be undone step by step using `Alt+Z`.
 
-![splitting](https://github.com/user-attachments/assets/15796abf-cfa1-4ca9-9889-4e667e3d96c9)
+![Splitting Commits](https://github.com/user-attachments/assets/d4af7859-180e-4ecf-872c-285fbf72c81f)
+**Splitting Commits:** [Asciicast](https://asciinema.org/a/684020) [MP4](https://github.com/user-attachments/assets/6e1a837d-4a36-4afd-ad7e-d1ce45925011)
+
+### Merging Commits
+
+This screencast demonstrates how to merge commits using the `jj-fzf` command-line tool.
+It begins by selecting a revision to base the merge commit on, then starts the merge dialog with `Alt+M`.
+For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit.
+More commits can also be merged, and in such cases, `Ctrl+D` can be used to describe the merge commit afterward.
+
+![Mergin Commits](https://github.com/user-attachments/assets/ffa3c957-5ef8-4a31-8472-a974d7b1e710)
+**Mergin Commits:** [Asciicast](https://asciinema.org/a/684021) [MP4](https://github.com/user-attachments/assets/5eb8b7ea-667c-489f-b1fe-e4292d0a1009)
+
+### Rebasing Commits
+
+This screencast demonstrates varies ways of rebasing commits (`Alt+R`) with `jj-fzf`.
+It begins by rebasing a single revision (`Alt+R`) before (`Ctrl+B`) and then after (`Ctrl+A`) another commit.
+After that, it moves on to rebasing an entire branch (`Alt+B`), including its descendants and ancestry up to the merge base, using `jj rebase --branch <b> --destination <c>`.
+Finally, it demonstrates rebasing a subtree (`Alt+S`), which rebases a commit and all its descendants onto a new commit.
+
+![Rebasing Commits](https://github.com/user-attachments/assets/d2ced4c2-79ec-4e7c-b1e0-4d0f37d24d70)
+**Rebasing Commits:** [Asciicast](https://asciinema.org/a/684022) [MP4](https://github.com/user-attachments/assets/32469cab-bdbf-4ecf-917d-e0e1e4939a9c)
 
 <!-- LICENSE -->
 ## License
