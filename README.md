@@ -39,7 +39,8 @@ arguments is displayed on stderr.
 
 This screencast demonstrates how to merge commits using the `jj-fzf` command-line tool. It begins by selecting a revision to base the merge commit on, then starts the merge dialog with `Alt+M`. For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit. More commits can also be merged, and in such cases, `Ctrl+D` can be used to describe the merge commit afterward.
 
-![merge-commit](https://github.com/user-attachments/assets/b26c8a6c-a7b8-4a73-9632-4c0196c0dfda)
+![merge-commit](https://github.com/user-attachments/assets/ffa3c957-5ef8-4a31-8472-a974d7b1e710)
+**Mergin Commits:** [Asciicast](https://asciinema.org/a/684021) [MP4](https://github.com/user-attachments/assets/5eb8b7ea-667c-489f-b1fe-e4292d0a1009)
 
 ### Splitting Commits
 
