@@ -56,6 +56,15 @@ More commits can also be merged, and in such cases, `Ctrl+D` can be used to desc
 ![Mergin Commits](https://github.com/user-attachments/assets/ffa3c957-5ef8-4a31-8472-a974d7b1e710)
 **Mergin Commits:** [Asciicast](https://asciinema.org/a/684021) [MP4](https://github.com/user-attachments/assets/5eb8b7ea-667c-489f-b1fe-e4292d0a1009)
 
+### Rebasing Commits
+
+This screencast demonstrates varies ways of rebasing commits (`Alt+R`) with `jj-fzf`.
+It begins by rebasing a single revision (`Alt+R`) before (`Ctrl+B`) and then after (`Ctrl+A`) another commit.
+After that, it moves on to rebasing an entire branch (`Alt+B`), including its descendants and ancestry up to the merge base, using `jj rebase --branch <b> --destination <c>`.
+Finally, it demonstrates rebasing a subtree (`Alt+S`), which rebases a commit and all its descendants onto a new commit.
+
+![Rebasing Commits](https://github.com/user-attachments/assets/d2ced4c2-79ec-4e7c-b1e0-4d0f37d24d70)
+**Rebasing Commits:** [Asciicast](https://asciinema.org/a/684022) [MP4](https://github.com/user-attachments/assets/32469cab-bdbf-4ecf-917d-e0e1e4939a9c)
 
 <!-- LICENSE -->
 ## License
