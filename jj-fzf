@@ -52,12 +52,11 @@ JJFZFPAGER="less -Rc"
 JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && exec /bin/bash -i <$T 1>$T 2>$T'
 INFO_BINDING=" fzf </dev/null >/dev/tty 2>&1 --prompt '        '  --disabled --layout=reverse --height 1 --margin 4 --padding 4 --border=block --no-info --no-scrollbar --no-clear --bind=enter:print-query "
 FZFSETTINGS=(
-  --ansi --no-mouse
+  --ansi --no-mouse -x -e
   --info default
   --layout reverse-list
   --scroll-off 3
   --bind "ctrl-x:jump"
-  --bind 'home:first,end:last'
   --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'wrap,right,border-left'
@@ -619,7 +618,7 @@ merging()
   cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   temp_dir
   # Find tracked upstream revision
-  [[ $(jj bookmark list -t) =~ ^([^\ :]+): ]] &&
+  [[ $(jj bookmark list -t | grep -vE ' \(deleted\)|^ ') =~ ^([^\ :]+): ]] &&
     UPSTREAM="${BASH_REMATCH[1]}" || UPSTREAM=
   echo 0 > $TEMPD/upstream.toggle
   export JJFZFONELINE REVPAT TEMPD UPSTREAM P
