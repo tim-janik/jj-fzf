@@ -219,6 +219,15 @@ rev_children()
   jj --no-pager --ignore-working-copy log --no-graph -r "all: $1+" -T 'change_id++"\n"'
 )
 
+# join_args <joiner> [args...]
+join_args()
+{
+  local j="${1:-}" first="${2:-}"
+  if shift 2; then
+    printf "%s" "$first" "${@/#/$j}"
+  fi
+}
+
 # reverse_array ORIG REVERSED - copy the elements from ORIG in REVERSED in reverse order
 reverse_array()
 {
@@ -248,6 +257,22 @@ diff_arrays()
   done
   true
 }
+
+# backward_chronologic [REVISIONS] - produce revisions in backwards chronological order
+backward_chronologic()
+(
+  test $# -ge 1 || return
+  ORREVS=$(join_args '|' "$@")
+  jj --no-pager --ignore-working-copy log --no-graph -r all:"$ORREVS" -T 'change_id ++ "\n"'
+)
+
+# forward_chronologic [REVISIONS] - produce revisions in chronological order
+forward_chronologic()
+(
+  BCKWREVS=( $(backward_chronologic "$@") )
+  REVERSED=() && reverse_array BCKWREVS REVERSED
+  join_args $'\n' "${REVERSED[@]}"
+)
 
 # Require .git directory and set GIT_DIR
 require_git_dir()
@@ -908,6 +933,81 @@ squash-@-into()
     sleep 1
 )
 KEYBINDINGS["Alt-W"]="squash-@-into"
+
+# Reparent a revision
+DOC['reparenting']='Start a dialog to add/delete parents of the current revision.'
+reparenting()
+(
+  SRC="$(xrev "$1")"
+  IMMU=$($JJFZFSHOW -r "$SRC" -T 'if(immutable, "true")')
+  test "$IMMU" != true || exit 0
+  temp_dir
+  jj --no-pager --ignore-working-copy log --no-graph -T 'change_id ++ "\n"' -r all:"$SRC-" > $TEMPD/reparenting.lst
+  echo 'OP="|"' > $TEMPD/reparenting.env
+  export SRC TEMPD
+  # Parse jj log lines into reparenting.revs
+  reparenting_revs()
+  {
+    mapfile -t PARENTS < $TEMPD/reparenting.lst && PARENTS="( $(join_args '|' "${PARENTS[@]}") )"
+    test "$OP" == '|' && FILTER="~ ($SRC|$PARENTS)" || FILTER="& $PARENTS"
+    for ARG in "$@" ; do
+      [[ "$ARG" =~ $REVPAT ]] || continue
+      R=$(jj --no-pager --ignore-working-copy log --no-graph -r "${BASH_REMATCH[1]} $FILTER" -T change_id)
+      test -z "$R" ||
+	echo "$R"
+    done > $TEMPD/reparenting.revs
+    mapfile -t REVS < $TEMPD/reparenting.revs && EXPR="$SRC-"
+    test "${#REVS[@]}" -ge 1 && EXPR="$SRC- $OP ( $(join_args '|' "${REVS[@]}") )"
+    # sort, so we generally merge younger branches into older branches
+    forward_chronologic "$EXPR" > $TEMPD/newparents.lst
+  }
+  # Preview reparenting command for reparenting.revs
+  reparenting_cmd()
+  (
+    echo
+    echo "CHANGE PARENTS:"
+    mapfile -t NEWPARENTS < $TEMPD/newparents.lst && NEWPARENTS="$(join_args ' | ' "${NEWPARENTS[@]}")"
+    echo "jj rebase --source \"$SRC\" --destination \\"
+    echo "  \"all: $NEWPARENTS\""
+    echo
+    echo "SOURCE REVISION:"
+    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r all:"$SRC | $SRC-"
+    echo
+    test "$OP" == '|' && deladd='ADD' || deladd='REMOVE'
+    echo "$deladd PARENTS:"
+    test "$OP" == '|' && deladd='+ ' || deladd='- '
+    while read R ; do
+      echo -n "$deladd"
+      jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline -r "$R"
+    done < $TEMPD/reparenting.revs
+  )
+  # Provide functions for FZF
+  export -f reparenting_revs reparenting_cmd join_args forward_chronologic backward_chronologic reverse_array
+  H=$'\n'
+  H="$H""Alt-A: ADD    - Add currently selected revisions as new parents"$'\n'
+  H="$H""Alt-D: DEL    - Delete selected revisions from current list of parents"$'\n'
+  export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
+  "${FZFPOPUP[@]}" \
+      --border-label '-[ CHANGE PARENTS ]-' --color=border:cyan,label:cyan \
+      --preview ". $TEMPD/reparenting.env && reparenting_revs {+} && reparenting_cmd" \
+      --prompt "Parents > " \
+      --header "$H" --header-first \
+      --bind "alt-a:execute-silent( sed 's/^OP=.*/OP=\"|\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
+      --bind "alt-d:execute-silent( sed 's/^OP=.*/OP=\"~\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
+      -m --color=pointer:grey \
+      --no-tac --no-sort > $TEMPD/selections.txt &&
+    mapfile -t selections < $TEMPD/selections.txt &&
+    source $TEMPD/reparenting.env &&
+    reparenting_revs "${selections[@]}" &&
+    mapfile -t NEWPARENTS < $TEMPD/newparents.lst &&
+    test "${#NEWPARENTS[@]}" -gt 0 ||
+      exit # Reparenting cancelled
+  ( set -x
+    # Ordering is not preserved with 'all:(.|.|.)', only with -d. -d. -d.
+    jj rebase --source "$SRC" "${NEWPARENTS[@]/#/-d}"
+  ) || sleep 1
+)
+KEYBINDINGS["Alt-P"]="reparenting"
 
 # Rebase Branch/Source/Revision After/Before/Destination
 DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
