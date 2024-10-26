@@ -216,6 +216,8 @@ xrev_or_commit()
 )
 # List all bookmarks of a revision
 rev_bookmarks()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks))' -r "$1" )
+# Print first bookmark or the revision itself
+rev_bookmark1()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks), " ", change_id)' -r "$1" | awk '{print $1;}' )
 # Get revision description
 rev_description() ( $JJFZFSHOW -T 'concat(description)' -r "$1" )
 
@@ -709,18 +711,31 @@ merging()
     mapfile -t selections < $TEMPD/selections.txt &&
     merging_revs "${selections[@]}" &&
     mapfile -t REVS < $TEMPD/merging.revs &&
-    test "${#REVS[@]}" -gt 0 ||
+    test "${#REVS[@]}" -ge 2 ||
       exit # Merge cancelled
   # Create merge message
   JJNEW_ARGS=("${REVS[@]}")
-  test "${#REVS[@]}" -eq 2 && {
+  test "${#REVS[@]}" -ge 2 && {
     MSG=$( SEP="^^^^^^^^^"
-	   echo -e "# $SEP DRAFT:  merge ${REVS[1]} into ${REVS[0]}" \
+	   NEWCOMMITS=()
+	   for p in "${REVS[@]}"; do
+	     NEWCOMMITS+=( $(rev_commitid $p) )
+	   done
+	   MERGE_BASE=$(git merge-base --octopus "${NEWCOMMITS[@]}")
+	   echo -e "# $SEP DRAFT:  merge ${REVS[@]}" \
 		"${WARN:+$WARN}" "$SEP # DELETE THIS"
-	   echo -e "Merge branch '${REVS[1]}'\n\n* Branch commit log:"
-	   git log --pretty=$'\f%s%+b' $(rev_commitid "${REVS[0]}")...$(rev_commitid "${REVS[1]}") |
-	     sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
-	     sed '/^$/d ; s/^/\t/ ; s/^\t\f/  /'
+	   test "${#REVS[@]}" -gt 2 &&
+	     echo "Merge branches: ${REVS[@]}" ||
+	       echo "Merge branch '`rev_bookmark1 ${REVS[1]}`' into '`rev_bookmark1 ${REVS[0]}`'"
+	   for c in "${NEWCOMMITS[@]}"; do
+	     test "$c" == "$MERGE_BASE" && continue
+	     test "${#REVS[@]}" -gt 2 &&
+	       echo -e "\n* Branch '`rev_bookmark1 $c`' commit log:" ||
+		 echo -e "\n* Branch commit log:" # "$c ^$MERGE_BASE"
+	     git log --pretty=$'\f%s%+b' $c ^$MERGE_BASE |
+	       sed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
+	       sed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /'
+	   done
 	   echo_signoff
        )
     # edit merge msg
