@@ -666,7 +666,7 @@ merging()
     declare -A counts_
     echo -n > $TEMPD/merging.revs
     test "$(cat $TEMPD/upstream.toggle)" -eq 1 -a -n "$UPSTREAM" &&
-      R=$(jj --no-pager --ignore-working-copy show --tool true -r "$UPSTREAM" -T 'if(description, change_id)') &&
+      R=$(jj --no-pager --ignore-working-copy show --tool true -r "$UPSTREAM" -T 'change_id') &&
       test -n "$R" && {
 	echo "$UPSTREAM" >> $TEMPD/merging.revs
 	counts_["$R"]=1	# use change_id for deduplication
@@ -674,7 +674,7 @@ merging()
     LINES=("$@") && REVERSED=() && reverse_array LINES REVERSED
     for ARG in ". $P " "${REVERSED[@]}" ; do
       [[ "$ARG" =~ $REVPAT ]] || continue
-      R=$(jj --no-pager --ignore-working-copy show --tool true -r "${BASH_REMATCH[1]}" -T 'if(description, change_id)')
+      R=$(jj --no-pager --ignore-working-copy show --tool true -r "${BASH_REMATCH[1]}" -T 'change_id')
       test -n "$R" && test -z "${counts_[$R]:-}" || continue
       echo "$R" >> $TEMPD/merging.revs
       counts_["$R"]=1
@@ -1000,6 +1000,7 @@ reparenting()
   H="$H""Alt-A: ADD    - Add currently selected revisions as new parents"$'\n'
   H="$H""Alt-D: DEL    - Delete selected revisions from current list of parents"$'\n'
   export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
+  # FZF select parents
   "${FZFPOPUP[@]}" \
       --border-label '-[ CHANGE PARENTS ]-' --color=border:cyan,label:cyan \
       --preview ". $TEMPD/reparenting.env && reparenting_revs {+} && reparenting_cmd" \
@@ -1015,6 +1016,7 @@ reparenting()
     mapfile -t NEWPARENTS < $TEMPD/newparents.lst &&
     test "${#NEWPARENTS[@]}" -gt 0 ||
       exit # Reparenting cancelled
+  # Re-parent revisions
   ( set -x
     # Ordering is not preserved with 'all:(.|.|.)', only with -d. -d. -d.
     jj rebase --source "$SRC" "${NEWPARENTS[@]/#/-d}"
