@@ -40,6 +40,16 @@ fzf --help | grep -Fq ' --header-first' || die 'fzf-0.29 is required'
 sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
 TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
 
+# == Early Options ==
+ONESHOT=false
+while test $# -ne 0 ; do
+  case "$1" in \
+    --oneshot)	ONESHOT=true ;; # auto-exit after first command
+    *)         	break ;;
+  esac
+  shift
+done
+
 # == Config ==
 export FZF_DEFAULT_OPTS=	# prevent user defaults from messing up the layout
 declare -A DOC
@@ -1324,29 +1334,42 @@ done
 # == RELOAD ==
 RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
 
-# == FZF ==
+# === TEMPD + JJ_CONFIG ==
+if test -z "${TEMPD:-}" ; then
+  temp_dir
+  export JJFZF_OUTER_TEMPD="$TEMPD"
+fi
+FZFEXTRAS=()
+EXECKILLME=
+$ONESHOT && {
+  echo > "$TEMPD/killme.0"		# ignore first :focus:
+  echo "$$" > "$TEMPD/killme.pid"	# then kill FZF
+  FZFEXTRAS+=(
+    --bind "start:execute( ps -o ppid= \$\$ > $TEMPD/killme.pid )"
+    --bind "focus:execute-silent( test -e $TEMPD/killme.0 && rm -f $TEMPD/killme.0 || rm -f $TEMPD/killme.pid )"
+  )
+  EXECKILLME="+execute( test -e $TEMPD/killme.pid && kill -1 \$(<$TEMPD/killme.pid) )"
+}
+jj_config >"$TEMPD/jjfzfconfig.toml"
+export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
+
+# == BIND COMMANDS ==
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
   postcmd=""
   [[ " $FIRSTS " == *" $fun "* ]] && postcmd="+first"
   [[ " $NEXTS " == *" $fun "* ]] && postcmd="+down"
-  BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )+$RELOAD$postcmd" )
+  BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )$EXECKILLME+$RELOAD$postcmd" )
 done
 
-if test -z "${TEMPD:-}" ; then
-  temp_dir
-  export JJFZF_OUTER_TEMPD="$TEMPD"
-fi
-jj_config >"$TEMPD/jjfzfconfig.toml"
-export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
-
+# == FZF ==
 export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
 fzf \
-  "${FZFSETTINGS[@]}" \
+  "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager st )+$RELOAD" \
-  --bind "enter:execute( $SELF logrev {} {q} )+$RELOAD" \
+  --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
   --header "$HEADER" --header-first \
