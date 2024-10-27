@@ -57,6 +57,8 @@ FZFSETTINGS=(
   --info default
   --layout reverse-list
   --scroll-off 3
+  --bind "alt-up:offset-up"
+  --bind "alt-down:offset-down"
   --bind "ctrl-x:jump"
   --bind "ctrl-z:execute( $JJSUBSHELL )"
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
