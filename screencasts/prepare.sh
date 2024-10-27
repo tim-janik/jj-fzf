@@ -56,7 +56,18 @@ fast_timings()
 # == screencast commands ==
 # type text
 T()
-{ txt="$*" && for (( i=0; i<${#txt}; i++ )); do tmux send-keys -t $SESSION -l "${txt:$i:1}" ; sleep $t ; done ; }
+{
+  txt="$*"
+  for (( i=0; i<${#txt}; i++ )); do
+    chr="${txt:$i:1}"
+    if test "$chr" == ';'; then
+      tmux send-keys -t $SESSION -H $(printf %x "'$chr'")
+    else
+      tmux send-keys -t $SESSION -l "$chr"
+    fi
+    sleep $t
+  done
+}
 # send key
 K()
 ( N="${2:-1}";  for (( i=0 ; i<$N; i++ )); do tmux send-keys -t $SESSION "$1" ; sleep $k ; done )
@@ -117,7 +128,7 @@ start_asciinema()
   gnome-terminal --geometry $W"x"$H -t $SESSION --zoom $Z  -- \
 		 asciinema rec --overwrite "$ASCIINEMA_SCREENCAST.cast" -c "tmux attach-session -t $SESSION -f read-only"
   while test -z "$(find_asciinema_pid)" ; do
-    sleep 0.1 # dont save PID, this might be an early pid still forking
+    sleep 0.2 # dont save PID, this might be an early pid still forking
   done
 }
 # Stop recording
