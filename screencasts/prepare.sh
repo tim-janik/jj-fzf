@@ -78,8 +78,8 @@ X()
 {
   K C-M-x ;
   (export t=$(echo "$t / 2" | bc -l) ; T "$*        ")
-  sleep $(echo "`crtrim "$*"` * $w / 25" | bc -l)
-  K C-g ; S
+  sleep $(echo "`crtrim "$*"` * $w / 50" | bc -l)
+  P ; K C-g ; S
 }
 
 # Find PID of asciinema for the current $SESSION
@@ -93,10 +93,11 @@ start_asciinema()
 {
   DIR="$(readlink -f "${1:-.}")" ; shift
   temp_dir
-  # set -x
-  # Simplify nano exit to Ctrl+X, also avoids exposing absolute file paths
-  echo -e "set saveonexit" > $TEMPD/nanorc # avoids confirmation: Type "y" Enter
-  export EDITOR="/usr/bin/nano --rcfile $TEMPD/nanorc"
+  # Simplify nano exit to Ctrl+X without 'y' confirmation
+  echo -e "set saveonexit"							>  $TEMPD/nanorc
+  echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"					>  $TEMPD/bashrc
+  echo "export EDITOR='/usr/bin/env nano --rcfile $TEMPD/nanorc'"		>> $TEMPD/bashrc
+  echo "export JJFZF_SHELL='/usr/bin/env bash --rcfile $TEMPD/bashrc -i'"	>> $TEMPD/bashrc
   # stert new screencast session
   tmux kill-session -t $SESSION 2>/dev/null || :
   ( cd "$DIR"
@@ -105,14 +106,14 @@ start_asciinema()
   ) >$TEMPD/session
   echo "tmux-session: $SESSION"
   tmux set-option -t $SESSION status off
-  tmux send-keys -t $SESSION 'PS1="> "; EDITOR="/usr/bin/nano --rcfile '$TEMPD/nanorc'" ; '
-  tmux resize-window -t $SESSION -x $W -y $H
-  tmux send-keys -t $SESSION $'clear\n'
+  tmux send-keys -t $SESSION "source $TEMPD/bashrc"$'\n' ; sleep 0.1
+  tmux resize-window -t $SESSION -x $W -y $H ; sleep 0.1
+  tmux send-keys -t $SESSION $'clear\n' ; sleep 0.1
   while [ $# -gt 0 ] ; do
     tmux send-keys -t $SESSION "$1"
     shift
   done
-  sleep 0.05
+  sleep 0.1
   gnome-terminal --geometry $W"x"$H -t $SESSION --zoom $Z  -- \
 		 asciinema rec --overwrite "$ASCIINEMA_SCREENCAST.cast" -c "tmux attach-session -t $SESSION -f read-only"
   while test -z "$(find_asciinema_pid)" ; do
