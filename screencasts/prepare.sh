@@ -6,7 +6,7 @@ readonly ASCIINEMA_SCREENCAST=$(readlink -f "./$SESSION")
 export SESSION ASCIINEMA_SCREENCAST
 
 # == deps ==
-for cmd in nano tmux asciinema agg gif2webp gnome-terminal ; do
+for cmd in nano tmux asciinema agg gif2webp gnome-terminal ffmpeg ; do
   command -V $cmd || die "missing command: $cmd"
 done
 for font in \
@@ -47,10 +47,10 @@ w=1.500025	# info pause
 # Use fast timings for debugging
 fast_timings()
 {
-  t=0.005
-  k=0.01
+  t=0.01
+  #k=0.015
   p=$s
-  w=0.1
+  w=0.05
 }
 
 # == screencast commands ==
@@ -70,7 +70,18 @@ T()
 }
 # send key
 K()
-( N="${2:-1}";  for (( i=0 ; i<$N; i++ )); do tmux send-keys -t $SESSION "$1" ; sleep $k ; done )
+(
+  while test $# -ge 1 ; do
+    KEY="$1"; shift
+    [[ "${1:-}" =~ ^[1-9][0-9]*$ ]] &&
+      { N="$1"; shift; } ||
+	N=1
+    for (( i=0 ; i<$N; i++ )); do
+      tmux send-keys -t $SESSION "$KEY"
+      sleep $k
+    done
+  done
+)
 Enter() { K "Enter" ; P; }
 # synchronize (with other programs)
 S()
@@ -106,7 +117,8 @@ start_asciinema()
   temp_dir
   # Simplify nano exit to Ctrl+X without 'y' confirmation
   echo -e "set saveonexit"							>  $TEMPD/nanorc
-  echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"					>  $TEMPD/bashrc
+  echo "unset HISTFILE"					       			>  $TEMPD/bashrc
+  echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"					>> $TEMPD/bashrc
   echo "export EDITOR='/usr/bin/env nano --rcfile $TEMPD/nanorc'"		>> $TEMPD/bashrc
   echo "export JJFZF_SHELL='/usr/bin/env bash --rcfile $TEMPD/bashrc -i'"	>> $TEMPD/bashrc
   # stert new screencast session
@@ -163,7 +175,7 @@ render_cast()
     wait
   )
   ls -l "$SCREENCAST"*
-  command -V notify-send 2>/dev/null && notify-send  -i system-run -t 10 "Screencast ready: $SCREENCAST"
+  command -V notify-send 2>/dev/null && notify-send -e -i system-run -t 5000 "Screencast ready: $SCREENCAST"
   true
 )
 
