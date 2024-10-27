@@ -778,6 +778,18 @@ new-before()
 )
 KEYBINDINGS["Alt-N"]="new-before"
 
+# New --insert-after
+DOC['new-after']='Use `jj new --insert-after` to create and insert a new revision after the currently selected revision (or divergent commit).'
+new-after()
+(
+  R="$(xrev_or_commit "${1:-@}")" ||
+    die "no such revision"
+  ( set -x
+    jj new --insert-after "$R"
+  ) || ERROR
+)
+KEYBINDINGS["Ctrl-Alt-N"]="new-after"
+
 # New
 DOC['new']='Use `jj new` to create a new revision on top of the currently selected revision (or divergent commit).'
 new()
