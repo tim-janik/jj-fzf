@@ -74,7 +74,7 @@ As part of the workflow, new commits can be squashed (`Alt+W`) or rebased (`Alt+
 To end up with a linear history, the demo then shows how to merge a single branch into `master` and rebases everything else to complete a work phase.
 
 ![Mega-Merge Workflow](https://github.com/user-attachments/assets/f944afa2-b6ea-438d-802b-8af83650a65f)
-**Rebasing Commits:** [Asciicast](https://asciinema.org/a/685256) [MP4](https://github.com/user-attachments/assets/eb1a29e6-b1a9-47e0-871e-b2db5892dbf1)
+**Mega-Merge:** [Asciicast](https://asciinema.org/a/685256) [MP4](https://github.com/user-attachments/assets/eb1a29e6-b1a9-47e0-871e-b2db5892dbf1)
 
 <!-- LICENSE -->
 ## License
