@@ -961,14 +961,21 @@ squash-into-parent()
 (
   R="$(xrev "${1:-@}")"
   W="$(xrev "@")"
-  test "$W" == "$R" &&
-    OPT='--keep-emptied' || # preserve workspace change_id
-      OPT=
-  # export EDITOR=true
-  ( set -x
-    jj squash -r "$R" $OPT # --use-destination-message
-  ) ||
-    sleep 1
+  if test "$W" == "$R" ; then
+    # Squashing without --keep-emptied would start a new branch at @- which is
+    # undesired if @+ exists. But using --keep-emptied does not squash the
+    # message. As a workaround, create a new @-, so we never squash directly
+    # from @. This new working copy will receive any children, merge parents
+    # and bookmarks from the original squashed working copy.
+    ( set -x
+      jj new --insert-before @
+      jj squash --from "$W" --into @-
+    ) || ERROR
+  else
+    ( set -x
+      jj squash -r "$R" # --use-destination-message
+    ) || ERROR
+  fi
 )
 KEYBINDINGS["Alt-Q"]="squash-into-parent"
 
@@ -977,10 +984,13 @@ DOC['squash-@-into']='Use `jj squash` to move the changes from the working copy 
 squash-@-into()
 (
   R="$(xrev "${1:-@}")"
+  W="$(xrev "@")"
+  test "$R" == "$W" && return
+  # See squash-into-parent, for why we need `new --insert-before` when squashing @.
   ( set -x
-    jj squash --keep-emptied --into "$R" # --use-destination-message
-  ) ||
-    sleep 1
+    jj new --insert-before @
+    jj squash --from "$W" --into "$R"
+  ) || ERROR
 )
 KEYBINDINGS["Alt-W"]="squash-@-into"
 
