@@ -66,6 +66,16 @@ Finally, it demonstrates rebasing a subtree (`Alt+S`), which rebases a commit an
 ![Rebasing Commits](https://github.com/user-attachments/assets/d2ced4c2-79ec-4e7c-b1e0-4d0f37d24d70)
 **Rebasing Commits:** [Asciicast](https://asciinema.org/a/684022) [MP4](https://github.com/user-attachments/assets/32469cab-bdbf-4ecf-917d-e0e1e4939a9c)
 
+### "Mega-Merge" Workflow
+
+This screencast demonstrates the [Mega-Merge](https://ofcr.se/jujutsu-merge-workflow) workflow, which allows to combine selected feature branches into a single "Mega-Merge" commit that the working copy is based on.
+It begins by creating a new commit (`Ctrl+N`) based on a feature branch and then adds other feature branches as parents to the commit with the parent editor (`Alt+P`).
+As part of the workflow, new commits can be squashed (`Alt+W`) or rebased (`Alt+R`) into the existing feature branches.
+To end up with a linear history, the demo then shows how to merge a single branch into `master` and rebases everything else to complete a work phase.
+
+![Mega-Merge Workflow](https://github.com/user-attachments/assets/f944afa2-b6ea-438d-802b-8af83650a65f)
+**Rebasing Commits:** [Asciicast](https://asciinema.org/a/685256) [MP4](https://github.com/user-attachments/assets/eb1a29e6-b1a9-47e0-871e-b2db5892dbf1)
+
 <!-- LICENSE -->
 ## License
 
