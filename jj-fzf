@@ -655,26 +655,6 @@ backout()
 )
 KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
-# Line History
-DOC['line-history']='EXPERIMENTAL: View history of each line.'
-line-history()
-(
-  R="$(xrev "${1:-@}")"
-  C="$(rev_commitid "$R")"
-  cd "$JJROOT"	# needed for correct file paths
-  require_git_dir
-  set +o pipefail
-  jj file list -r "$R" |
-    xargs grep -s -n '' |
-    "${FZFPOPUP[@]}" \
-      --border-label '-[ LINE HISTORY (EXPERIMENTAL) ]-' --color=border:yellow,label:yellow \
-      --preview " git log --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
-      --bind "enter:execute( git log -M -C --find-copies-harder -L{2}:{1} --color $C | $JJFZFPAGER)" \
-      --header "File Line History" \
-      --no-tac --no-sort +m -d:
-)
-KEYBINDINGS["Alt-L"]="line-history"
-
 # Merge into tracked bookmark
 DOC['merging']='Start a dialog to select parents for a new merge commit, using `jj new REVISIONS...`. For exactly two parents, a default commit message is suggested. Commits with no description are ignored.'
 merging()
