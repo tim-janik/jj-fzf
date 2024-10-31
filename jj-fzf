@@ -852,7 +852,7 @@ op-log()
   H="$H""Ctrl-D: Preview diff of '@' at a specific operation"$'\n'
   H="$H""Ctrl-L: Preview history at a specific operation"$'\n'
   H="$H"$'\n'
-  H="$H""Alt-W: Restore working copy of the selected operation into a new commit"$'\n'
+  H="$H""Alt-W: Restore working copy of the selected operation into a new commit before @"$'\n'
   H="$H""Alt-Z: Undo the selected operation entry"$'\n'
   echo 'VIEW=log@oplog'		>> $TEMPD/oplog.env
   export FZF_DEFAULT_COMMAND="$SELF oplog_oneline"
@@ -908,10 +908,9 @@ wdrestore@oplog()
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
   ( set -x
-    jj new @
-    jj restore --from "$C" --to @
-  ) ||
-    sleep 1
+    jj new --insert-before @
+    jj restore --from "$C" --to @ --restore-descendants
+  ) || ERROR
 )
 FUNCTIONS+=( 'wdrestore@oplog' )
 
