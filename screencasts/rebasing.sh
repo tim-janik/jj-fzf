@@ -13,17 +13,17 @@ source $SCRIPTDIR/prepare.sh ${SCRIPTNAME%%.*}
 ( rm -rf dest
   git clone --no-hardlinks --single-branch --branch master $(cd  $SCRIPTDIR && git rev-parse --git-dir) dest
   cd dest
-  git update-ref refs/remotes/origin/master d398b973
-  git reset --hard b04d2f21
+  git update-ref refs/remotes/origin/master 97d796b
+  git reset --hard 5265ff6
   jj git init --colocate
-  jj b s master -r d398b973 --allow-backwards
-  jj new -r c1ee758b
-  jj abandon b04d2f21
-  jj b c splittingdemo -r 6e0092ca
-  jj b c diffedit -r 6d0a76d2
-  jj b c homebrew-fixes -r abb91c8e
-  jj rebase -r splittingdemo -d 6a472b0b # -> -A -B 6d0a76d2
-  jj rebase -s homebrew-fixes-  -d 82ae8b2d
+  jj b s master -r 97d796b --allow-backwards
+  jj new -r f2c149e
+  jj abandon 5265ff6
+  jj b c splittingdemo -r 9325d16
+  jj b c diffedit -r 685fd50
+  jj b c homebrew-fixes -r c1512f4
+  jj rebase -r splittingdemo -d f3b860c # -> -A -B 685fd50
+  jj rebase -s homebrew-fixes-  -d 8f18758
   jj new @-
 )
 
