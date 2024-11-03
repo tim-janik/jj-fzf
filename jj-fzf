@@ -81,7 +81,18 @@ JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP
 TEMPD=
 
 # == JJ_CONFIG ==
-jj_config() {
+jj_config() (
+  # As long as we use JJ_CONFIG to fully override the user
+  # config some vital settings must be carried over
+  JJNAME=$(jj --no-pager --ignore-working-copy config get user.name 2>/dev/null || :)
+  JJMAIL=$(jj --no-pager --ignore-working-copy config get user.email 2>/dev/null || :)
+  test -z "$JJNAME$JJMAIL" || {
+    echo "[user]"
+    test -z "$JJNAME" ||
+      echo "name = \"$JJNAME\""
+    test -z "$JJMAIL" ||
+      echo "email = \"$JJMAIL\""
+  }
   cat <<-__EOF__
 	[snapshot]
 	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
@@ -160,7 +171,7 @@ jj_config() {
 	"diff removed token" = { underline = false }
 	"diff added token" = { underline = false }
 	__EOF__
-}
+)
 
 # == Utils ==
 # Create temporary dir, assigns $TEMPD
