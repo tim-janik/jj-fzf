@@ -37,7 +37,7 @@ crtrim()
 )
 
 # == Config + Timings ==
-W=132 H=40 Z=0.9
+W=138 H=40 Z=0.9
 t=0.050		# typing delay
 k=0.2000150	# special key delay
 s=0.250		# synchronizing delay, dont shorten
