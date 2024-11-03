@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
-set -Eeuo pipefail # -x
+set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 ABSPATHSCRIPT=`readlink -f "$0"`
 SCRIPTDIR="${ABSPATHSCRIPT%/*}"
@@ -11,12 +11,12 @@ source $SCRIPTDIR/prepare.sh ${SCRIPTNAME%%.*}
 
 # CLONE REPO
 ( rm -rf dest
-  git clone --no-hardlinks --single-branch --branch master $(cd  $SCRIPTDIR && git rev-parse --git-dir) dest
+  git clone --no-hardlinks --single-branch --branch trunk $(cd  $SCRIPTDIR && git rev-parse --git-dir) dest
   cd dest
-  git update-ref refs/remotes/origin/master 97d796b
+  git update-ref refs/remotes/origin/trunk 97d796b
   git reset --hard 5265ff6
   jj git init --colocate
-  jj b s master -r 97d796b --allow-backwards
+  jj b s trunk -r 97d796b --allow-backwards
   jj new -r f2c149e
   jj abandon 5265ff6
   jj b c splittingdemo -r 9325d16
@@ -41,8 +41,8 @@ X 'Select destination revision'
 K Down 3; P	# diffedit
 X 'Ctrl+A: --insert-after  Ctrl+B: --insert-before  Ctrl+D: --destination'
 K C-b; P; K C-a; P; K C-d; P; K C-b; P; K C-a; P
-X 'Enter: run the `jj rebase` to rebase with --revisions --insert-after'
-Enter; P
+X 'Enter: run `jj rebase` to rebase with --revisions --insert-after'
+K Enter; P
 X 'Revision "splittingdemo" was inserted *after* "diffedit"'
 P; P
 
@@ -60,8 +60,8 @@ X 'Select destination revision'
 K Down 3; P	# diffedit
 X 'Ctrl+A: --insert-after  Ctrl+B: --insert-before  Ctrl+D: --destination'
 K C-a; P; K C-b; P; K C-d; P; K C-a; P; K C-b; P
-X 'Enter: run the `jj rebase` to rebase with --revisions --insert-before'
-Enter; P
+X 'Enter: run `jj rebase` to rebase with --revisions --insert-before'
+K Enter; P
 X 'Revision "splittingdemo" was inserted *before* "diffedit"'
 P; P
 
@@ -73,20 +73,20 @@ K M-r; P
 X 'Keep `jj rebase --branch --destination` at its default'
 K Down; P	# @-
 X 'Enter: rebase "homebrew-fixes" onto HEAD@git'
-Enter; P
+K Enter PageUp; P
 X 'The "homebrew-fixes" branch was moved on top of HEAD@git'
 P; P
 
 # REBASE -s -d
 X 'Or, select a "homebrew-fixes" ancestry commit to rebase'
-K Home; K Down; P	# homebrew-fixes-
+K PageUp; K Down; P	# homebrew-fixes-
 X 'Alt+R starts the Rebase dialog'
 K M-r; P
 X 'Use Alt+S for `jj rebase --source --destination` to rebase a subtree'
 K Down 9; P	# @-
 K M-s; P
 X 'Enter: rebase the "homebrew-fixes" subtree onto "merge-commit-screencast"'
-Enter; P
+K Enter; P
 K Down 7; P
 X 'The rebase now moved the "homebrew-fixes" parent commit and its descendants'
 P; P
