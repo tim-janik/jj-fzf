@@ -15,22 +15,22 @@ DIR=MegaMergeDemo
   set -x
   git clone --no-hardlinks --single-branch --branch master $(cd  $SCRIPTDIR && git rev-parse --git-dir) $DIR
   cd $DIR
-  git update-ref refs/remotes/origin/master c1ee758b
-  # git reset --hard c1ee758b
+  git update-ref refs/remotes/origin/master f2c149e
+  # git reset --hard f2c149e
   jj git init --colocate
-  jj b s master -r c1ee758b --allow-backwards
+  jj b s master -r f2c149e --allow-backwards
   jj bookmark track master@origin
-  jj new -r c1ee758b
-  jj b c two-step-duplicate-and-backout -r e18b9741
-  jj abandon dae9f2e3:: && jj rebase -s 8c0b3eb7 -d c1ee758b
-  jj b c bug-fixes -r 251d5de3
-  jj abandon 94b41113:: && jj rebase -s 94a662b6 -d c1ee758b
-  jj abandon eee1915b:: # jj b c screencast-scripts -r e47b9d06
-  # jj abandon 36db95f4:: && jj rebase -s eee1915b -d c1ee758b
-  jj abandon 6eb9457f:: # jj b c readme-screencasts -r adfbbf57
-  # jj abandon 9b826888:: && jj rebase -s 6eb9457f -d c1ee758b
-  jj b c homebrew-fixes -r abb91c8e
-  jj abandon b04d2f21::
+  jj new -r f2c149e
+  jj b c two-step-duplicate-and-backout -r 7d3dae8
+  jj abandon b19d586:: && jj rebase -s bf7fd9d -d f2c149e
+  jj b c bug-fixes -r f93824e
+  jj abandon 56a3cbb:: && jj rebase -s bed3bcd -d f2c149e
+  jj abandon 249a167:: # jj b c screencast-scripts -r 69fd52e
+  # jj abandon 4951884:: && jj rebase -s 249a167 -d f2c149e
+  jj abandon 5cf1278:: # jj b c readme-screencasts -r 8c3d950
+  # jj abandon 66eb19d:: && jj rebase -s 5cf1278 -d f2c149e
+  jj b c homebrew-fixes -r c1512f4
+  jj abandon 5265ff6::
   jj new @-
 )
 
