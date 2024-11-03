@@ -81,7 +81,18 @@ JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP
 TEMPD=
 
 # == JJ_CONFIG ==
-jj_config() {
+jj_config() (
+  # As long as we use JJ_CONFIG to fully override the user
+  # config some vital settings must be carried over
+  JJNAME=$(jj --no-pager --ignore-working-copy config get user.name 2>/dev/null || :)
+  JJMAIL=$(jj --no-pager --ignore-working-copy config get user.email 2>/dev/null || :)
+  test -z "$JJNAME$JJMAIL" || {
+    echo "[user]"
+    test -z "$JJNAME" ||
+      echo "name = \"$JJNAME\""
+    test -z "$JJMAIL" ||
+      echo "email = \"$JJMAIL\""
+  }
   cat <<-__EOF__
 	[snapshot]
 	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
@@ -160,7 +171,7 @@ jj_config() {
 	"diff removed token" = { underline = false }
 	"diff added token" = { underline = false }
 	__EOF__
-}
+)
 
 # == Utils ==
 # Create temporary dir, assigns $TEMPD
@@ -912,7 +923,7 @@ split-files()
   # save @
   AT="$(rev_changeid @)"
   # show undo hints
-  jj op log -n1
+  jj --no-pager op log -n1
   echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following split"
   # adjust working copy, so 'jj split' resulting change_id is predictable
   test "$R" == "$AT" || (set -x; jj edit -r "$R")
@@ -1212,7 +1223,7 @@ vivifydivergent()
     COMMIT=$(divergent_commitid "$COMMIT") ||
       die 'no divergent revision'
   echo "$SELF vivifydivergent $COMMIT" >&2
-  jj log --no-graph -T builtin_log_oneline -r "$COMMIT"
+  jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT"
   # Find change_id for commit
   R=`jj log --no-graph -T change_id -r "$COMMIT"` ||
     die 'no divergent revision'
@@ -1225,7 +1236,7 @@ vivifydivergent()
   # Squash commit ID of $R into @, auto-deleting the divergent revision
   ( set -x
     jj squash --from "$NEWCOMMIT" --into @ )
-  jj log --no-graph -T builtin_log_oneline -r @
+  jj --no-pager log --no-graph -T builtin_log_oneline -r @
 )
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
@@ -1351,10 +1362,10 @@ fi
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
   # Sync JJ with working-copy before func, probably has JJ_CONFIG: snapshot.auto-track="none()"
-  jj status >/dev/null
+  jj --no-pager status >/dev/null
   FUNC="$1" "$@" && E=$? || E=$?
   # Sync JJ after modifications, so user snapshot config and snapshot errors take effect
- ( unset JJ_CONFIG ; jj status || : ) >/dev/null
+ ( unset JJ_CONFIG ; jj --no-pager status || : ) >/dev/null
   exit $E
 fi
 
@@ -1362,7 +1373,7 @@ fi
 # Sync JJ before starting FZF, so user snapshot config and snapshot errors take effect
 ( unset JJ_CONFIG
   set -x
-  jj status
+  jj --no-pager status
 ) || exit $?
 
 # == Help / Docs ==
@@ -1417,7 +1428,7 @@ export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
 fzf \
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
-  --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager st )+$RELOAD" \
+  --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
