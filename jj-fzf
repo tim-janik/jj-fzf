@@ -866,6 +866,7 @@ op-log()
     --bind "alt-w:execute-silent( $SELF wdrestore@oplog {} )+abort" \
     --bind "alt-z:execute-silent( $SELF undo-op@oplog {} )+abort" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
+    --preview-window 'nowrap,right,border-left' \
     --no-tac --no-sort +m
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
