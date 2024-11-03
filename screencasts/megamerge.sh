@@ -13,24 +13,24 @@ source $SCRIPTDIR/prepare.sh ${SCRIPTNAME%%.*}
 DIR=MegaMergeDemo
 ( rm -rf $DIR
   set -x
-  git clone --no-hardlinks --single-branch --branch master $(cd  $SCRIPTDIR && git rev-parse --git-dir) $DIR
+  git clone --no-hardlinks --single-branch --branch trunk $(cd  $SCRIPTDIR && git rev-parse --git-dir) $DIR
   cd $DIR
-  git update-ref refs/remotes/origin/master c1ee758b
-  # git reset --hard c1ee758b
+  git update-ref refs/remotes/origin/trunk f2c149e
+  # git reset --hard f2c149e
   jj git init --colocate
-  jj b s master -r c1ee758b --allow-backwards
-  jj bookmark track master@origin
-  jj new -r c1ee758b
-  jj b c two-step-duplicate-and-backout -r e18b9741
-  jj abandon dae9f2e3:: && jj rebase -s 8c0b3eb7 -d c1ee758b
-  jj b c bug-fixes -r 251d5de3
-  jj abandon 94b41113:: && jj rebase -s 94a662b6 -d c1ee758b
-  jj abandon eee1915b:: # jj b c screencast-scripts -r e47b9d06
-  # jj abandon 36db95f4:: && jj rebase -s eee1915b -d c1ee758b
-  jj abandon 6eb9457f:: # jj b c readme-screencasts -r adfbbf57
-  # jj abandon 9b826888:: && jj rebase -s 6eb9457f -d c1ee758b
-  jj b c homebrew-fixes -r abb91c8e
-  jj abandon b04d2f21::
+  jj b s trunk -r f2c149e --allow-backwards
+  jj bookmark track trunk@origin
+  jj new -r f2c149e
+  jj b c two-step-duplicate-and-backout -r 7d3dae8
+  jj abandon b19d586:: && jj rebase -s bf7fd9d -d f2c149e
+  jj b c bug-fixes -r f93824e
+  jj abandon 56a3cbb:: && jj rebase -s bed3bcd -d f2c149e
+  jj abandon 249a167:: # jj b c screencast-scripts -r 69fd52e
+  # jj abandon 4951884:: && jj rebase -s 249a167 -d f2c149e
+  jj abandon 5cf1278:: # jj b c readme-screencasts -r 8c3d950
+  # jj abandon 66eb19d:: && jj rebase -s 5cf1278 -d f2c149e
+  jj b c homebrew-fixes -r c1512f4
+  jj abandon 5265ff6::
   jj new @-
 )
 
@@ -58,7 +58,7 @@ Q "two-step-duplicate-and-backout"; K Tab; P
 Q "bug-fixes"; K Tab; P
 Q "homebrew-fixes"; K Tab; P
 X 'Enter: run `jj rebase` to add the selected parents'
-Enter; P
+K Enter; P
 X 'The working copy now contains 3 feature branches'
 
 # NEW COMMIT
@@ -89,7 +89,7 @@ K M-r; P
 Q "\ @\ "	# "cleanup-readme"
 K C-b; P
 X 'Enter: rebase with `jj rebase --revisions --insert-before`'
-Enter; P
+K Enter; P
 
 # SQUASH COMMIT
 K PageUp
@@ -123,7 +123,7 @@ K Enter; P; K C-k; P; K C-x; P      # nano
 K PageUp; K Down 2; P
 X 'Alt+R: rebase the Mega-Merge head onto the working copy'
 K M-r; P
-X 'Enter: rebase entire branch onto the new master'
+X "Enter: rebase entire branch onto the new 'trunk'"
 K Enter; P
 
 # REMOVE PARENT
@@ -138,7 +138,7 @@ X 'Use Ctrl+N to prepare the next commit'
 K C-n; P
 
 # OUTRO
-X "The new feature can be pushed with 'master' and the Mega-Merge head is rebased"
+X "The new feature can be pushed with 'trunk' and the Mega-Merge head is rebased"
 P; P
 
 # EXIT
