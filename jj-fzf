@@ -109,7 +109,7 @@ jj_config() (
 	      separate(" ",
 	        format_short_change_id_with_hidden_and_divergent_info(self),
 	        if(author.email(), author.username(), email_placeholder),
-	        committer.timestamp().local().format("%Y-%m-%d"),
+	        author.timestamp().local().format("%Y-%m-%d"),
 	        format_short_commit_id(commit_id),
 	        bookmarks,
 	        tags,
