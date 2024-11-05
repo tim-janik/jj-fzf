@@ -1304,14 +1304,16 @@ KEYBINDINGS["Alt-Z"]="undo"
 
 # == --help ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
-HELPKEYS[Ctrl-↑]='preview-up'
-DOC['preview-up']='Scroll the preview window.'
-HELPKEYS[Ctrl-↓]='preview-down'
-DOC['preview-down']='Scroll the preview window.'
-HELPKEYS[Ctrl-U]='clear-filter'
-DOC['clear-filter']='Discard the current *fzf* query string.'
+if [[ "${1:-}" = --help ]] ; then
+  HELPKEYS[Ctrl-↑]='preview-up'
+  DOC['preview-up']='Scroll the preview window.'
+  HELPKEYS[Ctrl-↓]='preview-down'
+  DOC['preview-down']='Scroll the preview window.'
+  HELPKEYS[Ctrl-U]='clear-filter'
+  DOC['clear-filter']='Discard the current *fzf* query string.'
+fi
 KEYS="${!HELPKEYS[@]}"
-KEYS=$(sort <<<"${KEYS// /$'\n'}")
+KEYS=$(sort <<<"${KEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
 if [[ "${1:-}" = --help ]] ; then
   [[ " $* " =~ --color ]] && COLOR=true || COLOR=false
   ( :
