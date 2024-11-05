@@ -17,7 +17,8 @@ JJ-FZF
 The main view centers around `jj log`, providing previews for the `jj diff` or `jj obslog` of every revision.
 Several key bindings are available to quickly perform actions such as squashing, swapping, rebasing, splitting, branching, committing, or abandoning revisions.
 A separate view for the operations log `jj op log` enables fast previews of old commit histories or diffs between operations, making it easy to `jj undo` any previous operation.
-The available hotkeys are always displayed onscreen for simple discoverability.
+The available hotkeys are displayed onscreen for simple discoverability.
+The commands and key bindings can also be displayed with `jj-fzf --help` and are documented in the wiki: [jj-fzf-help](https://github.com/tim-janik/jj-fzf/wiki/jj-fzf-help)
 
 The `jj-fzf` script is implemented in bash-5.1, using fzf-0.29 and jj-0.21.0.
 Command line tools like sed, grep are assumed to provide GNU tool semantics.
@@ -28,7 +29,7 @@ Command line tools like sed, grep are assumed to provide GNU tool semantics.
 Start `jj-fzf` in any `jj` repository and study the keybindings.
 Various `jj` commands are accesible through `Alt` and `Ctrl` key bindings.
 The query prompt can be used to filter the *oneline* revision display from the `jj log` output and
-the preview windows shows commit and diff information.
+the preview window shows commit and diff information.
 When a key binding is pressed to modify the history, the corresponding `jj` command with its
 arguments is displayed on stderr.
 
