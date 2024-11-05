@@ -642,7 +642,7 @@ backout()
 KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
 # Line History
-DOC['line-history']='WIP: View history of each line.'
+DOC['line-history']='EXPERIMENTAL: View history of each line.'
 line-history()
 (
   R="$(xrev "${1:-@}")"
@@ -653,7 +653,7 @@ line-history()
   jj file list -r "$R" |
     xargs grep -s -n '' |
     "${FZFPOPUP[@]}" \
-      --border-label '-[ LINE HISTORY (WIP) ]-' --color=border:yellow,label:yellow \
+      --border-label '-[ LINE HISTORY (EXPERIMENTAL) ]-' --color=border:yellow,label:yellow \
       --preview " git log --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
       --bind "enter:execute( git log -M -C --find-copies-harder -L{2}:{1} --color $C | $JJFZFPAGER)" \
       --header "File Line History" \
@@ -790,7 +790,7 @@ new-before()
 KEYBINDINGS["Alt-N"]="new-before"
 
 # New --insert-after
-DOC['new-after']='Use `jj new --insert-after` to create and insert a new revision after the currently selected revision (or divergent commit).'
+DOC['new-after']='EXPERIMENTAL: Use `jj new --insert-after` to create and insert a new revision after the currently selected revision (or divergent commit).'
 new-after()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
@@ -1132,7 +1132,7 @@ rebasing()
 KEYBINDINGS["Alt-R"]="rebasing"
 
 # Restore File
-DOC['restore-file']='Start a dialog to select a file from the currently selected revision and use `jj restore` to restore the file into the working copy.'
+DOC['restore-file']='EXPERIMENTAL: Start a dialog to select a file from the currently selected revision and use `jj restore` to restore the file into the working copy.'
 restore-file()
 (
   R="$(xrev "${1:-@}")"
@@ -1152,7 +1152,7 @@ restore-file()
 KEYBINDINGS["Alt-S"]="restore-file"
 
 # Tag Creation
-DOC['tag']='Enter a tag name to create a new unsigned, annotated tag at the selected revision with `git tag`.'
+DOC['tag']='EXPERIMENTAL: Enter a tag name to create a new unsigned, annotated tag at the selected revision with `git tag`.'
 tag()
 (
   R="$(xrev "${1:-@}")"
