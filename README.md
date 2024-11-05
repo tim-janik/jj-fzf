@@ -20,7 +20,7 @@ A separate view for the operations log `jj op log` enables fast previews of old 
 The available hotkeys are displayed onscreen for simple discoverability.
 The commands and key bindings can also be displayed with `jj-fzf --help` and are documented in the wiki: [jj-fzf-help](https://github.com/tim-janik/jj-fzf/wiki/jj-fzf-help)
 
-The `jj-fzf` script is implemented in bash-5.1, using fzf-0.29 and jj-0.21.0.
+The `jj-fzf` script is implemented in bash-5.1, using fzf-0.29 and jj-0.22.0.
 Command line tools like sed, grep are assumed to provide GNU tool semantics.
 
 <!-- USAGE -->
