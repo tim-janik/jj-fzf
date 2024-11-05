@@ -77,7 +77,7 @@ FZFSETTINGS=(
   $TRACK
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
-JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '::' )
+JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '..' )
 TEMPD=
 
 # == JJ_CONFIG ==
@@ -874,7 +874,7 @@ KEYBINDINGS["Ctrl-O"]="op-log"
 log@oplog()
 (
   jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -r '::' -T jj_fzf_oneline # builtin_log_oneline
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -r '..' -T jj_fzf_oneline # builtin_log_oneline
 )
 FUNCTIONS+=( 'log@oplog' )
 
@@ -1250,7 +1250,7 @@ gitk()
   cd "$JJROOT"
   git update-index --refresh || :
   #test -e "$JJROOT/.jj/repo/store/git" && export GIT_DIR="$JJROOT/.jj/repo/store/git" || export GIT_DIR="$JJROOT/.git"
-  # readarray -t HEADS < <( jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(::) ' )
+  # readarray -t HEADS < <( jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(..) ' )
   # beware gitk is executable and sh function
   ( set -x
     exec gitk --branches --tags --remotes --select-commit=$COMMIT $COMMIT HEAD -- # "${HEADS[@]}"
@@ -1435,6 +1435,6 @@ fzf \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
   --header "$HEADER" --header-first \
-  --prompt '  :: > ' \
+  --prompt '  ..> ' \
   --no-tac --no-sort +m
 # Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
