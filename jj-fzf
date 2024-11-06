@@ -114,7 +114,7 @@ jj_config() (
 	        bookmarks,
 	        tags,
 	        working_copies,
-	        git_head,
+		if(git_head, label("git_head", "git_head()")),
 	        if(conflict, label("conflict", "conflict")),
 	        if(empty, label("empty", "(empty)")),
 	        if(description,
