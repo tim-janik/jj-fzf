@@ -16,6 +16,7 @@ DIR=MegaMergeDemo
   git clone --no-hardlinks --single-branch --branch trunk $(cd  $SCRIPTDIR && git rev-parse --git-dir) $DIR
   cd $DIR
   git update-ref refs/remotes/origin/trunk f2c149e
+  git tag -d `git tag`
   # git reset --hard f2c149e
   jj git init --colocate
   jj b s trunk -r f2c149e --allow-backwards
