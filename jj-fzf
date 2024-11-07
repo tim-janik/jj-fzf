@@ -1091,9 +1091,11 @@ rebasing()
   echo > $TEMPD/rebasing.env
   echo 'FR=--branch'		>> $TEMPD/rebasing.env
   echo 'TO=--destination'	>> $TEMPD/rebasing.env
+  echo 'SP=true'		>> $TEMPD/rebasing.env
   export JJFZFONELINE
   PREVIEW=". $TEMPD/rebasing.env"
-  PREVIEW="$PREVIEW"' && echo && echo jj rebase $FR '$S' $TO $REV && echo'
+  PREVIEW="$PREVIEW"' && echo && echo jj rebase $FR '$S' $TO $REV'
+  PREVIEW="$PREVIEW"' && { $SP && echo jj simplify-parents ${FR/-branch/-source} '$S' || :; } && echo'
   PREVIEW="$PREVIEW"' && F=${FR#--} && echo ${F^^}: && $JJFZFONELINE -r '$S' && echo'
   PREVIEW="$PREVIEW"' && T=${TO#--} && echo ${T^^}: && $JJFZFONELINE -r $REV && echo'
   PREVIEW="$PREVIEW"' && echo COMMON: && $JJFZFONELINE -r "heads( ::'$S' & ::$REV)"'
@@ -1127,6 +1129,7 @@ rebasing()
   rm -f TEMPD/rebasing.env
   ( set -x
     jj rebase $FR "$S" $TO "$REV"
+    jj simplify-parents "${FR/-branch/-source}" "$S"
   ) || sleep 1
 )
 KEYBINDINGS["Alt-R"]="rebasing"
