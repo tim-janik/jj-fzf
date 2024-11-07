@@ -1103,6 +1103,7 @@ rebasing()
   H="$H""Alt-B: BRANCH   - Rebase the whole branch relative to destination's ancestors"$'\n'
   H="$H""Alt-S: SOURCE   - Rebase specified revision together with descendants"$'\n'
   H="$H""Alt-R: REVISION - Rebase only given revision, moves descendants onto parent"$'\n'
+  H="$H""Alt-P: SIMPLIFY - Use simplify-parents after rebasing"$'\n'
   H="$H"$'\n'
   H="$H""Ctrl-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Ctrl-B: BEFORE      - The revision to insert before"$'\n'
@@ -1116,6 +1117,7 @@ rebasing()
 	  --bind "alt-b:execute-silent( sed 's/^FR=.*/FR=--branch/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-s:execute-silent( sed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-r:execute-silent( sed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-p:execute-silent( sed 's/^SP=false/SP=x/; s/^SP=true/SP=false/; s/^SP=x/SP=true/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "ctrl-d:execute-silent( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "ctrl-a:execute-silent( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "ctrl-b:execute-silent( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
@@ -1129,8 +1131,11 @@ rebasing()
   rm -f TEMPD/rebasing.env
   ( set -x
     jj rebase $FR "$S" $TO "$REV"
+  ) || ERROR
+  ! $SP || (
+    set -x
     jj simplify-parents "${FR/-branch/-source}" "$S"
-  ) || sleep 1
+  ) || ERROR
 )
 KEYBINDINGS["Alt-R"]="rebasing"
 
