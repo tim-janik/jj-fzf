@@ -928,15 +928,15 @@ split-files()
   # adjust working copy, so 'jj split' resulting change_id is predictable
   test "$R" == "$AT" || (set -x; jj edit -r "$R")
   # split for n-1 files
+  MFS=$(git diff-tree --no-commit-id --name-status -r $(rev_commitid @))
   R1=true # skip first split, need n-1 splits for n files
-  F=$(jj show --tool true -s -T '' -r @)
   while read M F ; do
-    $R1 && { R1=false; continue; }
+    $R1 && { R1=false; continue; } # skip first
     ( export EDITOR=/usr/bin/true
       set -x
       jj split -r @ -- "$F"
     )
-  done <<<"$F"
+  done <<<"$MFS"
   # restore working copy
   test "$R" == "$AT" || {
     EXISTS=$($JJFZFSHOW -r "$AT" -T '"true"' 2>/dev/null) # squash might have killed an empty commit
