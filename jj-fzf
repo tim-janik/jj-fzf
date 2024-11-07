@@ -35,7 +35,7 @@ then
 fi
 
 # == Check Deps ==
-jj --version | grep -Eq 'jj 0\.2[2-9]\.' || die 'jj-0.22 is required'
+jj --version | grep -Eq 'jj 0\.2[3-9]\.' || die 'jj-0.23 is required'
 fzf --help | grep -Fq ' --header-first' || die 'fzf-0.29 is required'
 sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
 TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
@@ -114,7 +114,7 @@ jj_config() (
 	        bookmarks,
 	        tags,
 	        working_copies,
-	        git_head,
+		if(git_head, label("git_head", "git_head()")),
 	        if(conflict, label("conflict", "conflict")),
 	        if(empty, label("empty", "(empty)")),
 	        if(description,
