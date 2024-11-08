@@ -53,7 +53,6 @@ done
 # == Config ==
 export FZF_DEFAULT_OPTS=	# prevent user defaults from messing up the layout
 declare -A DOC
-TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
@@ -77,10 +76,34 @@ FZFSETTINGS=(
   $TRACK
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
-JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '..' )
+JJLOGCMD=( $SELF fzflog )
 TEMPD=
 
 # == JJ_CONFIG ==
+JJ_FZF_ONELINE='
+if(root,
+  format_root_commit(self),
+  label(if(current_working_copy, "working_copy"),
+    concat(
+      separate(" ",
+        format_short_change_id_with_hidden_and_divergent_info(self),
+        if(author.email(), author.username(), email_placeholder),
+        author.timestamp().local().format("%Y-%m-%d"),
+        format_short_commit_id(commit_id),
+        bookmarks,
+        tags,
+        working_copies,
+        if(git_head, label("git_head", "git_head()")),
+        if(conflict, label("conflict", "conflict")),
+        if(empty, label("empty", "(empty)")),
+        if(description,
+          description.first_line(),
+          label(if(empty, "empty"), description_placeholder),
+        ),
+      ) ++ "\n",
+    ),
+  )
+)'
 jj_config() (
   # As long as we use JJ_CONFIG to fully override the user
   # config some vital settings must be carried over
@@ -97,34 +120,9 @@ jj_config() (
 	[snapshot]
 	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
 	auto-track = "none()"
-	[revset-aliases]
-	recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "
 	[template-aliases]
 	# parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-	jj_fzf_oneline = '''
-	if(root,
-	  format_root_commit(self),
-	  label(if(current_working_copy, "working_copy"),
-	    concat(
-	      separate(" ",
-	        format_short_change_id_with_hidden_and_divergent_info(self),
-	        if(author.email(), author.username(), email_placeholder),
-	        author.timestamp().local().format("%Y-%m-%d"),
-	        format_short_commit_id(commit_id),
-	        bookmarks,
-	        tags,
-	        working_copies,
-		if(git_head, label("git_head", "git_head()")),
-	        if(conflict, label("conflict", "conflict")),
-	        if(empty, label("empty", "(empty)")),
-	        if(description,
-	          description.first_line(),
-	          label(if(empty, "empty"), description_placeholder),
-	        ),
-	      ) ++ "\n",
-	    ),
-	  )
-	)'''
+	jj_fzf_oneline = ''' $JJ_FZF_ONELINE '''
 	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 	jj_fzf_showdetails = '''
 	concat(
@@ -375,6 +373,33 @@ FUNCTIONS=()
 declare -A KEYBINDINGS
 FIRSTS=""
 NEXTS=""
+
+# fzflog revset aliases
+revsets_toml()
+(
+  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., 2) | present(bookmarks()) ''' "
+  REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
+  echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
+)
+
+# fzflog [--revsetname] [rev] - revision log for fzf
+fzflog()
+(
+  # SEE ALSO: jj config get revsets.log
+  [[ "${1:-}" == --revsetname ]] && { REVSETNAME=true; shift; } || REVSETNAME=false
+  [[ $# -ge 1 ]] &&
+    REVSETS_LOG="$1" ||
+      REVSETS_LOG=$(jj --ignore-working-copy config get 'jj-fzf.revsets.log' 2>/dev/null)
+  test -n "$REVSETS_LOG" || REVSETS_LOG="fzflog"
+  if $REVSETNAME ; then
+    echo "$REVSETS_LOG"
+  else
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} \
+       --config-toml "$(revsets_toml)" \
+       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG"
+  fi
+)
+FUNCTIONS+=( 'fzflog' )
 
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
@@ -1443,6 +1468,6 @@ fzf \
   "${BIND[@]}" \
   --preview " exec $SELF preview {} {q} " \
   --header "$HEADER" --header-first \
-  --prompt '  ..> ' \
+  --prompt "  $($SELF fzflog --revsetname) > " \
   --no-tac --no-sort +m
 # Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
