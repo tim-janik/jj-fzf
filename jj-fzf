@@ -401,6 +401,19 @@ fzflog()
 )
 FUNCTIONS+=( 'fzflog' )
 
+# revset-assign <revset> - assign to jj-fzf.revsets.log
+DOC['revset-assign']='Restart `jj-fzf` using the current query string as new revset for this repository.'
+revset-assign()
+(
+  REVSET="$1"
+  jj --config-toml "$(revsets_toml)" --no-pager --ignore-working-copy log --no-graph -T '' -r "$REVSET" >/dev/null 2>&1 ||
+    REVSET=fzflog
+  ( set -x
+    jj --ignore-working-copy config set --repo 'jj-fzf.revsets.log' "$REVSET"
+  ) || ERROR
+)
+KEYBINDINGS["Ctrl-R"]="revset-assign"	# overridden below
+
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
 toggle-evolog()
@@ -1466,8 +1479,11 @@ fzf \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
+  --bind "ctrl-r:transform-query( $SELF revset-assign {q} )+become( exec $SELF )" \
   --preview " exec $SELF preview {} {q} " \
   --header "$HEADER" --header-first \
   --prompt "  $($SELF fzflog --revsetname) > " \
   --no-tac --no-sort +m
 # Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
+# Ctrl-R: This must be rebound to run transform-query, ideally we would just transform-query+transform-prompt+reload
+#         but that crashes fzf-0.44.1 when the cursor position is after the new revset length, so we use become().
