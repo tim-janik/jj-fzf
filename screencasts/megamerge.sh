@@ -124,17 +124,13 @@ K Enter; P; K C-k; P; K C-x; P      # nano
 K PageUp; K Down 2; P
 X 'Alt+R: rebase the Mega-Merge head onto the working copy'
 K M-r; P
-X "Enter: rebase entire branch onto the new 'trunk'"
+X "Alt+P: simplify-parents after rebase to remove old parent edges"
+K M-p; P
+X "Enter: rebase onto 'trunk' and also simplify parents"
 K Enter; P
 
-# REMOVE PARENT
+# NEW
 K PageUp
-X "Alt+P: remove the old 'cleanup-readme' parent"
-K M-p; P
-X 'Alt+D + Enter: select and remove old parent'
-K M-d; P
-Q "cleanup-readme\ "; P
-K Enter; P
 X 'Use Ctrl+N to prepare the next commit'
 K C-n; P
 
