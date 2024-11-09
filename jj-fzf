@@ -6,8 +6,21 @@ SELF="$0"
 
 # == PREVIEW fast path ==
 export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
-if test -n "${JJFZF_OUTER_TEMPD:-}" -a -n "${JJ_CONFIG:-}" \
-	-a "${1:-}" == preview					# preview command, nested invocation
+JJ_FZF_SHOWDETAILS='
+concat(
+  builtin_log_oneline,
+  "Change ID: " ++ self.change_id() ++ "\n",
+  "Commit ID: " ++ commit_id ++ "\n",
+  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
+  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
+  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
+  "Author:    " ++ format_detailed_signature(author) ++ "\n",
+  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
+  indent("    ",
+    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
+  "\n",
+)' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+if test -n "${JJFZF_OUTER_TEMPD:-}" -a "${1:-}" == preview	# preview command, nested invocation
 then
   if [[ "${2:-}" =~ $REVPAT ]]					# match beginning of jj log line
   then
@@ -25,7 +38,7 @@ then
     then
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$REVISION"
     else							# show commit and diff
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T 'jj_fzf_showdetails' -s -r "$REVISION"
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
       exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION"
     fi
   else								# no valid revision
@@ -80,6 +93,7 @@ JJLOGCMD=( $SELF fzflog )
 TEMPD=
 
 # == JJ_CONFIG ==
+# parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 JJ_FZF_ONELINE='
 if(root,
   format_root_commit(self),
@@ -121,23 +135,6 @@ jj_config() (
 	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
 	auto-track = "none()"
 	[template-aliases]
-	# parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-	jj_fzf_oneline = ''' $JJ_FZF_ONELINE '''
-	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-	jj_fzf_showdetails = '''
-	concat(
-	  builtin_log_oneline,
-	  "Change ID: " ++ self.change_id() ++ "\n",
-	  "Commit ID: " ++ commit_id ++ "\n",
-	  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
-	  if(immutable, "Immutable: " ++ label("description placeholder", "true") ++ "\n"),
-	  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
-	  "Author:    " ++ format_detailed_signature(author) ++ "\n",
-	  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
-	  indent("    ",
-	    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
-	  "\n",
-	)'''
 	# Provide special oplog marker that can be parsed for undone operations
 	builtin_op_log_node = '''
 	coalesce(
@@ -912,7 +909,7 @@ KEYBINDINGS["Ctrl-O"]="op-log"
 log@oplog()
 (
   jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -r '..' -T jj_fzf_oneline # builtin_log_oneline
+  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -r '..' -T "$JJ_FZF_ONELINE" # builtin_log_oneline
 )
 FUNCTIONS+=( 'log@oplog' )
 
@@ -1224,9 +1221,10 @@ logrev()
   cd "$JJROOT" # show root relative file names
   test "${2:-}" = "--all" && R="::$R"
   E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
-  jj --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -s --git -T ' "\n" ++ jj_fzf_showdetails' -r "$R" |
-    sed -r "1 { /^$/d }; /^(($E)?diff\b *--git)/{s//\n\1/}" |	# insert newline between stats and diff
-    $JJFZFPAGER
+  (
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
+  ) | $JJFZFPAGER
 )
 FUNCTIONS+=( 'logrev' )
 
