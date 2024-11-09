@@ -35,7 +35,7 @@ then
 fi
 
 # == Check Deps ==
-jj --version | grep -Eq 'jj 0\.2[3-9]\.' || die 'jj-0.23 is required'
+jj --version --ignore-working-copy | grep -Eq 'jj 0\.2[3-9]\.' || die 'jj-0.23 is required'
 fzf --help | grep -Fq ' --header-first' || die 'fzf-0.29 is required'
 sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
 TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
@@ -53,7 +53,6 @@ done
 # == Config ==
 export FZF_DEFAULT_OPTS=	# prevent user defaults from messing up the layout
 declare -A DOC
-TOMLCFG='revset-aliases.recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "'
 # JJ repository
 JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
@@ -77,10 +76,34 @@ FZFSETTINGS=(
   $TRACK
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
-JJLOGCMD=( jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -T jj_fzf_oneline -r '..' )
+JJLOGCMD=( $SELF fzflog )
 TEMPD=
 
 # == JJ_CONFIG ==
+JJ_FZF_ONELINE='
+if(root,
+  format_root_commit(self),
+  label(if(current_working_copy, "working_copy"),
+    concat(
+      separate(" ",
+        format_short_change_id_with_hidden_and_divergent_info(self),
+        if(author.email(), author.username(), email_placeholder),
+        author.timestamp().local().format("%Y-%m-%d"),
+        format_short_commit_id(commit_id),
+        bookmarks,
+        tags,
+        working_copies,
+        if(git_head, label("git_head", "git_head()")),
+        if(conflict, label("conflict", "conflict")),
+        if(empty, label("empty", "(empty)")),
+        if(description,
+          description.first_line(),
+          label(if(empty, "empty"), description_placeholder),
+        ),
+      ) ++ "\n",
+    ),
+  )
+)'
 jj_config() (
   # As long as we use JJ_CONFIG to fully override the user
   # config some vital settings must be carried over
@@ -97,34 +120,9 @@ jj_config() (
 	[snapshot]
 	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
 	auto-track = "none()"
-	[revset-aliases]
-	recent7 = " ancestors(heads(mutable()),7) ~ immutable() | immutable_heads() | bookmarks() | remote_bookmarks() "
 	[template-aliases]
 	# parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-	jj_fzf_oneline = '''
-	if(root,
-	  format_root_commit(self),
-	  label(if(current_working_copy, "working_copy"),
-	    concat(
-	      separate(" ",
-	        format_short_change_id_with_hidden_and_divergent_info(self),
-	        if(author.email(), author.username(), email_placeholder),
-	        author.timestamp().local().format("%Y-%m-%d"),
-	        format_short_commit_id(commit_id),
-	        bookmarks,
-	        tags,
-	        working_copies,
-		if(git_head, label("git_head", "git_head()")),
-	        if(conflict, label("conflict", "conflict")),
-	        if(empty, label("empty", "(empty)")),
-	        if(description,
-	          description.first_line(),
-	          label(if(empty, "empty"), description_placeholder),
-	        ),
-	      ) ++ "\n",
-	    ),
-	  )
-	)'''
+	jj_fzf_oneline = ''' $JJ_FZF_ONELINE '''
 	# extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 	jj_fzf_showdetails = '''
 	concat(
@@ -342,7 +340,7 @@ echo_commit_msg()
   # start with file name prefixes
   cd "$JJROOT" # create root relative file names
   FILES=()
-  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   test ${#FILES[@]} -gt 0 &&
     printf "%s: \n" "${FILES[@]}" ||
       echo ""
@@ -375,6 +373,46 @@ FUNCTIONS=()
 declare -A KEYBINDINGS
 FIRSTS=""
 NEXTS=""
+
+# fzflog revset aliases
+revsets_toml()
+(
+  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., 2) | present(bookmarks()) ''' "
+  REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
+  echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
+)
+
+# fzflog [--revsetname] [rev] - revision log for fzf
+fzflog()
+(
+  # SEE ALSO: jj config get revsets.log
+  [[ "${1:-}" == --revsetname ]] && { REVSETNAME=true; shift; } || REVSETNAME=false
+  [[ $# -ge 1 ]] &&
+    REVSETS_LOG="$1" ||
+      REVSETS_LOG=$(jj --ignore-working-copy config get 'jj-fzf.revsets.log' 2>/dev/null)
+  test -n "$REVSETS_LOG" || REVSETS_LOG="fzflog"
+  if $REVSETNAME ; then
+    echo "$REVSETS_LOG"
+  else
+    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} \
+       --config-toml "$(revsets_toml)" \
+       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG"
+  fi
+)
+FUNCTIONS+=( 'fzflog' )
+
+# revset-assign <revset> - assign to jj-fzf.revsets.log
+DOC['revset-assign']='Restart `jj-fzf` using the current query string as new revset for this repository.'
+revset-assign()
+(
+  REVSET="$1"
+  jj --config-toml "$(revsets_toml)" --no-pager --ignore-working-copy log --no-graph -T '' -r "$REVSET" >/dev/null 2>&1 ||
+    REVSET=fzflog
+  ( set -x
+    jj --ignore-working-copy config set --repo 'jj-fzf.revsets.log' "$REVSET"
+  ) || ERROR
+)
+KEYBINDINGS["Ctrl-R"]="revset-assign"	# overridden below
 
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
@@ -553,7 +591,7 @@ file-editor()
   # cd root; otherwise revision file paths will mismatch
   cd "$JJROOT"
   # read files edited by revision
-  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   # make sure to edit revision
   test "$W" == "$R" || (
     IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
@@ -1231,9 +1269,9 @@ vivifydivergent()
     COMMIT=$(divergent_commitid "$COMMIT") ||
       die 'no divergent revision'
   echo "$SELF vivifydivergent $COMMIT" >&2
-  jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT"
+  jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
   # Find change_id for commit
-  R=`jj log --no-graph -T change_id -r "$COMMIT"` ||
+  R=`jj --ignore-working-copy log --no-graph -T change_id -r "$COMMIT"` ||
     die 'no divergent revision'
   # Set @ to newly inserted empty commit before $R
   ( set -x
@@ -1244,7 +1282,7 @@ vivifydivergent()
   # Squash commit ID of $R into @, auto-deleting the divergent revision
   ( set -x
     jj squash --from "$NEWCOMMIT" --into @ )
-  jj --no-pager log --no-graph -T builtin_log_oneline -r @
+  jj --no-pager --ignore-working-copy log --no-graph -T builtin_log_oneline -r @
 )
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
@@ -1299,7 +1337,7 @@ undo()
   undone_log |
     sed -r 's|([a-f0-9]+)|	/\\b\1/d	|' > $TEMPD/delops.sed
   # list operation IDs, skipping undone ones
-  jj op log --no-graph -T 'self.id().short(16) ++ " " ++ self.description().first_line() ++ "\n"' |
+  jj --ignore-working-copy op log --no-graph -T 'self.id().short(16) ++ " " ++ self.description().first_line() ++ "\n"' |
     sed -rf $TEMPD/delops.sed > $TEMPD/undoable-ops.lst
   # fetch first
   read op rest < $TEMPD/undoable-ops.lst
@@ -1441,8 +1479,11 @@ fzf \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
+  --bind "ctrl-r:transform-query( $SELF revset-assign {q} )+become( exec $SELF )" \
   --preview " exec $SELF preview {} {q} " \
   --header "$HEADER" --header-first \
-  --prompt '  ..> ' \
+  --prompt "  $($SELF fzflog --revsetname) > " \
   --no-tac --no-sort +m
 # Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
+# Ctrl-R: This must be rebound to run transform-query, ideally we would just transform-query+transform-prompt+reload
+#         but that crashes fzf-0.44.1 when the cursor position is after the new revset length, so we use become().
