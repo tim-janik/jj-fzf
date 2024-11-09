@@ -612,7 +612,7 @@ KEYBINDINGS["Ctrl-H"]="help"
 DOC['split-interactive']='Use `jj split` to interactively select content diff hunks to be split into a new commit. No text editor is invoked and the new commit gets an empty description.'
 split-interactive()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   # Use $EDITOR to implement --split-with-no-description, truncate the first
   # (original) description, but keep the description for subsequent edits
   temp_dir
@@ -947,7 +947,7 @@ FUNCTIONS+=( 'wdrestore@oplog' )
 DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
 split-files()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   # save @
   AT="$(rev_changeid @)"
   # show undo hints
@@ -1037,7 +1037,7 @@ KEYBINDINGS["Alt-W"]="squash-@-into"
 DOC['reparenting']='Start a dialog to add/delete parents of the current revision.'
 reparenting()
 (
-  SRC="$(xrev "$1")"
+  SRC="$(xrev "${1:-@}")"
   IMMU=$($JJFZFSHOW -r "$SRC" -T 'if(immutable, "true")')
   test "$IMMU" != true || exit 0
   temp_dir
@@ -1114,7 +1114,7 @@ KEYBINDINGS["Alt-P"]="reparenting"
 DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
 rebasing()
 (
-  S="$(xrev "$1")"
+  S="$(xrev "${1:-@}")"
   temp_dir
   echo > $TEMPD/rebasing.env
   echo 'FR=--branch'		>> $TEMPD/rebasing.env
