@@ -35,7 +35,7 @@ then
 fi
 
 # == Check Deps ==
-jj --version | grep -Eq 'jj 0\.2[3-9]\.' || die 'jj-0.23 is required'
+jj --version --ignore-working-copy | grep -Eq 'jj 0\.2[3-9]\.' || die 'jj-0.23 is required'
 fzf --help | grep -Fq ' --header-first' || die 'fzf-0.29 is required'
 sed --version | grep -Fq 'GNU sed' || die 'GNU sed is required'
 TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
@@ -342,7 +342,7 @@ echo_commit_msg()
   # start with file name prefixes
   cd "$JJROOT" # create root relative file names
   FILES=()
-  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   test ${#FILES[@]} -gt 0 &&
     printf "%s: \n" "${FILES[@]}" ||
       echo ""
@@ -553,7 +553,7 @@ file-editor()
   # cd root; otherwise revision file paths will mismatch
   cd "$JJROOT"
   # read files edited by revision
-  readarray -t FILES < <(jj log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
+  readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   # make sure to edit revision
   test "$W" == "$R" || (
     IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
@@ -1231,9 +1231,9 @@ vivifydivergent()
     COMMIT=$(divergent_commitid "$COMMIT") ||
       die 'no divergent revision'
   echo "$SELF vivifydivergent $COMMIT" >&2
-  jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT"
+  jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
   # Find change_id for commit
-  R=`jj log --no-graph -T change_id -r "$COMMIT"` ||
+  R=`jj --ignore-working-copy log --no-graph -T change_id -r "$COMMIT"` ||
     die 'no divergent revision'
   # Set @ to newly inserted empty commit before $R
   ( set -x
@@ -1244,7 +1244,7 @@ vivifydivergent()
   # Squash commit ID of $R into @, auto-deleting the divergent revision
   ( set -x
     jj squash --from "$NEWCOMMIT" --into @ )
-  jj --no-pager log --no-graph -T builtin_log_oneline -r @
+  jj --no-pager --ignore-working-copy log --no-graph -T builtin_log_oneline -r @
 )
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
@@ -1299,7 +1299,7 @@ undo()
   undone_log |
     sed -r 's|([a-f0-9]+)|	/\\b\1/d	|' > $TEMPD/delops.sed
   # list operation IDs, skipping undone ones
-  jj op log --no-graph -T 'self.id().short(16) ++ " " ++ self.description().first_line() ++ "\n"' |
+  jj --ignore-working-copy op log --no-graph -T 'self.id().short(16) ++ " " ++ self.description().first_line() ++ "\n"' |
     sed -rf $TEMPD/delops.sed > $TEMPD/undoable-ops.lst
   # fetch first
   read op rest < $TEMPD/undoable-ops.lst
