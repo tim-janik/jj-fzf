@@ -135,24 +135,6 @@ jj_config() (
 	[snapshot]
 	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
 	auto-track = "none()"
-	[template-aliases]
-	# Provide special oplog marker that can be parsed for undone operations
-	builtin_op_log_node = '''
-	coalesce(
-	  if(current_operation, label("current_operation", "@")), "○",
-	)'''
-	# Oneline oplog with 16 character ids, parsed later on; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-	jj_fzf_oplog_oneline = '''
-	label(if(current_operation, "current_operation"),
-	  coalesce(
-	    if(root, format_root_operation(self)),
-	    concat(
-	      separate(" ", self.id().short(16), self.user(), self.time().start().ago()), " ",
-	      self.description().first_line(), " ",
-	      if(self.tags(), self.tags().first_line()),
-	    )
-	  )
-	)'''
 	# Adjust colors for FZF display
 	[colors]
 	# "node working_copy" = { fg = "red", bold = true }
@@ -865,6 +847,19 @@ undone_log()
 )
 FUNCTIONS+=( 'undone_log' )
 
+# JJ_FZF_OPLOG_ONELINE - Oneline oplog with 16 character ids, parsed later on; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+JJ_FZF_OPLOG_ONELINE='
+label(if(current_operation, "current_operation"),
+  coalesce(
+    if(root, format_root_operation(self)),
+    concat(
+      separate(" ", self.id().short(16), self.user(), self.time().start().ago()), " ",
+      self.description().first_line(), " ",
+      if(self.tags(), self.tags().first_line()),
+    )
+  )
+)'
+
 # Show `jj op log` but mark undone operations with '-'
 oplog_oneline()
 (
@@ -873,7 +868,7 @@ oplog_oneline()
   undone_log |
     sed -r 's/([a-f0-9]+)/	s|○(.*\1)|-\\1|		/' > $TEMPD/undone.sed
   # show operation log, filtered through the above sed script to alter markers for undone ops
-  jj --no-pager --ignore-working-copy op log --color=always -T jj_fzf_oplog_oneline |
+  jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OPLOG_ONELINE" |
     sed -rf $TEMPD/undone.sed	# beware, script needs to ignore ANSI color escape sequences
 )
 FUNCTIONS+=( 'oplog_oneline' )
