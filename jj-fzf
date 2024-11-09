@@ -1091,7 +1091,7 @@ rebasing()
   echo > $TEMPD/rebasing.env
   echo 'FR=--branch'		>> $TEMPD/rebasing.env
   echo 'TO=--destination'	>> $TEMPD/rebasing.env
-  echo 'SP=true'		>> $TEMPD/rebasing.env
+  echo 'SP=false'		>> $TEMPD/rebasing.env
   export JJFZFONELINE
   PREVIEW=". $TEMPD/rebasing.env"
   PREVIEW="$PREVIEW"' && echo && echo jj rebase $FR '$S' $TO $REV'
