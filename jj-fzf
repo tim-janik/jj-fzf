@@ -138,14 +138,6 @@ jj_config() (
 	# Adjust colors for FZF display
 	[colors]
 	# "node working_copy" = { fg = "red", bold = true }
-	"empty" = "blue"
-	"empty description placeholder" = "blue"
-	"description placeholder" = "blue"
-	"working_copy empty" = "blue"
-	"working_copy empty description placeholder" = "blue"
-	"working_copy description placeholder" = "blue"
-	bookmarks =  "bright green"
-	tags = { fg = "yellow", bold = true }
 	"diff removed token" = { underline = false }
 	"diff added token" = { underline = false }
 	__EOF__
