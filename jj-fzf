@@ -950,6 +950,7 @@ split-files()
   R="$(xrev "${1:-@}")"
   # save @
   AT="$(rev_changeid @)"
+  cd "$JJROOT"		# operate on root relative file names
   # show undo hints
   jj --no-pager op log -n1
   echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following split"
