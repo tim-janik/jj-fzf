@@ -985,13 +985,13 @@ push-remote()
   ( set -x
     jj git fetch --all-remotes
     jj git push --tracked --dry-run
-  ) || die
+  ) || ERROR
   read -p 'Really push to remote? ' YN
-  [[ "${YN:0:1}" =~ [yY] ]] && {
-    ( set -x
-      jj git push --tracked
-    ) || die
-  }
+  [[ "${YN:0:1}" =~ [yY] ]] ||
+    exit
+  ( set -x
+    jj git push --tracked
+  ) || ERROR
 )
 KEYBINDINGS["Ctrl-P"]="push-remote"
 
