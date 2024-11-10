@@ -1173,6 +1173,7 @@ DOC['restore-file']='EXPERIMENTAL: Start a dialog to select a file from the curr
 restore-file()
 (
   R="$(xrev "${1:-@}")"
+  cd "$JJROOT"		# operate on root relative file names
   MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
 		"${FZFPOPUP[@]}" \
 		  --border-label '-[ REBASE ]-' --color=border:blue,label:blue \
