@@ -3,8 +3,6 @@
 set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 SELF="$0"
-# for function exports to work sub-shell must be bash too
-export SHELL=bash
 
 # == PREVIEW fast path ==
 export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
@@ -77,8 +75,7 @@ JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
-JJFZF_SHELL="${JJFZF_SHELL:-/usr/bin/env bash -i}"
-JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset JJ_CONFIG && exec '"$JJFZF_SHELL"' <$T 1>$T 2>$T'
+JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset JJ_CONFIG && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
 INFO_BINDING=" fzf </dev/null >/dev/tty 2>&1 --prompt '        '  --disabled --layout=reverse --height 1 --margin 4 --padding 4 --border=block --no-info --no-scrollbar --no-clear --bind=enter:print-query "
 FZFSETTINGS=(
   --ansi --no-mouse -x -e
@@ -97,6 +94,8 @@ FZFSETTINGS=(
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
 JJLOGCMD=( $SELF fzflog )
 TEMPD=
+# for function exports to work sub-shell must be bash too
+export SHELL=bash
 
 # == JJ_CONFIG ==
 # parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
