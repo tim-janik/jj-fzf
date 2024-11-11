@@ -3,6 +3,8 @@
 set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 SELF="$0"
+# for function exports to work sub-shell must be bash too
+export SHELL=bash
 
 # == PREVIEW fast path ==
 export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
