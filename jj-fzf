@@ -40,7 +40,7 @@ then
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$REVISION"
     else							# show commit and diff
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION"
+      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-all-space
     fi
   else								# no valid revision
     true
@@ -655,25 +655,29 @@ backout()
 )
 KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
-# Line History
-DOC['line-history']='EXPERIMENTAL: View history of each line.'
-line-history()
-(
-  R="$(xrev "${1:-@}")"
-  C="$(rev_commitid "$R")"
-  cd "$JJROOT"	# needed for correct file paths
-  require_git_dir
-  set +o pipefail
-  jj file list -r "$R" |
-    xargs grep -s -n '' |
+# Line Blame: jj-fzf +<line> <gitfile>
+if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
+  absroot="$(readlink -f $(jj --no-pager --ignore-working-copy root))"
+  absfile="$(readlink -f "$2")"
+  [[ $absfile == $absroot/* ]] && {
+    echo absroot=$absroot
+    echo absf=$absfile
+    file="${absfile:((1+${#absroot}))}"
+    echo file=${absfile:((1+${#absroot}))}
+    jj --no-pager status
+    C="$(rev_commitid @)"
+    grep -s -n '' "$file" /dev/null |
     "${FZFPOPUP[@]}" \
       --border-label '-[ LINE HISTORY (EXPERIMENTAL) ]-' --color=border:yellow,label:yellow \
-      --preview " git log --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
-      --bind "enter:execute( git log -M -C --find-copies-harder -L{2}:{1} --color $C | $JJFZFPAGER)" \
+      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
+      --bind "enter:execute( git log -M -C --find-copies-harder -L{2},+7:{1} --color $C | $JJFZFPAGER)" \
       --header "File Line History" \
-      --no-tac --no-sort +m -d:
-)
-KEYBINDINGS["Alt-L"]="line-history"
+      --no-tac --no-sort +m -d: \
+      --track --bind 'focus:clear-query+unbind(focus)' \
+      -q "${absfile:((1+${#absroot}))}:${1:1}:"
+  }
+  exit 0
+fi
 
 # Merge into tracked bookmark
 DOC['merging']='Start a dialog to select parents for a new merge commit, using `jj new REVISIONS...`. For exactly two parents, a default commit message is suggested. Commits with no description are ignored.'
