@@ -352,7 +352,7 @@ NEXTS=""
 # fzflog revset aliases
 revsets_toml()
 (
-  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., 2) | present(bookmarks()) ''' "
+  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., 2) | present(bookmarks()) | present(tags()) ''' "
   REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
   echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
 )
