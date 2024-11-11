@@ -430,8 +430,8 @@ bookmark()
     S='set -B' || S='create'
   ( set -x
     jj bookmark $S "$B" -r "$R"
-  ) && jj git export --quiet ||
-      sleep 1
+  ) || ERROR
+  # jj git export --quiet
 )
 KEYBINDINGS["Alt-B"]="bookmark"
 
@@ -473,8 +473,7 @@ delete-refs()
 (
   R="$(xrev "${1:-@}")"
   require_git_dir
-  jj git export --quiet
-  jj git import --quiet
+  # jj git export --quiet && jj git import --quiet
   # Find Bookmark on @ for initial query
   B=$($JJFZFSHOW -r "$R" -T 'concat(separate(" ",bookmarks))') &&
     B="${B%% *}" &&
@@ -506,12 +505,13 @@ delete-refs()
     echo "bookmark list check: $?"
     if set +o pipefail && jj --ignore-working-copy bookmark list | fgrep -q "$DEL:" ; then
       ( set -x
-	jj bookmark delete $DEL )
-      jj git export --quiet
+	jj bookmark delete $DEL
+      ) || ERROR
+      # jj git export --quiet
     else
       ( set -x
 	git tag -d "$DEL" )
-      jj git import --quiet
+      # jj git import --quiet
     fi
   ) ||
     sleep 1
@@ -1200,9 +1200,8 @@ tag()
   M="$(git log -1 --oneline "$C")"
   ( set -x
     git tag -a "$B" -m "$M" "$C"
-  ) &&
-    jj git import --quiet ||
-      sleep 1
+  ) || ERROR
+  #  jj git import --quiet
 )
 KEYBINDINGS["Alt-T"]="tag"
 
@@ -1283,7 +1282,7 @@ DOC['gitk']='Start `gitk` to browse the *Git* history of the repository.'
 gitk()
 (
   R="$(xrev "${1:-@}")"
-  jj git export --quiet
+  # jj git export --quiet
   COMMIT="$(rev_commitid "$R")"
   cd "$JJROOT"
   git update-index --refresh || :
@@ -1293,7 +1292,7 @@ gitk()
   ( set -x
     exec gitk --branches --tags --remotes --select-commit=$COMMIT $COMMIT HEAD -- # "${HEADS[@]}"
   )
-  jj git import --quiet
+  # jj git import --quiet
 )
 KEYBINDINGS["Ctrl-V"]="gitk"
 
