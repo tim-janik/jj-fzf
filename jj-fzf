@@ -430,8 +430,8 @@ bookmark()
     S='set -B' || S='create'
   ( set -x
     jj bookmark $S "$B" -r "$R"
-  ) && jj git export --quiet ||
-      sleep 1
+  ) || ERROR
+  # jj git export --quiet
 )
 KEYBINDINGS["Alt-B"]="bookmark"
 
@@ -473,8 +473,7 @@ delete-refs()
 (
   R="$(xrev "${1:-@}")"
   require_git_dir
-  jj git export --quiet
-  jj git import --quiet
+  # jj git export --quiet && jj git import --quiet
   # Find Bookmark on @ for initial query
   B=$($JJFZFSHOW -r "$R" -T 'concat(separate(" ",bookmarks))') &&
     B="${B%% *}" &&
@@ -506,12 +505,13 @@ delete-refs()
     echo "bookmark list check: $?"
     if set +o pipefail && jj --ignore-working-copy bookmark list | fgrep -q "$DEL:" ; then
       ( set -x
-	jj bookmark delete $DEL )
-      jj git export --quiet
+	jj bookmark delete $DEL
+      ) || ERROR
+      # jj git export --quiet
     else
       ( set -x
 	git tag -d "$DEL" )
-      jj git import --quiet
+      # jj git import --quiet
     fi
   ) ||
     sleep 1
@@ -612,7 +612,7 @@ KEYBINDINGS["Ctrl-H"]="help"
 DOC['split-interactive']='Use `jj split` to interactively select content diff hunks to be split into a new commit. No text editor is invoked and the new commit gets an empty description.'
 split-interactive()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   # Use $EDITOR to implement --split-with-no-description, truncate the first
   # (original) description, but keep the description for subsequent edits
   temp_dir
@@ -947,9 +947,10 @@ FUNCTIONS+=( 'wdrestore@oplog' )
 DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
 split-files()
 (
-  R="$(xrev "$1")"
+  R="$(xrev "${1:-@}")"
   # save @
   AT="$(rev_changeid @)"
+  cd "$JJROOT"		# operate on root relative file names
   # show undo hints
   jj --no-pager op log -n1
   echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following split"
@@ -984,13 +985,13 @@ push-remote()
   ( set -x
     jj git fetch --all-remotes
     jj git push --tracked --dry-run
-  ) || die
+  ) || ERROR
   read -p 'Really push to remote? ' YN
-  [[ "${YN:0:1}" =~ [yY] ]] && {
-    ( set -x
-      jj git push --tracked
-    ) || die
-  }
+  [[ "${YN:0:1}" =~ [yY] ]] ||
+    exit
+  ( set -x
+    jj git push --tracked
+  ) || ERROR
 )
 KEYBINDINGS["Ctrl-P"]="push-remote"
 
@@ -1037,7 +1038,7 @@ KEYBINDINGS["Alt-W"]="squash-@-into"
 DOC['reparenting']='Start a dialog to add/delete parents of the current revision.'
 reparenting()
 (
-  SRC="$(xrev "$1")"
+  SRC="$(xrev "${1:-@}")"
   IMMU=$($JJFZFSHOW -r "$SRC" -T 'if(immutable, "true")')
   test "$IMMU" != true || exit 0
   temp_dir
@@ -1114,7 +1115,7 @@ KEYBINDINGS["Alt-P"]="reparenting"
 DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
 rebasing()
 (
-  S="$(xrev "$1")"
+  S="$(xrev "${1:-@}")"
   temp_dir
   echo > $TEMPD/rebasing.env
   echo 'FR=--branch'		>> $TEMPD/rebasing.env
@@ -1172,6 +1173,7 @@ DOC['restore-file']='EXPERIMENTAL: Start a dialog to select a file from the curr
 restore-file()
 (
   R="$(xrev "${1:-@}")"
+  cd "$JJROOT"		# operate on root relative file names
   MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
 		"${FZFPOPUP[@]}" \
 		  --border-label '-[ REBASE ]-' --color=border:blue,label:blue \
@@ -1200,9 +1202,8 @@ tag()
   M="$(git log -1 --oneline "$C")"
   ( set -x
     git tag -a "$B" -m "$M" "$C"
-  ) &&
-    jj git import --quiet ||
-      sleep 1
+  ) || ERROR
+  #  jj git import --quiet
 )
 KEYBINDINGS["Alt-T"]="tag"
 
@@ -1283,7 +1284,7 @@ DOC['gitk']='Start `gitk` to browse the *Git* history of the repository.'
 gitk()
 (
   R="$(xrev "${1:-@}")"
-  jj git export --quiet
+  # jj git export --quiet
   COMMIT="$(rev_commitid "$R")"
   cd "$JJROOT"
   git update-index --refresh || :
@@ -1293,7 +1294,7 @@ gitk()
   ( set -x
     exec gitk --branches --tags --remotes --select-commit=$COMMIT $COMMIT HEAD -- # "${HEADS[@]}"
   )
-  jj git import --quiet
+  # jj git import --quiet
 )
 KEYBINDINGS["Ctrl-V"]="gitk"
 
