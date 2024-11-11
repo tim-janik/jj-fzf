@@ -655,6 +655,30 @@ backout()
 )
 KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
+# Line Blame: jj-fzf +<line> <gitfile>
+if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
+  absroot="$(readlink -f $(jj --no-pager --ignore-working-copy root))"
+  absfile="$(readlink -f "$2")"
+  [[ $absfile == $absroot/* ]] && {
+    echo absroot=$absroot
+    echo absf=$absfile
+    file="${absfile:((1+${#absroot}))}"
+    echo file=${absfile:((1+${#absroot}))}
+    jj --no-pager status
+    C="$(rev_commitid @)"
+    grep -s -n '' "$file" /dev/null |
+    "${FZFPOPUP[@]}" \
+      --border-label '-[ LINE HISTORY (EXPERIMENTAL) ]-' --color=border:yellow,label:yellow \
+      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | sed 's/Signed-off-by:.*//; /^ *$/d' " \
+      --bind "enter:execute( git log -M -C --find-copies-harder -L{2},+7:{1} --color $C | $JJFZFPAGER)" \
+      --header "File Line History" \
+      --no-tac --no-sort +m -d: \
+      --track --bind 'focus:clear-query+unbind(focus)' \
+      -q "${absfile:((1+${#absroot}))}:${1:1}:"
+  }
+  exit 0
+fi
+
 # Merge into tracked bookmark
 DOC['merging']='Start a dialog to select parents for a new merge commit, using `jj new REVISIONS...`. For exactly two parents, a default commit message is suggested. Commits with no description are ignored.'
 merging()
