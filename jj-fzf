@@ -52,7 +52,7 @@ fi
 VERSION=0.23.0
 jj --version --ignore-working-copy | grep -Eq 'jj 0\.2[3-9]\.' || die "failed to find 'jj' version 0.23 in \$PATH"
 fzf --help | grep -Fq ' --header-first' || die "failed to find 'fzf' version 0.29 in \$PATH"
-sed --version | grep -Fq 'GNU sed' &&
+sed --version 2>/dev/null | grep -Fq 'GNU sed' &&
   gsed() { sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
 gawk --version | grep -Fq 'GNU Awk' || die "failed to find 'gawk' in \$PATH (GNU Awk)"
