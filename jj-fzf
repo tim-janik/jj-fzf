@@ -586,29 +586,10 @@ file-editor()
 KEYBINDINGS["Ctrl-F"]="file-editor"
 
 # Help with JJ commands
-DOC['help']='Show the *jj-fzf* help or browse the help descriptions of the currently seleected *jj* command in the `jj help` text.'
+DOC['help']='Show the *jj-fzf* help and key binding commands.'
 help()
 (
-  H=$'JJ-FZF\n'
-  H="$H"$'\n'
-  H="$H"$'JJ-FZF is an FZF based wrapper around the Jujutsu VCS.\n'
-  H="$H"$'FZF is the fuzzy file browser that provides line based selections and preview.\n'
-  H="$H"$'\n'
-  JJCMDS=:
-  for w in $( LANG=C
-	      jj --help |
-		gsed -r '1,/^Commands:/d; /^\w/{x;q}; s/^ *(\w+)\b.*/\1/' ) ; do
-    [[ $w == help ]] && continue
-    JJCMDS="$JJCMDS$w:"
-  done
-  "${FZFPOPUP[@]}" \
-    --border-label '-[ HELP ]-' \
-    --header-first --no-sort \
-    --header "jj --help" \
-    --nth 1 \
-    --preview "[[ $JJCMDS =~ :{1}: ]] && jj {1} --help || $SELF --help --color" \
-    --bind "enter:execute( test -n {1} || exit; { [[ $JJCMDS =~ :{1}: ]] && jj {1} --help || jj help ;} | $JJFZFPAGER )+abort" \
-    < <(echo "$H" && jj --color=always help)
+  $SELF --help
 )
 KEYBINDINGS["Ctrl-H"]="help"
 
@@ -1349,11 +1330,112 @@ undo()
 )
 KEYBINDINGS["Alt-Z"]="undo"
 
+# Minimal Markdown transformations for the terminal
+sedmarkdown()
+(
+  B=$'\e[1m'              # Bold
+  T=$'\e[32;1;4m'         # Title
+  H=$'\e[1;4m'            # Heading
+  C=$'\e[36m'             # Code
+  I=$'\e[3m'              # Italic
+  U=$'\e[4m'              # Underline
+  Z=$'\e[0;24m'           # Reset
+  W='[][<>{}A-Z| $@○◆a-z0-9/ ↑←↓→-⇿ :….()+-]'      # Word-like chars (english)
+  SEDSCRIPT="
+    s/\r\`\`\`+\w*(([^\`]*|\`[^\`])+)\r\`\`\`+/$C\1$Z\n/g       # Code block with backticks
+    s/\r~~~+\w*(([^~]*|~[^~])+)\r~~~+/$C\1$Z\n/g                # Code block with tilde
+    s/(^|\r)# ([^\r]+)[ #]*\r/\1$T\2$Z\r/g                      # Title Heading
+    s/(^|\r)##+ ([^\r]+)[ #]*\r/\1$H\2$Z\r/g                    # Headings
+    s/(\r\s?\s?)[-*] (\w+\b:)?/\1$B* \2$Z/g                     # List bullet
+    s/(\s)\*\*($W+)\*\*/\1$B\2$Z/g                              # Bold
+    s/(\s)\*($W+)\*([^*])/\1$I\2$Z\3/g                          # Italic
+    s/(\s)_($W+)_([^_])/\1$U\2$Z\3/g                            # Underline
+    s/(\s)\`($W+)\`([^\`])/\1$C\2$Z\3/g                         # Code
+    s/\r?<!--([^-]|-[^-]|--[^>])*-->//g                         # Html Comments
+    s,(\bhttps?://[^ ()\r]+),$U\1$Z,g                           # Link
+  "
+  tr \\n \\r |
+    { $COLOR && gsed -re "$SEDSCRIPT" || cat ; } |
+    tr \\r \\n
+)
+
+# Help text
+HELP_INTRO='# JJ-FZF
+
+  **jj-fzf** is a text-based user interface for the `jj` version control system,
+  built on top of the fuzzy finder `fzf`. **jj-fzf** centers around the `jj log`
+  graph view, providing previews of `jj diff` or `jj evolog` for each revision.
+  Several key bindings are available for actions such as squashing, swapping,
+  rebasing, splitting, branching, committing, or abandoning revisions. A
+  separate view for the operations log, `jj op log`, allows fast previews of
+  diffs and commit histories of past operations and enabling undo of previous
+  actions. The available hotkeys are displayed on-screen for easy
+  discoverability. The commands and key bindings can also be displayed with
+  `jj-fzf --help` and are documented in the **jj-fzf** wiki.
+
+## JJ LOG VIEW
+
+  The `jj log` view in **jj-fzf** displays a list of revisions with commit
+  information on each line. Each line contains the following elements:
+
+  **Graph Characters**:
+    **@**: Marks the working copy
+    **○**: Indicates a mutable commit, a commit that has not been pushed to a
+       remote yet
+    **◆**: Indicates an immutable commit, that has been pushed to a remote or occurs
+       in the ancestry of a tag. In `jj`, the set of immutable commits can be
+       configured via the `revset-aliases."immutable_heads()"` config
+  **Change ID**: The unique identifier for the changes associated with the revision
+  **Username**:  The abbreviated username of the author
+  **Date**:      The day when the commit was authored
+  **Commit ID**: The unique identifier for the commit in Git
+  **Refs**:      Any tags or bookmarks associated with the revisions
+  **Message**:   A brief description of the changes made in the revisions
+
+## PREVIEW WINDOW
+
+  The preview window on the right displays detailed information for the
+  currently selected revisions. The meaning of the preview items are as follows:
+
+  **First Line**: The `jj log -T builtin_log_oneline` output for the selected commit
+  **Change ID**:  The `jj` revision identifier for this revisions
+  **Commit ID**:  The unique identifier for the Git commit
+  **Refs**:       Tags and bookmarks (similar to Git branches) for this revisions
+  **Immutable**:  A boolean indication for immutable revisions
+  **Parents**:    A list of parent revisions (more than one for merge commits)
+  **Author**:     The author of the revision, including name and email, timestamp
+  **Committer**:  The committer, including name and email, timestamp
+  **Message**:    Detailed message describing the changes made in the revision
+  **File List**:  A list of files modified by this revision
+  **Diff**:       A `jj diff` view of changes introduced by the revision
+
+## COMMAND EXECUTION
+
+  For all repository-modifying commands, **jj-fzf** prints the actual `jj` commands
+  executed to stderr. This output aids users in learning how to use `jj` directly
+  to achieve the desired effects, can be useful when debugging and helps users
+  determine which actions they might wish to undo. Most commands can also be run
+  via the command line, using: `jj-fzf <command> <revision>`
+
+## KEY BINDINGS
+
+  Most **jj-fzf** commands operate on the currently selected revision and
+  are made available via the following keyboard shortcuts:
+'
+HELP_OUTRO='
+## SEE ALSO
+
+  For screencasts, workflow suggestions or feature requests, visit the
+  **jj-fzf** project page at: https://github.com/tim-janik/jj-fzf
+'
+
 # == --help ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 if [[ "${1:-}" = --help ]] ; then
+  HELPKEYS[Shift-↑]='preview-up'
   HELPKEYS[Ctrl-↑]='preview-up'
   DOC['preview-up']='Scroll the preview window.'
+  HELPKEYS[Shift-↓]='preview-down'
   HELPKEYS[Ctrl-↓]='preview-down'
   DOC['preview-down']='Scroll the preview window.'
   HELPKEYS[Ctrl-U]='clear-filter'
@@ -1361,50 +1443,20 @@ if [[ "${1:-}" = --help ]] ; then
 fi
 KEYS="${!HELPKEYS[@]}"
 KEYS=$(sort <<<"${KEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
-if [[ "${1:-}" = --help ]] ; then
-  [[ " $* " =~ --color ]] && COLOR=true || COLOR=false
+if [[ "${1:-} ${2:-} ${3:-}" =~ --help ]] ; then
+  [[ " $* " =~ --no-color ]] && COLOR=false || COLOR=true
+  [[ " $* " =~ --no-pager ]] && JJFZFPAGER=cat
   ( :
-    cat <<-\__EOF__
-	# JJ-FZF
-	 
-	The **jj-fzf** shell script is a convenience script that wraps a number of
-	jj commands, based on the `jj log` graph view. The commands executed to
-	modify history are printed on stderr for the user to retrace the repository
-	modifications.
-	All commands are available via the following Keyboard shortcuts:
-	__EOF__
+    echo "$HELP_INTRO"
     for k in $KEYS ; do
       NAME="${HELPKEYS[$k]}"
-      echo
-      echo "*$k:* **$NAME**"
+      echo "**$k:** _$NAME""_"
       D="${DOC[$NAME]:-}"
       test -z "$D" ||
 	echo "$D" | fold -s -w78 | gsed 's/^/  /'
     done
-  ) | (
-    B=$'\e[1m'              # Bold
-    T=$'\e[32;1;4m'         # Title
-    C=$'\e[36m'             # Code
-    I=$'\e[3m'              # Italic
-    U=$'\e[4m'              # Underline
-    Z=$'\e[0;24m'           # Reset
-    W='[][<>{}A-Z| $@a-z0-9 ←-⇿ :…+-]'      # Word like chars (english)
-    SEDSCRIPT="
-    s/\r\`\`\`+\w*(([^\`]*|\`[^\`])+)\r\`\`\`+/$C\1$Z\n/g           # Code block with backticks
-    s/\r~~~+\w*(([^~]*|~[^~])+)\r~~~+/$C\1$Z\n/g                    # Code block with tilde
-    s/(^|\r)##* ([^\r]+)[ #]*\r/\1$T\2$Z\r/g        # Headings (Title)
-    s/(\r\s?\s?)[-*] (\w+\b:)?/\1$B* \2$Z/g         # List bullet
-    s/(\s)\*\*($W+)\*\*/\1$B\2$Z/g          # Bold
-    s/(\s)\*($W+)\*([^*])/\1$I\2$Z\3/g              # Italic
-    s/(\s)_($W+)_([^_])/\1$U\2$Z\3/g                # Underline
-    s/(\s)\`($W+)\`([^\`])/\1$C\2$Z\3/g             # Code
-    s/\r?<!--([^-]|-[^-]|--[^>])*-->//g             # Html Comments
-    s,(\bhttps?://[^ ()\r]+),$U\1$Z,g               # Link
-    "
-    tr \\n \\r |
-      { $COLOR && gsed -re "$SEDSCRIPT" || cat ; } |
-      tr \\r \\n
-  )
+    echo "$HELP_OUTRO"
+  ) | sedmarkdown | $JJFZFPAGER
   exit 0
 fi
 
