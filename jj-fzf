@@ -20,7 +20,7 @@ concat(
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
   "\n",
 )' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-if test -n "${JJFZF_OUTER_TEMPD:-}" -a "${1:-}" == preview	# preview command, nested invocation
+if test "${1:-}" == preview					# preview command, nested invocation
 then
   unset JJ_CONFIG						# allow user config to take effect
   if [[ "${2:-}" =~ $REVPAT ]]					# match beginning of jj log line
@@ -35,7 +35,7 @@ then
       echo
       echo
     fi
-    if test -e "${JJFZF_OUTER_TEMPD:-}/evolog" 			# display evolog if toggled
+    if test -e "${JJFZF_OUTER_TEMPD:-/..InVaLiD}/evolog" 	# display evolog if toggled
     then
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$REVISION"
     else							# show commit and diff
