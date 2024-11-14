@@ -589,7 +589,7 @@ KEYBINDINGS["Ctrl-F"]="file-editor"
 DOC['help']='Show the *jj-fzf* help and key binding commands.'
 help()
 (
-  $SELF --help
+  $SELF --help "$@"
 )
 KEYBINDINGS["Ctrl-H"]="help"
 
@@ -1360,7 +1360,7 @@ sedmarkdown()
 )
 
 # Help text
-HELP_INTRO='# JJ-FZF
+HELP_INTRO="# JJ-FZF ($VERSION)"'
 
   **jj-fzf** is a text-based user interface for the `jj` version control system,
   built on top of the fuzzy finder `fzf`. **jj-fzf** centers around the `jj log`
@@ -1427,11 +1427,13 @@ HELP_OUTRO='
 
   For screencasts, workflow suggestions or feature requests, visit the
   **jj-fzf** project page at: https://github.com/tim-janik/jj-fzf
+  For revsets, see: https://martinvonz.github.io/jj/latest/revsets
 '
 
 # == --help ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
-if [[ "${1:-}" = --help ]] ; then
+if [[ " $* " =~ --help ]] ; then
+  # Key bdingins only shown in long form help
   HELPKEYS[Shift-↑]='preview-up'
   HELPKEYS[Ctrl-↑]='preview-up'
   DOC['preview-up']='Scroll the preview window.'
@@ -1440,15 +1442,17 @@ if [[ "${1:-}" = --help ]] ; then
   DOC['preview-down']='Scroll the preview window.'
   HELPKEYS[Ctrl-U]='clear-filter'
   DOC['clear-filter']='Discard the current *fzf* query string.'
+  HELPKEYS[Alt-H]='toggle-show-keys'
+  DOC['toggle-show-keys']='Display or hide the list of avilable key bindings, persist the setting in `jj-fzf.show-keys` of the `jj` user config.'
 fi
-KEYS="${!HELPKEYS[@]}"
-KEYS=$(sort <<<"${KEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
-if [[ "${1:-} ${2:-} ${3:-}" =~ --help ]] ; then
-  [[ " $* " =~ --no-color ]] && COLOR=false || COLOR=true
-  [[ " $* " =~ --no-pager ]] && JJFZFPAGER=cat
+DISPLAYKEYS="${!HELPKEYS[@]}"
+DISPLAYKEYS=$(sort <<<"${DISPLAYKEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
+if [[ " $* " =~ --help ]] ; then
+  tty -s <&1 && COLOR=true || { COLOR=false; JJFZFPAGER=cat; }
+  [[ " $* " =~ --color ]] && COLOR=true
   ( :
     echo "$HELP_INTRO"
-    for k in $KEYS ; do
+    for k in $DISPLAYKEYS ; do
       NAME="${HELPKEYS[$k]}"
       echo "**$k:** _$NAME""_"
       D="${DOC[$NAME]:-}"
@@ -1457,6 +1461,41 @@ if [[ "${1:-} ${2:-} ${3:-}" =~ --help ]] ; then
     done
     echo "$HELP_OUTRO"
   ) | sedmarkdown | $JJFZFPAGER
+  exit 0
+fi
+
+# == --key-bindings ==
+if [[ " $* " =~ --key-bindings ]] ; then
+  LINES="${LINES:-$JJFZF_LINES}" COLUMNS="${COLUMNS:-$JJFZF_COLUMNS}" # unset by transform-header()
+  test "$COLUMNS" -ge 218 && W=4 || {
+      test "$COLUMNS" -ge 166 && W=3 || {
+	  test "$COLUMNS" -ge 114 && W=2 || W=1; }; }
+  [[ ${#DISPLAYKEYS} -gt $(($LINES * $W * 2)) ]] && {
+    echo "Ctrl-H: help"		# no space left for jj-fzf.show-keys toggle
+    exit 0
+  }
+  unset JJ_CONFIG
+  SHOW_KEYS="$(jj --ignore-working-copy config get 'jj-fzf.show-keys' 2>/dev/null || echo true)"
+  [[ "$*" =~ --key-toggle ]] && {
+    SHOW_KEYS="$(echo "$SHOW_KEYS" | sed 's/^false/x/; s/^true/false/; s/^x/true/')"
+    jj --ignore-working-copy config set --user 'jj-fzf.show-keys' "$SHOW_KEYS"
+  }
+  $SHOW_KEYS || {
+    echo "Ctrl-H: help  Alt-H: show-keys"
+    exit 0
+  }
+  OUTPUT=""
+  i=0; WHITE="                                                                                "
+  for k in $DISPLAYKEYS ; do
+    S="$k: ${HELPKEYS[$k]}"	# printf(1) cannot count UTF-8 continuation chars (0x80-0xBF)
+    test ${#S} -lt 26 && S="$S${WHITE:0:$(( 26 - ${#S} ))}"	# so, format like %-26s
+    OUTPUT="$OUTPUT$S" #$HIGH"
+    i=$(($i+1))
+    test 0 == $(($i % $W)) &&
+      OUTPUT="$OUTPUT"$'\n' ||
+	OUTPUT="$OUTPUT "
+  done
+  echo -n "$OUTPUT"
   exit 0
 fi
 
@@ -1477,28 +1516,13 @@ fi
   jj --no-pager status
 ) || exit $?
 
-# == Help / Docs ==
-WHITE="                                                                                "
-HEADER=""
-test "$COLUMNS" -ge 166 && W=3 || { test "$COLUMNS" -ge 114 && W=2 || W=1 ;}
-i=0
-for k in $KEYS ; do
-  S="$k: ${HELPKEYS[$k]}"	# printf(1) cannot count UTF-8 continuation chars (0x80-0xBF)
-  test ${#S} -lt 26 && S="$S${WHITE:0:$(( 26 - ${#S} ))}"	# so, format like %-26s
-  HEADER="$HEADER$S" #$HIGH"
-  i=$(($i+1))
-  test 0 == $(($i % $W)) &&
-    HEADER="$HEADER"$'\n' ||
-      HEADER="$HEADER "
-done
-
 # == RELOAD ==
 RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
 
 # === TEMPD + JJ_CONFIG ==
 if test -z "${TEMPD:-}" ; then
   temp_dir
-  export JJFZF_OUTER_TEMPD="$TEMPD"
+  export JJFZF_OUTER_TEMPD="$TEMPD" JJFZF_COLUMNS="$COLUMNS" JJFZF_LINES="$LINES"
 fi
 FZFEXTRAS=()
 EXECKILLME=
@@ -1534,7 +1558,8 @@ fzf \
   "${BIND[@]}" \
   --bind "ctrl-r:transform-query( $SELF revset-assign {q} )+become( exec $SELF )" \
   --preview " exec $SELF preview {} {q} " \
-  --header "$HEADER" --header-first \
+  --header "$($SELF --key-bindings)" --header-first \
+  --bind "alt-h:transform-header:$SELF --key-bindings --key-toggle" \
   --prompt "  $($SELF fzflog --revsetname) > " \
   --no-tac --no-sort +m
 # Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
