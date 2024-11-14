@@ -23,7 +23,7 @@ concat(
 if test "${1:-}" == preview					# preview command, nested invocation
 then
   unset JJ_CONFIG						# allow user config to take effect
-  if [[ "${2:-}" =~ $REVPAT ]]					# match beginning of jj log line
+  if [[ "${2:-} " =~ $REVPAT ]]					# match beginning of jj log line
   then
     cd "$(jj --ignore-working-copy root)"			# ensure root relative diffstat paths
     REVISION="${BASH_REMATCH[1]}"
@@ -160,7 +160,6 @@ temp_dir()
   }
 }
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
-export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '
 export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
 # Extract JJ revision from first word
 xrev()
