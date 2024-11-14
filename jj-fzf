@@ -50,13 +50,13 @@ fi
 
 # == Check Deps ==
 VERSION=0.23.0
-jj --version --ignore-working-copy | grep -Eq 'jj 0\.2[3-9]\.' || die "failed to find 'jj' version 0.23 in \$PATH"
-fzf --help | grep -Fq ' --header-first' || die "failed to find 'fzf' version 0.29 in \$PATH"
-sed --version 2>/dev/null | grep -Fq 'GNU sed' &&
-  gsed() { sed "$@"; } && export -f gsed ||
-    gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
 gawk --version | grep -Fq 'GNU Awk' || die "failed to find 'gawk' in \$PATH (GNU Awk)"
-TRACK=--track && FZFHELP="$(fzf --help 2>&1)" && [[ "$FZFHELP" =~ "--track" ]] || TRACK=
+version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1,$2,$3,$4,$5);exit}' <<<" $* "; }
+versionge() { test `version0d "$2"`a '<' `version0d "$1"`b; }
+versionge "$(jj --version --ignore-working-copy)" 0.23 || die "failed to find 'jj' version 0.23.0 in \$PATH"
+versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
+sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { sed "$@"; } && export -f gsed ||
+    gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
 
 # == Early Options ==
 ONESHOT=false
@@ -80,7 +80,7 @@ JJFZFPAGER="less -Rc"
 JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset JJ_CONFIG && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
 INFO_BINDING=" fzf </dev/null >/dev/tty 2>&1 --prompt '        '  --disabled --layout=reverse --height 1 --margin 4 --padding 4 --border=block --no-info --no-scrollbar --no-clear --bind=enter:print-query "
 FZFSETTINGS=(
-  --ansi --no-mouse -x -e
+  --ansi --no-mouse -x -e --track
   --info default
   --layout reverse-list
   --scroll-off 3
@@ -91,7 +91,6 @@ FZFSETTINGS=(
   --bind='f11:change-preview-window(bottom,75%,border-horizontal|)'
   --preview-window 'wrap,right,border-left'
   --bind=ctrl-alt-x:"execute-silent($INFO_BINDING)+clear-screen"
-  $TRACK
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
 JJLOGCMD=( $SELF fzflog )
