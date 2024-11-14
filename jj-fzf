@@ -20,10 +20,10 @@ concat(
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
   "\n",
 )' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-if test -n "${JJFZF_OUTER_TEMPD:-}" -a "${1:-}" == preview	# preview command, nested invocation
+if test "${1:-}" == preview					# preview command, nested invocation
 then
   unset JJ_CONFIG						# allow user config to take effect
-  if [[ "${2:-}" =~ $REVPAT ]]					# match beginning of jj log line
+  if [[ "${2:-} " =~ $REVPAT ]]					# match beginning of jj log line
   then
     cd "$(jj --ignore-working-copy root)"			# ensure root relative diffstat paths
     REVISION="${BASH_REMATCH[1]}"
@@ -35,12 +35,12 @@ then
       echo
       echo
     fi
-    if test -e "${JJFZF_OUTER_TEMPD:-}/evolog" 			# display evolog if toggled
+    if test -e "${JJFZF_OUTER_TEMPD:-/..InVaLiD}/evolog" 	# display evolog if toggled
     then
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$REVISION"
     else							# show commit and diff
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-all-space
+      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
     fi
   else								# no valid revision
     true
@@ -160,7 +160,6 @@ temp_dir()
   }
 }
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
-export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '
 export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
 # Extract JJ revision from first word
 xrev()
@@ -358,6 +357,8 @@ revsets_toml()
   echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., 2) | present(bookmarks()) | present(tags()) ''' "
   REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
   echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
+  echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(7)'"
+  echo "template-aliases.'format_short_commit_id(id)' = 'id.shortest(8)'"
 )
 
 # fzflog [--revsetname] [rev] - revision log for fzf
