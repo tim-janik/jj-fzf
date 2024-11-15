@@ -383,7 +383,8 @@ NEXTS=""
 # fzflog revset aliases
 revsets_toml()
 (
-  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., 2) | present(bookmarks()) | present(tags()) ''' "
+  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 2)"
+  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., $FZFLOG_DEPTH) | present(bookmarks()) | present(tags()) ''' "
   REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
   echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
   echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(7)'"
