@@ -94,7 +94,6 @@ FZFSETTINGS=(
   --bind=ctrl-alt-x:"execute-silent($INFO_BINDING)+clear-screen"
 )
 FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
-JJLOGCMD=( $SELF fzflog )
 TEMPD=
 # for function exports to work sub-shell must be bash too
 export SHELL=bash
@@ -713,7 +712,7 @@ merging()
   # FZF popup to select parent list
   H=$'\n'
   H="$H""Alt-U: Toggle merging into Upstream bookmark"$'\n'
-  export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
+  export FZF_DEFAULT_COMMAND="$SELF fzflog"
   "${FZFPOPUP[@]}" \
 	  --preview "merging_revs {+} && merging_preview" \
 	  --border-label '-[ MERGING ]-' --color=border:bright-blue,label:bright-blue \
@@ -861,7 +860,6 @@ FUNCTIONS+=( 'oplog_oneline' )
 DOC['op-log']='Use `jj op log` to browse the recent operations log. Use hotkeys to change the preview between diff, history and oplog entry mode. Undo the selected operation or restore its working copy into a new commit.'
 op-log()
 (
-  RELOAD="reload( exec jj op log --color=always )"
   temp_dir
   echo > $TEMPD/oplog.env
   H=$'\n'
@@ -1075,7 +1073,7 @@ reparenting()
   H=$'\n'
   H="$H""Alt-A: ADD    - Add currently selected revisions as new parents"$'\n'
   H="$H""Alt-D: DEL    - Delete selected revisions from current list of parents"$'\n'
-  export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
+  export FZF_DEFAULT_COMMAND="$SELF fzflog"
   # FZF select parents
   "${FZFPOPUP[@]}" \
       --border-label '-[ CHANGE PARENTS ]-' --color=border:cyan,label:cyan \
@@ -1126,7 +1124,7 @@ rebasing()
   H="$H""Ctrl-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Ctrl-B: BEFORE      - The revision to insert before"$'\n'
   H="$H""Ctrl-D: DESTINATION - The revision to rebase onto"$'\n'
-  export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
+  export FZF_DEFAULT_COMMAND="$SELF fzflog"
   REV=$("${FZFPOPUP[@]}" \
 	  --border-label '-[ REBASE ]-' --color=border:green,label:green \
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
@@ -1465,7 +1463,8 @@ if [[ " $* " =~ --help ]] ; then
 fi
 
 # == --key-bindings ==
-if [[ " $* " =~ --key-bindings ]] ; then
+list_key_bindings()
+{
   LINES="${LINES:-$JJFZF_LINES}" COLUMNS="${COLUMNS:-$JJFZF_COLUMNS}" # unset by transform-header()
   test "$COLUMNS" -ge 218 && W=4 || {
       test "$COLUMNS" -ge 166 && W=3 || {
@@ -1496,6 +1495,9 @@ if [[ " $* " =~ --key-bindings ]] ; then
 	OUTPUT="$OUTPUT "
   done
   echo -n "$OUTPUT"
+}
+if [[ " $* " =~ --key-bindings ]] ; then
+  list_key_bindings "$@"
   exit 0
 fi
 
@@ -1515,9 +1517,6 @@ fi
   set -x
   jj --no-pager status
 ) || exit $?
-
-# == RELOAD ==
-RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
 
 # === TEMPD + JJ_CONFIG ==
 if test -z "${TEMPD:-}" ; then
@@ -1539,6 +1538,7 @@ jj_config >"$TEMPD/jjfzfconfig.toml"
 export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
 
 # == BIND COMMANDS ==
+RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
 BIND=()
 for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
@@ -1549,8 +1549,9 @@ for k in "${!KEYBINDINGS[@]}" ; do
 done
 
 # == FZF ==
-export FZF_DEFAULT_COMMAND="${JJLOGCMD[@]@Q}"
-fzf \
+export FZF_DEFAULT_COMMAND="$SELF fzflog"
+fzflog |
+  fzf \
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
@@ -1558,10 +1559,12 @@ fzf \
   "${BIND[@]}" \
   --bind "ctrl-r:transform-query( $SELF revset-assign {q} )+become( exec $SELF )" \
   --preview " exec $SELF preview {} {q} " \
-  --header "$($SELF --key-bindings)" --header-first \
+  --header "$(list_key_bindings)" --header-first \
   --bind "alt-h:transform-header:$SELF --key-bindings --key-toggle" \
-  --prompt "  $($SELF fzflog --revsetname) > " \
+  --prompt "  $(fzflog --revsetname) > " \
   --no-tac --no-sort +m
-# Note, do not use 'exec' as last command, otherwise trap-handlers are skipped.
-# Ctrl-R: This must be rebound to run transform-query, ideally we would just transform-query+transform-prompt+reload
-#         but that crashes fzf-0.44.1 when the cursor position is after the new revset length, so we use become().
+# Notes:
+# * Do not use 'exec' as last command, otherwise trap-handlers are skipped.
+# * Ctrl-R: This must be rebound to run transform-query, ideally we would just transform-query+transform-prompt+reload
+#   but that crashes fzf-0.44.1 when the cursor position is after the new revset length, so we use become().
+# * Avoid needless $($SELF...) invocations, these cause significant slowdowns during startup
