@@ -1214,10 +1214,10 @@ logrev()
 FUNCTIONS+=( 'logrev' )
 
 # Log flat change history
-DOC['log']='Use `jj log` to browse the history including patches, starting from the selected revision.'
+DOC['log']='Use `jj log` to browse the history including patches, starting from the selected revision (or divergent commit).'
 log()
 {
-  R="$(xrev "${1:-@}")"
+  R="$(xrev_or_commit "${1:-@}")"
   exec $SELF logrev "$R" --all
 }
 KEYBINDINGS["Ctrl-L"]="log"
