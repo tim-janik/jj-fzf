@@ -474,50 +474,38 @@ KEYBINDINGS["Alt-C"]="commit"		FIRSTS="$FIRSTS commit"
 DOC['delete-refs']='Use `jj bookmark list+delete` to list, selected and delete bookmarks and tags.'
 delete-refs()
 (
-  R="$(xrev "${1:-@}")"
-  require_git_dir
-  # jj git export --quiet && jj git import --quiet
-  # Find Bookmark on @ for initial query
-  B=$($JJFZFSHOW -r "$R" -T 'concat(separate(" ",bookmarks))') &&
-    B="${B%% *}" &&
-    test -n "$B" &&
-    B=(-q "$B") ||
-      B=()
-  DEL=$("${FZFPOPUP[@]}" \
-	  --border-label '-[ DELETE ]-' --color=border:red,label:red \
-  	  --prompt "Delete > " \
-	  --header $'\n'"Delete selected Bookmark or Tag" --header-first \
-	  --no-tac --no-sort +m \
-	  -d: --nth 1 "${B[@]}" \
-	  < <(
-	  (
-	    jj bookmark list | while read n rest ; do
-	      printf "%-28s (bookmark) %s\n" "$n" "$rest"
-	    done
-	    echo
-	    git tag -n1 | while read n rest ; do
-	      printf "%-28s (tag) %s\n" "$n:" "$rest"
-	    done
-	  )
-	)
-     )
-  DEL="${DEL%%:*}" # strip :...
-  test -n "$DEL" || return
-  (
-    jj bookmark list | fgrep -q "$DEL:" ;
-    echo "bookmark list check: $?"
-    if set +o pipefail && jj --ignore-working-copy bookmark list | fgrep -q "$DEL:" ; then
-      ( set -x
-	jj bookmark delete $DEL
-      ) || ERROR
-      # jj git export --quiet
-    else
-      ( set -x
-	git tag -d "$DEL" )
-      # jj git import --quiet
-    fi
-  ) ||
-    sleep 1
+  R="$(xrev_or_commit "${1:-@}")"
+  # find first local bookmark in $R, use as query arg
+  B=$(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++" "') &&
+    B="${B%%\?\? *}" && B="${B%% *}" && test -n "$B" && B=(-q "$B") || B=()
+  require_git_dir # exports GIT_DIR
+  # select bookmark or tag
+  DELETELINE=$(
+    "${FZFPOPUP[@]}" \
+      --border-label '-[ DELETE BOOKMARK/TAG ]-' --color=border:red,label:red \
+      --prompt "Delete > " \
+      --header $'\n'"Delete selected Bookmark or Tag" --header-first \
+      --no-tac --no-sort +m \
+      "${B[@]}" \
+      < <(
+      # list local bookmarks
+      jj --ignore-working-copy bookmark list | # sed reorders conflicted
+	gsed -r ':0; /^\s/!s/ \(conflicted\):/: (conflicted)/; N; $!b0; s/\n\s+/ /g' |
+	while read MARK rest ; do
+	  printf "%-32s [bookmark] %s\n" "${MARK%:}" "$rest"
+	done
+      echo
+      # list git tags
+      git tag -n1 | while read MARK rest ; do
+	printf "%-32s [tag] %s\n" "$MARK" "$rest"
+      done
+    ) )
+  # delete given bookmark/tag line
+  read MARK WHAT rest <<<"$DELETELINE"
+  case "$WHAT" in
+    "[bookmark]")	( set -x && jj bookmark delete "$MARK" ) || ERROR ;;
+    "[tag]")		( set -x && git tag -d "$MARK" ) || ERROR ;;
+  esac
 )
 KEYBINDINGS["Alt-D"]="delete-refs"
 
