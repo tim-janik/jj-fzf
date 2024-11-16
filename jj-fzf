@@ -1108,9 +1108,10 @@ rebasing()
   echo 'FR=--branch'		>> $TEMPD/rebasing.env
   echo 'TO=--destination'	>> $TEMPD/rebasing.env
   echo 'SP=false'		>> $TEMPD/rebasing.env
+  echo 'II='			>> $TEMPD/rebasing.env
   export JJFZFONELINE
   PREVIEW=". $TEMPD/rebasing.env"
-  PREVIEW="$PREVIEW"' && echo && echo jj rebase $FR '$S' $TO $REV'
+  PREVIEW="$PREVIEW"' && echo && echo jj rebase $II $FR '$S' $TO $REV'
   PREVIEW="$PREVIEW"' && { $SP && echo jj simplify-parents ${FR/-branch/-source} '$S' || :; } && echo'
   PREVIEW="$PREVIEW"' && F=${FR#--} && echo ${F^^}: && $JJFZFONELINE -r '$S' && echo'
   PREVIEW="$PREVIEW"' && T=${TO#--} && echo ${T^^}: && $JJFZFONELINE -r $REV && echo'
@@ -1119,7 +1120,8 @@ rebasing()
   H="$H""Alt-B: BRANCH   - Rebase the whole branch relative to destination's ancestors"$'\n'
   H="$H""Alt-S: SOURCE   - Rebase specified revision together with descendants"$'\n'
   H="$H""Alt-R: REVISION - Rebase only given revision, moves descendants onto parent"$'\n'
-  H="$H""Alt-P: SIMPLIFY - Use simplify-parents after rebasing"$'\n'
+  H="$H""Alt-I: IGNORE-IMMUTABLE - Add --ignore-immutable to rebase cmd"$'\n'
+  H="$H""Alt-P: SIMPLIFY-PARENTS - Use simplify-parents after rebasing"$'\n'
   H="$H"$'\n'
   H="$H""Ctrl-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Ctrl-B: BEFORE      - The revision to insert before"$'\n'
@@ -1134,6 +1136,7 @@ rebasing()
 	  --bind "alt-s:execute-silent( gsed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-r:execute-silent( gsed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "alt-p:execute-silent( gsed 's/^SP=false/SP=x/; s/^SP=true/SP=false/; s/^SP=x/SP=true/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-i:execute-silent( gsed 's/^II=-.*/II=x/; s/^II=$/II=--ignore-immutable/; s/^II=x.*/II=/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "ctrl-d:execute-silent( gsed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "ctrl-a:execute-silent( gsed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
 	  --bind "ctrl-b:execute-silent( gsed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
@@ -1146,7 +1149,7 @@ rebasing()
   . $TEMPD/rebasing.env
   rm -f TEMPD/rebasing.env
   ( set -x
-    jj rebase $FR "$S" $TO "$REV"
+    jj rebase $II $FR "$S" $TO "$REV"
   ) || ERROR
   ! $SP || (
     set -x
