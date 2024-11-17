@@ -1272,7 +1272,7 @@ gitk()
   # beware gitk is executable and sh function
   ( set -x
     exec gitk --branches --tags --remotes --select-commit=$COMMIT $COMMIT HEAD -- # "${HEADS[@]}"
-  )
+  ) || ERROR
   # jj git import --quiet
 )
 KEYBINDINGS["Ctrl-V"]="gitk"
@@ -1286,8 +1286,8 @@ edit-workspace()
   IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
   [[ $IMMU =~ ^true ]] && CMD='new' || CMD='edit'
   ( set -x
-    jj $CMD -r "$R" ) ||
-    sleep 1
+    jj $CMD -r "$R"
+  ) || ERROR
 )
 KEYBINDINGS["Ctrl-E"]="edit-workspace"
 
@@ -1318,7 +1318,7 @@ undo()
   # read -p "Undo $op? " YN ; [[ "${YN:0:1}" =~ [yY] ]] || exit
   ( set -x
     jj op undo $op
-  ) || sleep 1
+  ) || ERROR
 )
 KEYBINDINGS["Alt-Z"]="undo"
 
