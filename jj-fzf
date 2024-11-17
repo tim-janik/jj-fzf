@@ -1296,7 +1296,9 @@ DOC['swap-commits']='Use `jj rebase --insert-before` to quickly swap the currenl
 swap-commits()
 (
   R="$(xrev "${1:-@}")"
-  jj rebase -r "$R" --insert-before "$R-"
+  ( set -x
+    jj rebase -r "$R" --insert-before "$R-"
+  ) || ERROR
 )
 KEYBINDINGS["Alt-X"]="swap-commits"
 
