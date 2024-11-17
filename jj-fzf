@@ -514,6 +514,7 @@ DOC['diffedit']='Use `jj diffedit` to modify the content diff of the currently s
 diffedit()
 (
   R="$(xrev "${1:-@}")"
+  unset JJ_CONFIG		# allow user config to take effect
   ( set -x
     jj diffedit -r "$R"
   ) || sleep 1
