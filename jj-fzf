@@ -510,7 +510,7 @@ delete-refs()
 KEYBINDINGS["Alt-D"]="delete-refs"
 
 # diffedit
-DOC['diffedit']='Use `jj diffedit` to modify the content diff of the currently selected revision.'
+DOC['diffedit']='Use `jj diffedit` to select parts of the content diff to be kept in the currently selected revision.'
 diffedit()
 (
   R="$(xrev "${1:-@}")"
