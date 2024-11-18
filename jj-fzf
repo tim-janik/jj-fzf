@@ -367,7 +367,7 @@ fzflog()
   [[ "${1:-}" == --revsetname ]] && { REVSETNAME=true; shift; } || REVSETNAME=false
   [[ $# -ge 1 ]] &&
     REVSETS_LOG="$1" ||
-      REVSETS_LOG=$(jj --ignore-working-copy config get 'jj-fzf.revsets.log' 2>/dev/null)
+      REVSETS_LOG=$(jj --ignore-working-copy config get 'jj-fzf.revsets.log' 2>/dev/null || :)
   test -n "$REVSETS_LOG" || REVSETS_LOG="fzflog"
   if $REVSETNAME ; then
     echo "$REVSETS_LOG"
@@ -380,9 +380,9 @@ fzflog()
 )
 FUNCTIONS+=( 'fzflog' )
 
-# revset-assign <revset> - assign to jj-fzf.revsets.log
-DOC['revset-assign']='Restart `jj-fzf` using the current query string as new revset for this repository.'
-revset-assign()
+# revset-filter <revset> - assign to jj-fzf.revsets.log
+DOC['revset-filter']='Restart `jj-fzf` using the current query string as new revset for this repository.'
+revset-filter()
 (
   REVSET="$1"
   jj --config-toml "$(revsets_toml)" --no-pager --ignore-working-copy log --no-graph -T '' -r "$REVSET" >/dev/null 2>&1 ||
@@ -391,7 +391,7 @@ revset-assign()
     jj --ignore-working-copy config set --repo 'jj-fzf.revsets.log' "$REVSET"
   ) || ERROR
 )
-KEYBINDINGS["Ctrl-R"]="revset-assign"	# overridden below
+KEYBINDINGS["Ctrl-R"]="revset-filter"	# overridden below
 
 # Toggle preview of evolution-log
 DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
@@ -1137,9 +1137,11 @@ rebasing()
   REV="$(rev_changeid "$REV")"
   . $TEMPD/rebasing.env
   rm -f TEMPD/rebasing.env
+  # rebase revision
   ( set -x
     jj rebase $II $FR "$S" $TO "$REV"
   ) || ERROR
+  # simplify-parents
   ! $SP || (
     set -x
     jj simplify-parents "${FR/-branch/-source}" "$S"
@@ -1443,10 +1445,10 @@ if [[ " $* " =~ --help ]] ; then
   tty -s <&1 && COLOR=true || { COLOR=false; JJFZFPAGER=cat; }
   [[ " $* " =~ --color ]] && COLOR=true
   ( :
-    echo "$HELP_INTRO"
+    echo -n "$HELP_INTRO"
     for k in $DISPLAYKEYS ; do
       NAME="${HELPKEYS[$k]}"
-      echo "**$k:** _$NAME""_"
+      echo && echo "**$k:** _$NAME""_"
       D="${DOC[$NAME]:-}"
       test -z "$D" ||
 	echo "$D" | fold -s -w78 | gsed 's/^/  /'
@@ -1551,7 +1553,7 @@ fzflog |
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
-  --bind "ctrl-r:transform-query( $SELF revset-assign {q} )+become( exec $SELF )" \
+  --bind "ctrl-r:transform-query( $SELF revset-filter {q} )+become( exec $SELF )" \
   --preview " exec $SELF preview {} {q} " \
   --header "$(list_key_bindings)" --header-first \
   --bind "alt-h:transform-header:$SELF --key-bindings --key-toggle" \
