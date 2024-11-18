@@ -1248,9 +1248,10 @@ rebasing()
   rm -f TEMPD/rebasing.env
   # duplicate input revision
   test -z "$DP" || {
+    test "$FR" == --source && DESCENDANTS=:: || DESCENDANTS=
     A=( $(rev_children "$S-") ) C=()
     ( set -x
-      jj duplicate "$S" ) || ERROR
+      jj duplicate "$S"$DESCENDANTS ) || ERROR
     B=( $(rev_children "$S-") ) && diff_arrays A B C # find duplicated revision
     [ ${#C[@]} -eq 1 ] || ERROR "failed to find newly created revision duplicate"
     S="${C[0]}"
