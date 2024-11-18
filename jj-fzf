@@ -367,7 +367,7 @@ fzflog()
   [[ "${1:-}" == --revsetname ]] && { REVSETNAME=true; shift; } || REVSETNAME=false
   [[ $# -ge 1 ]] &&
     REVSETS_LOG="$1" ||
-      REVSETS_LOG=$(jj --ignore-working-copy config get 'jj-fzf.revsets.log' 2>/dev/null)
+      REVSETS_LOG=$(jj --ignore-working-copy config get 'jj-fzf.revsets.log' 2>/dev/null || :)
   test -n "$REVSETS_LOG" || REVSETS_LOG="fzflog"
   if $REVSETNAME ; then
     echo "$REVSETS_LOG"
