@@ -1137,9 +1137,11 @@ rebasing()
   REV="$(rev_changeid "$REV")"
   . $TEMPD/rebasing.env
   rm -f TEMPD/rebasing.env
+  # rebase revision
   ( set -x
     jj rebase $II $FR "$S" $TO "$REV"
   ) || ERROR
+  # simplify-parents
   ! $SP || (
     set -x
     jj simplify-parents "${FR/-branch/-source}" "$S"
