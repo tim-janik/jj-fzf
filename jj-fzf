@@ -1551,6 +1551,7 @@ fzflog |
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
+  --bind "f5:$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
   --bind "ctrl-r:transform-query( $SELF revset-filter {q} )+become( exec $SELF )" \
