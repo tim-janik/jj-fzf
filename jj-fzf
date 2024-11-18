@@ -1443,10 +1443,10 @@ if [[ " $* " =~ --help ]] ; then
   tty -s <&1 && COLOR=true || { COLOR=false; JJFZFPAGER=cat; }
   [[ " $* " =~ --color ]] && COLOR=true
   ( :
-    echo "$HELP_INTRO"
+    echo -n "$HELP_INTRO"
     for k in $DISPLAYKEYS ; do
       NAME="${HELPKEYS[$k]}"
-      echo "**$k:** _$NAME""_"
+      echo && echo "**$k:** _$NAME""_"
       D="${DOC[$NAME]:-}"
       test -z "$D" ||
 	echo "$D" | fold -s -w78 | gsed 's/^/  /'
