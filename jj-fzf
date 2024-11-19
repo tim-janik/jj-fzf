@@ -269,9 +269,9 @@ backward_chronologic()
 # forward_chronologic [REVISIONS] - produce revisions in chronological order
 forward_chronologic()
 (
-  BCKWREVS=( $(backward_chronologic "$@") )
-  REVERSED=() && reverse_array BCKWREVS REVERSED
-  join_args $'\n' "${REVERSED[@]}"
+  test $# -ge 1 || return
+  ORREVS=$(join_args '|' "$@")
+  jj --no-pager --ignore-working-copy log --no-graph -r all:"$ORREVS" -T 'change_id ++ "\n"' --reversed
 )
 
 # Require .git directory and set GIT_DIR
