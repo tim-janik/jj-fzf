@@ -269,9 +269,9 @@ backward_chronologic()
 # forward_chronologic [REVISIONS] - produce revisions in chronological order
 forward_chronologic()
 (
-  BCKWREVS=( $(backward_chronologic "$@") )
-  REVERSED=() && reverse_array BCKWREVS REVERSED
-  join_args $'\n' "${REVERSED[@]}"
+  test $# -ge 1 || return
+  ORREVS=$(join_args '|' "$@")
+  jj --no-pager --ignore-working-copy log --no-graph -r all:"$ORREVS" -T 'change_id ++ "\n"' --reversed
 )
 
 # Require .git directory and set GIT_DIR
@@ -307,19 +307,49 @@ echo_signoff()
 echo_commit_msg()
 (
   R="$1"
-  S=$(rev_edpstate "$R")
-  # keep existing message
-  [[ $S =~ -silent- ]] || {
-    rev_description "$R"
-    return
-  }
-  # start with file name prefixes
-  cd "$JJROOT" # create root relative file names
-  FILES=()
-  readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | gsed 's/^\w //')
-  test ${#FILES[@]} -gt 0 &&
-    printf "%s: \n" "${FILES[@]}" ||
-      echo ""
+  if test "$R" != --merge ; then
+    S=$(rev_edpstate "$R")
+    # keep any existing message
+    [[ $S =~ -silent- ]] || {
+      rev_description "$R"
+      return
+    }
+    # list parents
+    PARENTS=( $(jj --no-pager --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r all:"$R-" --reversed) )
+  else # --merge
+    shift
+    PARENTS=( $(forward_chronologic "$@") )
+  fi
+  # Create merge message
+  if test "$R" == --merge -o "${#PARENTS[@]}" -ge 2 ; then
+    SEP="^^^^^^^^^"
+    NEWCOMMITS=()
+    for p in "${PARENTS[@]}"; do
+      NEWCOMMITS+=( $(rev_commitid $p) )
+    done
+    MERGE_BASE=$(git merge-base --octopus "${NEWCOMMITS[@]}")
+    echo -e "# $SEP DRAFT:  merge ${PARENTS[@]}" "$SEP # DELETE THIS"
+    test "${#PARENTS[@]}" -le 2 &&
+      echo "Merge branch '`rev_bookmark1 ${PARENTS[1]}`' into '`rev_bookmark1 ${PARENTS[0]}`'" ||
+	echo "Merge branches: ${PARENTS[@]}"
+    for c in "${NEWCOMMITS[@]}"; do
+      test "$c" == "$MERGE_BASE" && continue
+      test "${#PARENTS[@]}" -le 2 &&
+	echo -e "\n* Branch commit log:" || # "$c ^$MERGE_BASE"
+	  echo -e "\n* Branch '`rev_bookmark1 $c`' commit log:"
+      git log --pretty=$'\f%s%+b' $c ^$MERGE_BASE |
+	gsed '/^\([A-Z][a-z0-9-]*-by\|Cc\):/d' | # strip Signed-off-by:
+	gsed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /'
+    done
+  else # Commit message based on files
+    # start with file name prefixes
+    cd "$JJROOT" # create root relative file names
+    FILES=()
+    readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | gsed 's/^\w //')
+    test ${#FILES[@]} -gt 0 &&
+      printf "%s: \n" "${FILES[@]}" ||
+	echo ""
+  fi
   # ensure signoff
   echo_signoff
 )
@@ -660,7 +690,7 @@ merging()
   cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   temp_dir
   # Find tracked upstream revision
-  [[ $(jj bookmark list -t | grep -vE ' \(deleted\)|^ ') =~ ^([^\ :]+): ]] &&
+  [[ $(jj --no-pager --ignore-working-copy log --no-graph -r 'trunk()' -T 'bookmarks') =~ ^([^@\ :]+).* ]] &&
     UPSTREAM="${BASH_REMATCH[1]}" || UPSTREAM=
   echo 0 > $TEMPD/upstream.toggle
   export JJFZFONELINE REVPAT TEMPD UPSTREAM P
@@ -716,30 +746,9 @@ merging()
     test "${#REVS[@]}" -ge 2 ||
       exit # Merge cancelled
   # Create merge message
-  JJNEW_ARGS=("${REVS[@]}")
+  JJNEW_ARGS=( $(forward_chronologic "${REVS[@]}") )
   test "${#REVS[@]}" -ge 2 && {
-    MSG=$( SEP="^^^^^^^^^"
-	   NEWCOMMITS=()
-	   for p in "${REVS[@]}"; do
-	     NEWCOMMITS+=( $(rev_commitid $p) )
-	   done
-	   MERGE_BASE=$(git merge-base --octopus "${NEWCOMMITS[@]}")
-	   echo -e "# $SEP DRAFT:  merge ${REVS[@]}" \
-		"${WARN:+$WARN}" "$SEP # DELETE THIS"
-	   test "${#REVS[@]}" -gt 2 &&
-	     echo "Merge branches: ${REVS[@]}" ||
-	       echo "Merge branch '`rev_bookmark1 ${REVS[1]}`' into '`rev_bookmark1 ${REVS[0]}`'"
-	   for c in "${NEWCOMMITS[@]}"; do
-	     test "$c" == "$MERGE_BASE" && continue
-	     test "${#REVS[@]}" -gt 2 &&
-	       echo -e "\n* Branch '`rev_bookmark1 $c`' commit log:" ||
-		 echo -e "\n* Branch commit log:" # "$c ^$MERGE_BASE"
-	     git log --pretty=$'\f%s%+b' $c ^$MERGE_BASE |
-	       gsed '/^\(Signed-off-by\|Acked-by\|Tested-by\|Cc\):/d' |
-	       gsed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /'
-	   done
-	   echo_signoff
-       )
+    MSG=$( echo_commit_msg --merge "${REVS[@]}" )
     # edit merge msg
     O="$MSG"
     user_editor_on_var "MERGE-MSG.txt" MSG &&
@@ -959,8 +968,8 @@ DOC['push-remote']='Use `jj git fetch --all-remotes` and `jj git push --tracked`
 push-remote()
 (
   ( set -x
-    jj git fetch --all-remotes
-    jj git push --tracked --dry-run
+    jj git fetch # --remote `jj config get git.fetch`
+    jj git push --tracked --dry-run # --remote `jj config get git.push`
   ) || ERROR
   read -p 'Really push to remote? ' YN
   [[ "${YN:0:1}" =~ [yY] ]] ||
@@ -1551,6 +1560,7 @@ fzflog |
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
+  --bind "f5:$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
   --bind "ctrl-r:transform-query( $SELF revset-filter {q} )+become( exec $SELF )" \
