@@ -15,7 +15,7 @@ JJ-FZF
 
 `JJ-FZF` is a text UI for [jj](https://martinvonz.github.io/jj/latest/) based on [fzf](https://junegunn.github.io/fzf/), implemented as a bash shell script.
 The main view centers around `jj log`, providing previews for the `jj diff` or `jj obslog` of every revision.
-Several key bindings are available to quickly perform actions such as squashing, swapping, rebasing, splitting, branching, committing, or abandoning revisions.
+Several key bindings are available to quickly perform actions such as squashing, swapping, rebasing, splitting, branching, committing, abandoning revisions and more.
 A separate view for the operations log `jj op log` enables fast previews of old commit histories or diffs between operations, making it easy to `jj undo` any previous operation.
 The available hotkeys are displayed onscreen for simple discoverability.
 The commands and key bindings can also be displayed with `jj-fzf --help` and are documented in the wiki: [jj-fzf-help](https://github.com/tim-janik/jj-fzf/wiki/jj-fzf-help)

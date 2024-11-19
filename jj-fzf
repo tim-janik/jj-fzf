@@ -634,6 +634,26 @@ split-interactive()
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
 
+# Diff Browser
+DOC['diff']='Use `jj diff` to view differences between the currently selected revision and the working copy.'
+diff()
+(
+  R="$(xrev_or_commit "${1:-@-}" 2>/dev/null)" || exit # invalid erevision
+  W="$(xrev_or_commit "@")" || ERROR
+  REV=( $(forward_chronologic "$R" "$W") )
+  test "${#REV[@]}" -ge 2 || REV+=( "${REV[0]}" )
+  unset JJ_CONFIG	# allow user config to take effect
+  (
+    # set -x
+    jj --color=always log -r "${REV[0]} | ${REV[1]}" -T builtin_log_oneline # | gsed -r '/[k-xyz]/!d; s/ +/  /'
+    echo
+    jj diff --ignore-working-copy --color=always --from "${REV[0]}" --to "${REV[1]}" --stat
+    echo
+    jj diff --ignore-working-copy --color=always --from "${REV[0]}" --to "${REV[1]}"
+  ) 2>&1 | $JJFZFPAGER
+)
+KEYBINDINGS["Ctrl-I"]="diff"
+
 # Backout Commit
 DOC['backout']='Use `jj backout` to create a new commit that undoes the changes made by the currently selected revision and apply the changes on top of the working-copy.'
 backout()
