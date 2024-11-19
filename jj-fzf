@@ -716,7 +716,7 @@ merging()
     test "${#REVS[@]}" -ge 2 ||
       exit # Merge cancelled
   # Create merge message
-  JJNEW_ARGS=("${REVS[@]}")
+  JJNEW_ARGS=( $(forward_chronologic "${REVS[@]}") )
   test "${#REVS[@]}" -ge 2 && {
     MSG=$( SEP="^^^^^^^^^"
 	   NEWCOMMITS=()
