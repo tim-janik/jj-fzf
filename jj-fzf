@@ -638,7 +638,7 @@ KEYBINDINGS["Alt-I"]="split-interactive"
 DOC['diff']='Use `jj diff` to view differences between the currently selected revision and the working copy.'
 diff()
 (
-  R="$(xrev_or_commit "${1:-@-}" 2>/dev/null)" || exit # invalid erevision
+  R="$(xrev_or_commit "${1:-@-}" 2>/dev/null)" || exit # invalid revision
   W="$(xrev_or_commit "@")" || ERROR
   REV=( $(forward_chronologic "$R" "$W") )
   test "${#REV[@]}" -ge 2 || REV+=( "${REV[0]}" )
