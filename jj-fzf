@@ -383,7 +383,8 @@ NEXTS=""
 # fzflog revset aliases
 revsets_toml()
 (
-  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., 2) | present(bookmarks()) | present(tags()) ''' "
+  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 2)"
+  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., $FZFLOG_DEPTH) | present(bookmarks()) | present(tags()) ''' "
   REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
   echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
   echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(7)'"
@@ -574,7 +575,7 @@ describe()
     ERROR "Describe cancelled by user"
   test "$O" != "$MSG" && (
     set -x
-    jj describe --no-edit -r "$R" -m "$MSG"
+    jj describe --no-edit -r "$R" --stdin <<<"$MSG"
   ) ||
     sleep 1
 )
@@ -638,7 +639,7 @@ KEYBINDINGS["Alt-I"]="split-interactive"
 DOC['diff']='Use `jj diff` to view differences between the currently selected revision and the working copy.'
 diff()
 (
-  R="$(xrev_or_commit "${1:-@-}" 2>/dev/null)" || exit # invalid erevision
+  R="$(xrev_or_commit "${1:-@-}" 2>/dev/null)" || exit # invalid revision
   W="$(xrev_or_commit "@")" || ERROR
   REV=( $(forward_chronologic "$R" "$W") )
   test "${#REV[@]}" -ge 2 || REV+=( "${REV[0]}" )
