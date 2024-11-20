@@ -574,7 +574,7 @@ describe()
     ERROR "Describe cancelled by user"
   test "$O" != "$MSG" && (
     set -x
-    jj describe --no-edit -r "$R" -m "$MSG"
+    jj describe --no-edit -r "$R" --stdin <<<"$MSG"
   ) ||
     sleep 1
 )
