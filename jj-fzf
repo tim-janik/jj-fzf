@@ -990,7 +990,7 @@ push-remote()
     jj git fetch # --remote `jj config get git.fetch`
     jj git push --tracked --dry-run # --remote `jj config get git.push`
   ) || ERROR
-  read -p 'Really push to remote? ' YN
+  read -p 'Try to push to remote? ' YN
   [[ "${YN:0:1}" =~ [yY] ]] ||
     exit
   ( set -x
