@@ -47,6 +47,20 @@ then
   fi
   exit 0
 fi
+export OPRPAT='^[^a-z0-9]*([0-9a-f]{9,})[?]*\ '	# line start, ignore --graph, parse hex letters, space separator
+case "${1:-}" in
+  preview_oplog)
+    [[ " ${2:-} " =~ $OPRPAT ]] && unset JJ_CONFIG && {
+	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
+	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log -r .. # -T builtin_log_oneline
+      } ; exit ;;
+  preview_opdiff)
+    [[ " ${2:-} " =~ $OPRPAT ]] && unset JJ_CONFIG && {
+	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
+	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log --no-graph -s -r "@"
+	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always show -T ' "\n" ' -r "@"
+      } ; exit ;;
+esac
 
 # == Check Deps ==
 VERSION=0.23.0
@@ -882,49 +896,27 @@ op-log()
   temp_dir
   echo > $TEMPD/oplog.env
   H=$'\n'
-  H="$H""Ctrl-D: Preview diff of '@' at a specific operation"$'\n'
-  H="$H""Ctrl-L: Preview history at a specific operation"$'\n'
+  H="$H"$'Ctrl-D: Preview diff of "@" at a specific operation\n'
+  H="$H"$'Ctrl-L: Preview history at a specific operation\n'
   H="$H"$'\n'
-  H="$H""Alt-W: Restore working copy of the selected operation into a new commit before @"$'\n'
-  H="$H""Alt-Z: Undo the selected operation entry"$'\n'
-  echo 'VIEW=log@oplog'		>> $TEMPD/oplog.env
+  H="$H"$'Alt-W: Restore working copy of the selected operation into a new commit before @\n'
+  H="$H"$'Alt-Z: Undo the selected operation entry\n'
+  echo 'VIEW=preview_oplog'		>> $TEMPD/oplog.env
   export FZF_DEFAULT_COMMAND="$SELF oplog_oneline"
   "${FZFPOPUP[@]}" \
-    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {q}" \
     --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
     --prompt "Operation > " \
     --header "$H" --header-first \
-    --bind "ctrl-d:execute-silent( gsed 's/^VIEW=.*/VIEW=diff@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=log@oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-d:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-w:execute-silent( $SELF wdrestore@oplog {} )+abort" \
     --bind "alt-z:execute-silent( $SELF undo-op@oplog {} )+abort" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
     --preview-window 'nowrap,right,border-left' \
+    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {}" \
     --no-tac --no-sort +m
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
-
-log@oplog()
-(
-  unset JJ_CONFIG	# allow user config to take effect
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always -r '..' -T "$JJ_FZF_ONELINE" # builtin_log_oneline
-)
-FUNCTIONS+=( 'log@oplog' )
-
-diff@oplog()
-(
-  jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} op log --color=always -T builtin_op_log_comfortable -n 1 --no-graph
-  if tty -s ; then
-    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
-    } | $JJFZFPAGER
-  else
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "builtin_log_oneline" -s -r "@"
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "@"
-  fi
-)
-FUNCTIONS+=( 'diff@oplog' )
 
 undo-op@oplog()
 (
