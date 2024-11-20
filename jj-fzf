@@ -591,11 +591,14 @@ describe()
   O="$MSG"
   user_editor_on_var "CHANGE-$R.txt" MSG ||
     ERROR "Describe cancelled by user"
-  test "$O" != "$MSG" && (
-    set -x
-    jj describe --no-edit -r "$R" --stdin <<<"$MSG"
-  ) ||
-    sleep 1
+  test "$O" != "$MSG" ||
+    return
+  if test -z "$MSG" ; then	# bash adds a newline to <<<""
+    (set -x && jj describe --no-edit -r "$R" -m '')
+  else		# -m does not work if message starts with a '-'
+    (set -x && jj describe --no-edit -r "$R" --stdin <<<"$MSG")
+  fi \
+    || ERROR
 )
 KEYBINDINGS["Ctrl-D"]="describe"
 
@@ -990,7 +993,7 @@ push-remote()
     jj git fetch # --remote `jj config get git.fetch`
     jj git push --tracked --dry-run # --remote `jj config get git.push`
   ) || ERROR
-  read -p 'Really push to remote? ' YN
+  read -p 'Try to push to remote? ' YN
   [[ "${YN:0:1}" =~ [yY] ]] ||
     exit
   ( set -x
