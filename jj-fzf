@@ -999,6 +999,20 @@ push-remote()
 )
 KEYBINDINGS["Ctrl-P"]="push-remote"
 
+# Absorb a content diff into mutable ancestors
+absorb()
+(
+  R="$(xrev "${1:-@}")"
+  ( set -x
+    jj absorb --from "$R"
+  ) || ERROR
+  sleep 1
+)
+jj --ignore-working-copy absorb --help >/dev/null 2>&1 && { # TODO: adjust for jj-0.24
+  DOC['absorb']='Use `jj absorb` to split the content diff of the current revision and squash pieces into related mutable ancestors.'
+  KEYBINDINGS["Alt-O"]="absorb"
+}
+
 # Squash Into Parent
 DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision into its parent.'
 squash-into-parent()
