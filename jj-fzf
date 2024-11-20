@@ -60,6 +60,10 @@ case "${1:-}" in
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log --no-graph -s -r "@"
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always show -T ' "\n" ' -r "@"
       } ; exit ;;
+  preview_opshow)
+    [[ " ${2:-} " =~ ^[^a-z0-9]*([0-9a-f]{9,})\  ]]	&& unset JJ_CONFIG && {
+	jj --no-pager --ignore-working-copy --color=always op show -p "${BASH_REMATCH[1]}"
+      } ; exit ;;
 esac
 
 # == Check Deps ==
@@ -898,10 +902,11 @@ op-log()
   H=$'\n'
   H="$H"$'Ctrl-D: Preview diff of "@" at a specific operation\n'
   H="$H"$'Ctrl-L: Preview history at a specific operation\n'
+  H="$H"$'Ctrl-P: Preview patch at a specific operation via `jj op show -p`\n'
   H="$H"$'\n'
   H="$H"$'Alt-W: Restore working copy of the selected operation into a new commit before @\n'
   H="$H"$'Alt-Z: Undo the selected operation entry\n'
-  echo 'VIEW=preview_oplog'		>> $TEMPD/oplog.env
+  echo 'VIEW=preview_opshow'		>> $TEMPD/oplog.env
   export FZF_DEFAULT_COMMAND="$SELF oplog_oneline"
   "${FZFPOPUP[@]}" \
     --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
@@ -909,6 +914,7 @@ op-log()
     --header "$H" --header-first \
     --bind "ctrl-d:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-w:execute-silent( $SELF wdrestore@oplog {} )+abort" \
     --bind "alt-z:execute-silent( $SELF undo-op@oplog {} )+abort" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
