@@ -748,7 +748,7 @@ merging()
 	echo "$UPSTREAM" >> $TEMPD/merging.revs
 	counts_["$R"]=1	# use change_id for deduplication
       }
-    LINES=("$@") && REVERSED=() && reverse_array LINES REVERSED
+    INPUTLINES=("$@") && REVERSED=() && reverse_array INPUTLINES REVERSED
     for ARG in ". $P " "${REVERSED[@]}" ; do
       [[ "$ARG" =~ $REVPAT ]] || continue
       R=$(jj --no-pager --ignore-working-copy show --tool true -r "${BASH_REMATCH[1]}" -T 'change_id')
