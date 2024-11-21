@@ -70,7 +70,7 @@ esac
 VERSION=0.23.0
 gawk --version | grep -Fq 'GNU Awk' || die "failed to find 'gawk' in \$PATH (GNU Awk)"
 version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1,$2,$3,$4,$5);exit}' <<<" $* "; }
-versionge() { test `version0d "$2"`a '<' `version0d "$1"`b; }
+versionge() { test "$(version0d "$2")a" '<' "$(version0d "$1")b"; }
 versionge "$(bash --version)" 5.1.16 || die "failed to find 'bash' version 5.1.16 in \$PATH"
 versionge "$(jj --version --ignore-working-copy)" 0.23 || die "failed to find 'jj' version 0.23.0 in \$PATH"
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
@@ -111,7 +111,7 @@ FZFSETTINGS=(
   --preview-window 'wrap,right,border-left'
   --bind=ctrl-alt-x:"execute-silent($INFO_BINDING)+clear-screen"
 )
-FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin 0,3%,5%,3% --border)
+FZFPOPUP=(fzf "${FZFSETTINGS[@]}" --margin "0,3%,5%,3%" --border)
 TEMPD=
 # for function exports to work sub-shell must be bash too
 export SHELL=bash
@@ -663,16 +663,16 @@ diff()
 (
   R="$(xrev_or_commit "${1:-@-}" 2>/dev/null)" || exit # invalid revision
   W="$(xrev_or_commit "@")" || ERROR
-  REV=( $(forward_chronologic "$R" "$W") )
-  test "${#REV[@]}" -ge 2 || REV+=( "${REV[0]}" )
+  REVS=( $(forward_chronologic "$R" "$W") )
+  test "${#REVS[@]}" -ge 2 || REVS+=( "${REVS[0]}" )
   unset JJ_CONFIG	# allow user config to take effect
   (
     # set -x
-    jj --color=always log -r "${REV[0]} | ${REV[1]}" -T builtin_log_oneline # | gsed -r '/[k-xyz]/!d; s/ +/  /'
+    jj --color=always log -r "${REVS[0]} | ${REVS[1]}" -T builtin_log_oneline # | gsed -r '/[k-xyz]/!d; s/ +/  /'
     echo
-    jj diff --ignore-working-copy --color=always --from "${REV[0]}" --to "${REV[1]}" --stat
+    jj diff --ignore-working-copy --color=always --from "${REVS[0]}" --to "${REVS[1]}" --stat
     echo
-    jj diff --ignore-working-copy --color=always --from "${REV[0]}" --to "${REV[1]}"
+    jj diff --ignore-working-copy --color=always --from "${REVS[0]}" --to "${REVS[1]}"
   ) 2>&1 | $JJFZFPAGER
 )
 KEYBINDINGS["Ctrl-I"]="diff"
@@ -683,7 +683,7 @@ backout()
 (
   R="$(xrev "${1:-@}")"
   # use working copy as destination, unless it is empty
-  test $(rev_edpstate @) == empty-silent-p1 &&
+  test "$(rev_edpstate @)" == empty-silent-p1 &&
     D=@- ||
       D=@
   # record base commit children before/after, then backout
@@ -703,7 +703,7 @@ KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
 # Line Blame: jj-fzf +<line> <gitfile>
 if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
-  absroot="$(readlink -f $(jj --no-pager --ignore-working-copy root))"
+  absroot="$(readlink -f "$(jj --no-pager --ignore-working-copy root)")"
   absfile="$(readlink -f "$2")"
   [[ $absfile == $absroot/* ]] && {
     echo absroot=$absroot
@@ -711,12 +711,12 @@ if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
     file="${absfile:((1+${#absroot}))}"
     echo file=${absfile:((1+${#absroot}))}
     jj --no-pager status
-    C="$(rev_commitid @)"
+    COMMIT="$(rev_commitid @)"
     grep -s -n '' "$file" /dev/null |
     "${FZFPOPUP[@]}" \
       --border-label '-[ LINE HISTORY (EXPERIMENTAL) ]-' --color=border:yellow,label:yellow \
-      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $C | gsed 's/Signed-off-by:.*//; /^ *$/d' " \
-      --bind "enter:execute( git log -M -C --find-copies-harder -L{2},+7:{1} --color $C | $JJFZFPAGER)" \
+      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $COMMIT | gsed 's/Signed-off-by:.*//; /^ *$/d' " \
+      --bind "enter:execute( git log -M -C --find-copies-harder -L{2},+7:{1} --color $COMMIT | $JJFZFPAGER)" \
       --header "File Line History" \
       --no-tac --no-sort +m -d: \
       --track --bind 'focus:clear-query+unbind(focus)' \
@@ -816,7 +816,7 @@ new-before()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
     die "no such revision"
-  if test $($JJFZFSHOW -r "$R" -T '"p" ++ self.parents().len() ++ "\n"') == p1 ; then
+  if test "$($JJFZFSHOW -r "$R" -T '"p" ++ self.parents().len() ++ "\n"')" == p1 ; then
     ( set -x
       jj new --insert-before "$R"
     ) || ERROR
@@ -931,7 +931,6 @@ KEYBINDINGS["Ctrl-O"]="op-log"
 undo-op@oplog()
 (
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
-  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
   ( set -x
     jj op undo $OP
   ) ||
@@ -943,10 +942,10 @@ wdrestore@oplog()
 (
   set -x
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
-  C="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
+  COMMIT="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
   ( set -x
     jj new --insert-before @
-    jj restore --from "$C" --to @ --restore-descendants
+    jj restore --from "$COMMIT" --to @ --restore-descendants
   ) || ERROR
 )
 FUNCTIONS+=( 'wdrestore@oplog' )
@@ -965,7 +964,7 @@ split-files()
   # adjust working copy, so 'jj split' resulting change_id is predictable
   test "$R" == "$AT" || (set -x; jj edit -r "$R")
   # split for n-1 files
-  MFS=$(git diff-tree --no-commit-id --name-status -r $(rev_commitid @))
+  MFS=$(git diff-tree --no-commit-id --name-status -r "$(rev_commitid @)")
   R1=true # skip first split, need n-1 splits for n files
   while read M F ; do
     $R1 && { R1=false; continue; } # skip first
