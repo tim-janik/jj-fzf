@@ -381,7 +381,8 @@ user_editor_on_var()
   local TEMPFILE="$TEMPD/$FILE"
   cat >"$TEMPFILE" <<<"$_ueovMSG"
   # edit commit msg
-  $EDITOR "$TEMPFILE" &&
+  JJ_EDITOR="$(unset JJ_CONFIG && jj config get ui.editor 2>/dev/null || echo "${EDITOR:-pico}")"
+  $JJ_EDITOR "$TEMPFILE" &&
     N="$(cat "$TEMPFILE")" && {
       test "$_ueovMSG" != "$N" &&
 	_ueovMSG="$(cat "$TEMPFILE")"
