@@ -346,10 +346,10 @@ echo_commit_msg()
       NEWCOMMITS+=( $(rev_commitid $p) )
     done
     MERGE_BASE=$(git merge-base --octopus "${NEWCOMMITS[@]}")
-    echo -e "# $SEP DRAFT:  merge ${PARENTS[@]}" "$SEP # DELETE THIS"
+    echo -e "# $SEP DRAFT:  merge" "${PARENTS[@]}" "$SEP # DELETE THIS"
     test "${#PARENTS[@]}" -le 2 &&
       echo "Merge branch '`rev_bookmark1 ${PARENTS[1]}`' into '`rev_bookmark1 ${PARENTS[0]}`'" ||
-	echo "Merge branches: ${PARENTS[@]}"
+	echo "Merge branches:" "${PARENTS[@]}"
     for c in "${NEWCOMMITS[@]}"; do
       test "$c" == "$MERGE_BASE" && continue
       test "${#PARENTS[@]}" -le 2 &&
@@ -1543,7 +1543,7 @@ if [[ " $* " =~ --key-bindings ]] ; then
 fi
 
 # == Function calling ==
-if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[@]} ${FUNCTIONS[@]} " =~ \ $1\  ]] ; then
+if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[*]} ${FUNCTIONS[*]} " =~ \ $1\  ]] ; then
   # Sync JJ with working-copy before func, probably has JJ_CONFIG: snapshot.auto-track="none()"
   jj --no-pager status >/dev/null
   FUNC="$1" "$@" && E=$? || E=$?
