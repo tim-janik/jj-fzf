@@ -1193,7 +1193,7 @@ reparenting()
 KEYBINDINGS["Alt-P"]="reparenting"	FIRSTS="$FIRSTS reparenting"
 
 # Rebase Branch/Source/Revision After/Before/Destination
-DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision. Also supports `jj simplify-parents` after rebasing.'
+DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision. Also supports `jj duplicate` on the source revision before rebasing and `jj simplify-parents` afterwards.'
 rebasing()
 (
   S="$(xrev "${1:-@}")"
@@ -1213,13 +1213,13 @@ rebasing()
   PREVIEW="$PREVIEW"' && F=${FR#--} && echo ${F^^}: && $JJFZFONELINE -r '$S' && echo'
   PREVIEW="$PREVIEW"' && T=${TO#--} && echo ${T^^}: && $JJFZFONELINE -r $REV && echo'
   PREVIEW="$PREVIEW"' && echo COMMON: && $JJFZFONELINE -r "heads( ::'$S' & ::$REV)"'
-  H=$'\n'
-  H="$H""Alt-B: BRANCH   - Rebase the whole branch relative to destination's ancestors"$'\n'
-  H="$H""Alt-S: SOURCE   - Rebase specified revision together with descendants"$'\n'
-  H="$H""Alt-R: REVISION - Rebase only given revision, moves descendants onto parent"$'\n'
-  H="$H""Alt-I: IGNORE-IMMUTABLE - Add --ignore-immutable to rebase cmd"$'\n'
-  H="$H""Alt-P: SIMPLIFY-PARENTS - Use simplify-parents after rebasing"$'\n'
-  H="$H"$'\n'
+  H=''
+  H="$H""Alt-B: BRANCH    - Rebase the whole branch relative to destination's ancestors"$'\n'
+  H="$H""Alt-D: DUPLICATE - duplicate the specified revision/descendants before rebase"$'\n'
+  H="$H"'Alt-I: IGNORE-IMMUTABLE - Use `jj rebase --ignore-immutable` command'$'\n'
+  H="$H"'Alt-P: SIMPLIFY-PARENTS - Use `jj simplify-parents` after rebasing'$'\n'
+  H="$H""Alt-R: REVISION  - Rebase only given revision, moves descendants onto parent"$'\n'
+  H="$H""Alt-S: SOURCE    - Rebase specified revision together with descendants"$'\n'
   H="$H""Ctrl-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Ctrl-B: BEFORE      - The revision to insert before"$'\n'
   H="$H""Ctrl-D: DESTINATION - The revision to rebase onto"$'\n'
