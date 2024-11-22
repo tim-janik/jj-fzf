@@ -381,7 +381,8 @@ user_editor_on_var()
   local TEMPFILE="$TEMPD/$FILE"
   cat >"$TEMPFILE" <<<"$_ueovMSG"
   # edit commit msg
-  $EDITOR "$TEMPFILE" &&
+  JJ_EDITOR="$(unset JJ_CONFIG && jj config get ui.editor 2>/dev/null || echo "${EDITOR:-pico}")"
+  $JJ_EDITOR "$TEMPFILE" &&
     N="$(cat "$TEMPFILE")" && {
       test "$_ueovMSG" != "$N" &&
 	_ueovMSG="$(cat "$TEMPFILE")"
@@ -1009,7 +1010,6 @@ absorb()
   ( set -x
     jj absorb --from "$R"
   ) || ERROR
-  sleep 1
 )
 jj --ignore-working-copy absorb --help >/dev/null 2>&1 && { # TODO: adjust for jj-0.24
   DOC['absorb']='Use `jj absorb` to split the content diff of the current revision and squash pieces into related mutable ancestors.'
@@ -1130,7 +1130,7 @@ reparenting()
     jj rebase --source "$SRC" "${NEWPARENTS[@]/#/-d}"
   ) || sleep 1
 )
-KEYBINDINGS["Alt-P"]="reparenting"
+KEYBINDINGS["Alt-P"]="reparenting"	FIRSTS="$FIRSTS reparenting"
 
 # Rebase Branch/Source/Revision After/Before/Destination
 DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
