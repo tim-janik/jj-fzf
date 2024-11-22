@@ -1193,19 +1193,19 @@ reparenting()
 KEYBINDINGS["Alt-P"]="reparenting"	FIRSTS="$FIRSTS reparenting"
 
 # Rebase Branch/Source/Revision After/Before/Destination
-DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision. Also supports `jj duplicate` on the source revision before rebasing and `jj simplify-parents` afterwards.'
-rebasing()
+DOC['rebase']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision. Also supports `jj duplicate` on the source revision before rebasing and `jj simplify-parents` afterwards.'
+rebase()
 (
   S="$(xrev "${1:-@}")"
   temp_dir
-  echo > $TEMPD/rebasing.env
-  echo 'DP='			>> $TEMPD/rebasing.env
-  echo 'FR=--branch'		>> $TEMPD/rebasing.env
-  echo 'TO=--destination'	>> $TEMPD/rebasing.env
-  echo 'SP=false'		>> $TEMPD/rebasing.env
-  echo 'II='			>> $TEMPD/rebasing.env
+  echo > $TEMPD/rebase.env
+  echo 'DP='			>> $TEMPD/rebase.env
+  echo 'FR=--branch'		>> $TEMPD/rebase.env
+  echo 'TO=--destination'	>> $TEMPD/rebase.env
+  echo 'SP=false'		>> $TEMPD/rebase.env
+  echo 'II='			>> $TEMPD/rebase.env
   export JJFZFONELINE
-  PREVIEW=". $TEMPD/rebasing.env"
+  PREVIEW=". $TEMPD/rebase.env"
   PREVIEW="$PREVIEW"' && echo'
   PREVIEW="$PREVIEW"' && { test -z "$DP" || echo jj duplicate '$S' || :; }'
   PREVIEW="$PREVIEW"' && echo jj rebase $II $FR ${DP:+DUPLICATE-OF-}'${S:0:13}' $TO $REV'
@@ -1229,23 +1229,23 @@ rebasing()
 	  --preview "[[ {} =~ $REVPAT ]] || exit; export REV=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
 	  --prompt "Rebase > " \
 	  --header "$H" --header-first \
-	  --bind "alt-d:execute-silent( gsed 's/^DP=..*/DP=x/; s/^DP=$/DP=1/; s/^DP=x.*/DP=/; s/^FR=--branch/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-b:execute-silent( gsed 's/^FR=.*/FR=--branch/; s/^DP=.*/DP=/;' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-s:execute-silent( gsed 's/^FR=.*/FR=--source/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-r:execute-silent( gsed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-p:execute-silent( gsed 's/^SP=false/SP=x/; s/^SP=true/SP=false/; s/^SP=x/SP=true/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "alt-i:execute-silent( gsed 's/^II=-.*/II=x/; s/^II=$/II=--ignore-immutable/; s/^II=x.*/II=/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "ctrl-d:execute-silent( gsed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "ctrl-a:execute-silent( gsed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebasing.env )+refresh-preview" \
-	  --bind "ctrl-b:execute-silent( gsed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebasing.env )+refresh-preview" \
+	  --bind "alt-d:execute-silent( gsed 's/^DP=..*/DP=x/; s/^DP=$/DP=1/; s/^DP=x.*/DP=/; s/^FR=--branch/FR=--source/' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "alt-b:execute-silent( gsed 's/^FR=.*/FR=--branch/; s/^DP=.*/DP=/;' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "alt-s:execute-silent( gsed 's/^FR=.*/FR=--source/' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "alt-r:execute-silent( gsed 's/^FR=.*/FR=--revisions/' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "alt-p:execute-silent( gsed 's/^SP=false/SP=x/; s/^SP=true/SP=false/; s/^SP=x/SP=true/' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "alt-i:execute-silent( gsed 's/^II=-.*/II=x/; s/^II=$/II=--ignore-immutable/; s/^II=x.*/II=/' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "ctrl-d:execute-silent( gsed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "ctrl-a:execute-silent( gsed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebase.env )+refresh-preview" \
+	  --bind "ctrl-b:execute-silent( gsed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebase.env )+refresh-preview" \
 	  --no-tac --no-sort +m ) &&
     [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
       REV=
   test -n "$REV" || exit 0
   REV="$(rev_changeid "$REV")"
-  . $TEMPD/rebasing.env
-  rm -f TEMPD/rebasing.env
+  . $TEMPD/rebase.env
+  rm -f TEMPD/rebase.env
   # duplicate input revision
   test -z "$DP" || {
     test "$FR" == --source && DESCENDANTS=:: || DESCENDANTS=
@@ -1266,7 +1266,7 @@ rebasing()
     jj simplify-parents --revisions "$S"
   ) || ERROR
 )
-KEYBINDINGS["Alt-R"]="rebasing"			FIRSTS="$FIRSTS rebasing"
+KEYBINDINGS["Alt-R"]="rebase"			FIRSTS="$FIRSTS rebase"
 
 # Restore File
 DOC['restore-file']='EXPERIMENTAL: Start a dialog to select a file from the currently selected revision and use `jj restore` to restore the file into the working copy.'
