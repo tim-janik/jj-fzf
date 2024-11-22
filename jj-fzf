@@ -1193,7 +1193,7 @@ reparenting()
 KEYBINDINGS["Alt-P"]="reparenting"	FIRSTS="$FIRSTS reparenting"
 
 # Rebase Branch/Source/Revision After/Before/Destination
-DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision.'
+DOC['rebasing']='Start a dialog to configure the use of `jj rebase` to rebase a branch, source, or revision onto, before or after another revision. Also supports `jj simplify-parents` after rebasing.'
 rebasing()
 (
   S="$(xrev "${1:-@}")"
