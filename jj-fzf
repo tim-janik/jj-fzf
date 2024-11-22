@@ -1209,7 +1209,7 @@ rebasing()
   PREVIEW="$PREVIEW"' && echo'
   PREVIEW="$PREVIEW"' && { test -z "$DP" || echo jj duplicate '$S' || :; }'
   PREVIEW="$PREVIEW"' && echo jj rebase $II $FR ${DP:+DUPLICATE-OF-}'${S:0:13}' $TO $REV'
-  PREVIEW="$PREVIEW"' && { $SP && echo jj simplify-parents ${FR/-branch/-source} '$S' || :; } && echo'
+  PREVIEW="$PREVIEW"' && { $SP && echo jj simplify-parents --revisions '$S' || :; } && echo'
   PREVIEW="$PREVIEW"' && F=${FR#--} && echo ${F^^}: && $JJFZFONELINE -r '$S' && echo'
   PREVIEW="$PREVIEW"' && T=${TO#--} && echo ${T^^}: && $JJFZFONELINE -r $REV && echo'
   PREVIEW="$PREVIEW"' && echo COMMON: && $JJFZFONELINE -r "heads( ::'$S' & ::$REV)"'
@@ -1263,7 +1263,7 @@ rebasing()
   # simplify-parents
   ! $SP || (
     set -x
-    jj simplify-parents "${FR/-branch/-source}" "$S"
+    jj simplify-parents --revisions "$S"
   ) || ERROR
 )
 KEYBINDINGS["Alt-R"]="rebasing"			FIRSTS="$FIRSTS rebasing"
