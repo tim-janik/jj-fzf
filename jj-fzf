@@ -1055,7 +1055,7 @@ squash-@-into()
 KEYBINDINGS["Alt-W"]="squash-@-into"
 
 # Reparent a revision
-DOC['reparenting']='Start a dialog to add/delete parents of the current revision.'
+DOC['reparenting']='Start a dialog to add/delete parents of the current revision. Also supports `jj simplify-parents` after reparenting.'
 reparenting()
 (
   SRC="$(xrev "${1:-@}")"
@@ -1063,7 +1063,8 @@ reparenting()
   test "$IMMU" != true || exit 0
   temp_dir
   jj --no-pager --ignore-working-copy log --no-graph -T 'change_id ++ "\n"' -r all:"$SRC-" > $TEMPD/reparenting.lst
-  echo 'OP="|"' > $TEMPD/reparenting.env
+  echo 'OP="|"'		>  $TEMPD/reparenting.env
+  echo 'SIMPLIFY=false'	>> $TEMPD/reparenting.env
   export SRC TEMPD
   # Parse jj log lines into reparenting.revs
   reparenting_revs()
@@ -1089,6 +1090,7 @@ reparenting()
     mapfile -t NEWPARENTS < $TEMPD/newparents.lst && NEWPARENTS="$(join_args ' | ' "${NEWPARENTS[@]}")"
     echo "jj rebase --source \"$SRC\" --destination \\"
     echo "  \"all: $NEWPARENTS\""
+    $SIMPLIFY && echo "jj simplify-parents --revisions \"$SRC\\"
     echo
     echo "SOURCE REVISION:"
     jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r all:"$SRC | $SRC-"
@@ -1106,6 +1108,7 @@ reparenting()
   H=$'\n'
   H="$H""Alt-A: ADD    - Add currently selected revisions as new parents"$'\n'
   H="$H""Alt-D: DEL    - Delete selected revisions from current list of parents"$'\n'
+  H="$H""Alt-P: SIMPLIFY-PARENTS - Use simplify-parents after reparenting"$'\n'
   export FZF_DEFAULT_COMMAND="$SELF fzflog"
   # FZF select parents
   "${FZFPOPUP[@]}" \
@@ -1115,6 +1118,7 @@ reparenting()
       --header "$H" --header-first \
       --bind "alt-a:execute-silent( gsed 's/^OP=.*/OP=\"|\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
       --bind "alt-d:execute-silent( gsed 's/^OP=.*/OP=\"~\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
+      --bind "alt-p:execute-silent( gsed 's/^SIMPLIFY=false/SIMPLIFY_=/; s/^SIMPLIFY=true/SIMPLIFY=false/; s/^SIMPLIFY_=/SIMPLIFY=true/' -i $TEMPD/reparenting.env )+refresh-preview" \
       -m --color=pointer:grey \
       --no-tac --no-sort > $TEMPD/selections.txt &&
     mapfile -t selections < $TEMPD/selections.txt &&
@@ -1127,7 +1131,12 @@ reparenting()
   ( set -x
     # Ordering is not preserved with 'all:(.|.|.)', only with -d. -d. -d.
     jj rebase --source "$SRC" "${NEWPARENTS[@]/#/-d}"
-  ) || sleep 1
+  ) || ERROR
+  # simplify-parents
+  ! $SIMPLIFY || (
+    set -x
+    jj simplify-parents --revisions "$SRC"
+  ) || ERROR
 )
 KEYBINDINGS["Alt-P"]="reparenting"	FIRSTS="$FIRSTS reparenting"
 
