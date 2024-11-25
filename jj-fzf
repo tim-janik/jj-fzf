@@ -406,7 +406,7 @@ revsets_toml()
   echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., $FZFLOG_DEPTH) | present(bookmarks()) | present(tags()) ''' "
   REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
   echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
-  echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(7)'"
+  echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(8)'"
   echo "template-aliases.'format_short_commit_id(id)' = 'id.shortest(8)'"
 )
 
