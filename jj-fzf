@@ -1374,6 +1374,10 @@ undo()
   ( set -x
     jj op undo $op
   ) || ERROR
+  # There are two known cases where the above multi-step undo logic breaks:
+  # * No-ops, e.g. when `jj undo 123` doesn't cause a change: "Undid operation: 123 (2024-11-20) edit commit abc\nNothing changed."
+  # * Undo of an operation like "reconcile divergent operations" just gives "Error: Cannot undo a merge operation"
+  # In both cases, this undo op doesn't show up as undone in the op log, and the next `jj-fzf undo` will retry the same ad nauseam
 )
 KEYBINDINGS["Alt-Z"]="undo"
 
