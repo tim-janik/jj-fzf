@@ -856,23 +856,8 @@ new()
 )
 KEYBINDINGS["Ctrl-N"]="new"		FIRSTS="$FIRSTS new"
 
-# Log undone operations
-undone_log()
-(
-  # list all oplog descriptions, find description with "undo operation 123abc"
-  T='coalesce( self.description().first_line(), " ") ++ "\n"'
-  jj --no-pager --ignore-working-copy op log --no-graph --color=never -T "$T" |
-    gsed -nr '
-    	# turn "undo operation 123abc" into an exact id with 16 characters
-	/^undo operation [a-f0-9]{16}/s/^undo operation ([a-f0-9]{16}).*/\1/
-	T;	# goto EOS unless the previous s/// matched
-	P;	# print line replaced by s///
-  '
-)
-FUNCTIONS+=( 'undone_log' )
-
-# JJ_FZF_OPLOG_ONELINE - Oneline oplog with 16 character ids, parsed later on; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-JJ_FZF_OPLOG_ONELINE='
+# JJ_FZF_OP_LOG_ONELINE16 - Oneline op log with 16 character ids, parsed later on; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+JJ_FZF_OP_LOG_ONELINE16='
 label(if(current_operation, "current_operation"),
   coalesce(
     if(root, format_root_operation(self)),
@@ -883,19 +868,22 @@ label(if(current_operation, "current_operation"),
     )
   )
 )'
+OP_LOG_FIRSTLINE='self.id() ++ ": " ++ self.description().first_line() ++ "\n"'
 
 # Show `jj op log` but mark undone operations with '-'
-oplog_oneline()
+op_log_oneline()
 (
   temp_dir
-  # turn each undone and undo operation on "123abc" into a new gsed commands that replaces this operations graph character
-  undone_log |
-    gsed -r 's/([a-f0-9]+)/	s|○(.*\1)|-\\1|		/' > $TEMPD/undone.sed
-  # show operation log, filtered through the above sed script to alter markers for undone ops
-  jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OPLOG_ONELINE" |
-    gsed -rf $TEMPD/undone.sed	# beware, script needs to ignore ANSI color escape sequences
+  # Determine range of undo operations
+  if LAST_OPID=$(jj --no-pager --ignore-working-copy config get jj-fzf.last-undo 2>/dev/null) &&
+      jj --no-pager --ignore-working-copy op log -n1 --no-graph -T "$OP_LOG_FIRSTLINE" | grep -qF ": undo operation $LAST_OPID" ; then
+    jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16" |
+      sed -r "1,/${LAST_OPID:0:16}\b/s/([@○])/⋯/" # ⮌ ⋯ ⤺↶
+  else
+    jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16"
+  fi
 )
-FUNCTIONS+=( 'oplog_oneline' )
+FUNCTIONS+=( 'op_log_oneline' )
 
 # Oplog
 DOC['op-log']='Use `jj op log` to browse the recent operations log. Use hotkeys to change the preview between diff, history and oplog entry mode. Undo the selected operation or restore its working copy into a new commit.'
@@ -909,9 +897,11 @@ op-log()
   H="$H"$'Ctrl-P: Preview patch at a specific operation via `jj op show -p`\n'
   H="$H"$'\n'
   H="$H"$'Alt-W: Restore working copy of the selected operation into a new commit before @\n'
-  H="$H"$'Alt-Z: Undo the selected operation entry\n'
+  H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
+  H="$H"$'Alt-Z: Undo the next operation\n'
   echo 'VIEW=preview_opshow'		>> $TEMPD/oplog.env
-  export FZF_DEFAULT_COMMAND="$SELF oplog_oneline"
+  export FZF_DEFAULT_COMMAND="$SELF op_log_oneline"
+  RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
     --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
     --prompt "Operation > " \
@@ -919,8 +909,9 @@ op-log()
     --bind "ctrl-d:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-w:execute-silent( $SELF wdrestore@oplog {} )+abort" \
-    --bind "alt-z:execute-silent( $SELF undo-op@oplog {} )+abort" \
+    --bind "alt-w:execute( $SELF restore-op {} )+abort" \
+    --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
+    --bind "alt-z:execute( $SELF undo )+$RELOAD" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
     --preview-window 'nowrap,right,border-left' \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {}" \
@@ -928,27 +919,26 @@ op-log()
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
-undo-op@oplog()
+undo-op()
 (
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   ( set -x
     jj op undo $OP
-  ) ||
-    sleep 1
+  ) || ERROR
 )
-FUNCTIONS+=( 'undo-op@oplog' )
+FUNCTIONS+=( 'undo-op' )
 
-wdrestore@oplog()
+restore-op()
 (
-  set -x
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   COMMIT="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
+  echo "# $SELF: insert working copy commit (${COMMIT:0:12}) from operation ${OP:0:12} before @"
   ( set -x
     jj new --insert-before @
     jj restore --from "$COMMIT" --to @ --restore-descendants
   ) || ERROR
 )
-FUNCTIONS+=( 'wdrestore@oplog' )
+FUNCTIONS+=( 'restore-op' )
 
 # Split files
 DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
@@ -1358,22 +1348,26 @@ swap-commits()
 KEYBINDINGS["Alt-X"]="swap-commits"
 
 # Undo last JJ op
-DOC['undo']='Use `jj op undo` to undo the last operation performed by `jj` that was not in itself undone or an undo operation.'
+DOC['undo']='Use `jj op undo` to undo the last operation performed by `jj` that was not previously undone.'
 undo()
 (
-  temp_dir
-  # turn each undone operation "123abc" into an gsed delete command
-  undone_log |
-    gsed -r 's|([a-f0-9]+)|	/\\b\1/d	|' > $TEMPD/delops.sed
-  # list operation IDs, skipping undone ones
-  jj --ignore-working-copy op log --no-graph -T 'self.id().short(16) ++ " " ++ self.description().first_line() ++ "\n"' |
-    gsed -rf $TEMPD/delops.sed > $TEMPD/undoable-ops.lst
-  # fetch first
-  read op rest < $TEMPD/undoable-ops.lst
-  # read -p "Undo $op? " YN ; [[ "${YN:0:1}" =~ [yY] ]] || exit
+  TSELFID='self.id() ++ "\n"'
+  if LAST_OPID=$(jj --no-pager --ignore-working-copy config get jj-fzf.last-undo 2>/dev/null) &&
+      jj --no-pager --ignore-working-copy op log -n1 --no-graph -T "$OP_LOG_FIRSTLINE" | grep -qF ": undo operation $LAST_OPID" ; then
+    # last operation in op log was undo of operation $LAST_OPID
+    NEXT_OP="$LAST_OPID-"
+  else
+    LAST_OPID="<none>"
+    NEXT_OP="@"
+  fi
+  NEXT_OP_ID="$(jj --no-pager --ignore-working-copy op log --at-operation="$NEXT_OP" -n1 --no-graph -T "$TSELFID")"
+  echo "# $SELF: jj-fzf.last-undo=${LAST_OPID:0:20} next-undo=${NEXT_OP_ID:0:20}"
   ( set -x
-    jj op undo $op
+    jj op undo "$NEXT_OP_ID"
   ) || ERROR
+  jj --no-pager --ignore-working-copy config set --repo jj-fzf.last-undo "$NEXT_OP_ID"
+  # Known cases where the above multi-step undo logic breaks:
+  # * Undo of an operation like "reconcile divergent operations" just gives "Error: Cannot undo a merge operation"
 )
 KEYBINDINGS["Alt-Z"]="undo"
 
