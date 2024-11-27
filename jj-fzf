@@ -76,6 +76,7 @@ versionge "$(jj --version --ignore-working-copy)" 0.23 || die "failed to find 'j
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
+command -v column >/dev/null || column() { cat; }
 
 # == Early Options ==
 ONESHOT=false
