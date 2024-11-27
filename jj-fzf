@@ -501,19 +501,28 @@ abandon()
 KEYBINDINGS["Alt-A"]="abandon"
 
 # Bookmark Creation
-DOC['bookmark']='Use `jj bookmark {create|set -B}` to (re-)assign a bookmark name to the currently selected revision.'
+DOC['bookmark']='Use `jj bookmark {create|set -B}` to (re-)assign a bookmark name to the currently selected revision (or divergent commit).'
 bookmark()
 (
-  R="$(xrev "${1:-@}")"
-  read -p 'Bookmark Name: ' B &&
-    test -n "$B" ||
-      return
-  set +o pipefail &&
-    jj --ignore-working-copy bookmark list "$B" 2>/dev/null |
-      grep -qF "$B" &&
-    S='set -B' || S='create'
+  R="$(xrev_or_commit "${1:-@}")"
+  #echo "# Existing Bookmarks:" && jj --no-pager --ignore-working-copy bookmark list
+  readarray -t BOOKMARKS < <(jj --no-pager --ignore-working-copy bookmark list -T 'self.name()++"\n"' | sort | uniq)
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "::$R|$R+" -T 'bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  [[ ${#NEAREST[@]} -ge 1 ]] && INIT="${NEAREST[0]}" || INIT=""
+  PROMPT='Bookmark Name: '
+  echo "# Assign Bookmark to:"
+  jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T builtin_log_oneline
+  # Read bookmark with completion
+  B="$(read_completing "${BOOKMARKS[@]}")"
+  B="${B%% *}" && B="${B##* }" && test -z "$B" && return
+  # See https://git-scm.com/docs/git-check-ref-format
+  INVALIDPAT='(//|\.\.|/\.|[ :^~?*]|\[|^/|/$|\.$|^@$|@\{|\\|'$'[\x01-\x1f])'
+  [[ "$B" =~ $INVALIDPAT ]] && {
+    echo "$SELF: bookmark contains invalid characters: $B" >&2
+    false || ERROR
+  }
   ( set -x
-    jj bookmark $S "$B" -r "$R"
+    jj bookmark set -r "$R" --allow-backwards "$B"
   ) || ERROR
   # jj git export --quiet
 )
