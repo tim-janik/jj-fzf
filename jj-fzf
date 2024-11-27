@@ -393,6 +393,36 @@ user_editor_on_var()
   rm -f "$TEMPFILE"
   return 1
 }
+# Read input with completion: RESULT="$(PROMPT=… INIT=… read_completing [words…])"
+read_completing()
+(
+  WORDS=( "$@" )
+  _read_completion() {
+    local line="$READLINE_LINE" point="$READLINE_POINT"
+    local cur="${line:0:$point}" # Cut word at point
+    # Extract current completion word
+    cur="${cur##* }"
+    # Generate completions
+    local compreply=( $(compgen -W "${WORDS[*]}" -- "${cur}" || :) )
+    if test ${#compreply[@]} -ne 1 ; then
+      printf "%s\n" "${compreply[@]}" | column >&2
+    else # Use unique completion
+      local oldlen=${#cur}
+      # Replace current word with the completion
+      READLINE_LINE="${line:0:$((point - oldlen))}${compreply[0]}${line:$point}"
+      READLINE_POINT=$(( point + ${#READLINE_LINE} - ${#line} ))
+    fi
+    true # Return false aborts readline
+  }
+  set -o emacs # Use emacs readline mode
+  bind -x '"\t": _read_completion'
+  READOPTS=()
+  test -z "${PROMPT:-}" || READOPTS+=(-p "$PROMPT")
+  test -z "${INIT:-}" || READOPTS+=(-i "$INIT")
+  read -e "${READOPTS[@]}" INPUT
+  test -z "$INPUT" ||
+    printf "%s\n" "$INPUT"
+)
 
 # == Functions ==
 FUNCTIONS=()
