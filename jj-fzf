@@ -566,8 +566,8 @@ delete-refs()
 (
   R="$(xrev_or_commit "${1:-@}")"
   # find first local bookmark in $R, use as query arg
-  B=$(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++" "') &&
-    B="${B%%\?\? *}" && B="${B%% *}" && test -n "$B" && B=(-q "$B") || B=()
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  [[ ${#NEAREST[@]} -ge 1 ]] && B=(-q "${NEAREST[0]}") || B=()
   require_git_dir # exports GIT_DIR
   # select bookmark or tag
   DELETELINE=$(
@@ -593,7 +593,7 @@ delete-refs()
   # delete given bookmark/tag line
   read MARK WHAT rest <<<"$DELETELINE"
   case "$WHAT" in
-    "[bookmark]")	( set -x && jj bookmark delete "$MARK" ) || ERROR ;;
+    "[bookmark]")	( set -x && jj bookmark delete exact:"$MARK" ) || ERROR ;;
     "[tag]")		( set -x && git tag -d "$MARK" ) || ERROR ;;
   esac
 )
