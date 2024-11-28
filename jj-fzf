@@ -76,6 +76,7 @@ versionge "$(jj --version --ignore-working-copy)" 0.23 || die "failed to find 'j
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
+command -v column >/dev/null || column() { cat; }
 
 # == Early Options ==
 ONESHOT=false
@@ -392,6 +393,36 @@ user_editor_on_var()
   rm -f "$TEMPFILE"
   return 1
 }
+# Read input with completion: RESULT="$(PROMPT=… INIT=… read_completing [words…])"
+read_completing()
+(
+  WORDS=( "$@" )
+  _read_completion() {
+    local line="$READLINE_LINE" point="$READLINE_POINT"
+    local cur="${line:0:$point}" # Cut word at point
+    # Extract current completion word
+    cur="${cur##* }"
+    # Generate completions
+    local compreply=( $(compgen -W "${WORDS[*]}" -- "${cur}" || :) )
+    if test ${#compreply[@]} -ne 1 ; then
+      printf "%s\n" "${compreply[@]}" | column >&2
+    else # Use unique completion
+      local oldlen=${#cur}
+      # Replace current word with the completion
+      READLINE_LINE="${line:0:$((point - oldlen))}${compreply[0]}${line:$point}"
+      READLINE_POINT=$(( point + ${#READLINE_LINE} - ${#line} ))
+    fi
+    true # Return false aborts readline
+  }
+  set -o emacs # Use emacs readline mode
+  bind -x '"\t": _read_completion'
+  READOPTS=()
+  test -z "${PROMPT:-}" || READOPTS+=(-p "$PROMPT")
+  test -z "${INIT:-}" || READOPTS+=(-i "$INIT")
+  read -e "${READOPTS[@]}" INPUT
+  test -z "$INPUT" ||
+    printf "%s\n" "$INPUT"
+)
 
 # == Functions ==
 FUNCTIONS=()
@@ -470,19 +501,28 @@ abandon()
 KEYBINDINGS["Alt-A"]="abandon"
 
 # Bookmark Creation
-DOC['bookmark']='Use `jj bookmark {create|set -B}` to (re-)assign a bookmark name to the currently selected revision.'
+DOC['bookmark']='Use `jj bookmark {create|set -B}` to (re-)assign a bookmark name to the currently selected revision (or divergent commit).'
 bookmark()
 (
-  R="$(xrev "${1:-@}")"
-  read -p 'Bookmark Name: ' B &&
-    test -n "$B" ||
-      return
-  set +o pipefail &&
-    jj --ignore-working-copy bookmark list "$B" 2>/dev/null |
-      grep -qF "$B" &&
-    S='set -B' || S='create'
+  R="$(xrev_or_commit "${1:-@}")"
+  #echo "# Existing Bookmarks:" && jj --no-pager --ignore-working-copy bookmark list
+  readarray -t BOOKMARKS < <(jj --no-pager --ignore-working-copy bookmark list -T 'self.name()++"\n"' | sort | uniq)
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "::$R|$R+" -T 'bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  [[ ${#NEAREST[@]} -ge 1 ]] && INIT="${NEAREST[0]}" || INIT=""
+  PROMPT='Bookmark Name: '
+  echo "# Assign Bookmark to:"
+  jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T builtin_log_oneline
+  # Read bookmark with completion
+  B="$(read_completing "${BOOKMARKS[@]}")"
+  B="${B%% *}" && B="${B##* }" && test -z "$B" && return
+  # See https://git-scm.com/docs/git-check-ref-format
+  INVALIDPAT='(//|\.\.|/\.|[ :^~?*]|\[|^/|/$|\.$|^@$|@\{|\\|'$'[\x01-\x1f])'
+  [[ "$B" =~ $INVALIDPAT ]] && {
+    echo "$SELF: bookmark contains invalid characters: $B" >&2
+    false || ERROR
+  }
   ( set -x
-    jj bookmark $S "$B" -r "$R"
+    jj bookmark set -r "$R" --allow-backwards "$B"
   ) || ERROR
   # jj git export --quiet
 )
@@ -526,8 +566,8 @@ delete-refs()
 (
   R="$(xrev_or_commit "${1:-@}")"
   # find first local bookmark in $R, use as query arg
-  B=$(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++" "') &&
-    B="${B%%\?\? *}" && B="${B%% *}" && test -n "$B" && B=(-q "$B") || B=()
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  [[ ${#NEAREST[@]} -ge 1 ]] && B=(-q "${NEAREST[0]}") || B=()
   require_git_dir # exports GIT_DIR
   # select bookmark or tag
   DELETELINE=$(
@@ -553,7 +593,7 @@ delete-refs()
   # delete given bookmark/tag line
   read MARK WHAT rest <<<"$DELETELINE"
   case "$WHAT" in
-    "[bookmark]")	( set -x && jj bookmark delete "$MARK" ) || ERROR ;;
+    "[bookmark]")	( set -x && jj bookmark delete exact:"$MARK" ) || ERROR ;;
     "[tag]")		( set -x && git tag -d "$MARK" ) || ERROR ;;
   esac
 )
