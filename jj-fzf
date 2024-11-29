@@ -1340,28 +1340,22 @@ duplicate()
 KEYBINDINGS["Alt-U"]="duplicate"	FIRSTS="$FIRSTS duplicate"
 
 # vivifydivergent
-DOC['vivifydivergent']='When a revision has more than one visible commit, it becomes a divergent revision. This command uses `jj new+squash …` to create a new *change_id* for the currently selected divergent revision, effectively resolving the divergence.'
+DOC['vivifydivergent']='When a revision has more than one visible commit, it becomes a divergent revision. This command uses `jj new+squash …` to create a new *change_id* for the currently selected revision, effectively resolving the divergence.'
 vivifydivergent()
 (
   # fetch commit_id of a divergent revision
-  COMMIT="$(xrev_or_commit "${1:-@}")" &&
-    COMMIT=$(divergent_commitid "$COMMIT") ||
+  COMMIT="$(xrev_as_commit "${1:-@}")" &&
+    WCOPY="$(xrev_as_commit "@")" ||
       die 'no divergent revision'
-  echo "$SELF vivifydivergent $COMMIT" >&2
+  # leave working copy alone, unless it is $1
+  test "$COMMIT" == "$WCOPY" && NOEDIT= || NOEDIT=--no-edit
+  echo "# $SELF vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
-  # Find change_id for commit
-  R=`jj --ignore-working-copy log --no-graph -T change_id -r "$COMMIT"` ||
-    die 'no divergent revision'
-  # Set @ to newly inserted empty commit before $R
-  ( set -x
-    jj new --before "$COMMIT" )
-  # Figure new commit ID of $R
-  NEWCOMMIT=$(divergent_commitid '@+') ||
-    die 'lost divergent revision after new'
-  # Squash commit ID of $R into @, auto-deleting the divergent revision
-  ( set -x
-    jj squash --from "$NEWCOMMIT" --into @ )
-  jj --no-pager --ignore-working-copy log --no-graph -T builtin_log_oneline -r @
+  export EDITOR=true
+  ( # set -x
+    jj new --insert-after "$COMMIT" $NOEDIT
+    jj squash --from "$COMMIT" --into "$COMMIT+"
+  ) || ERROR
 )
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
