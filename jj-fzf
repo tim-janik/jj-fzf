@@ -974,8 +974,8 @@ restore-op()
   COMMIT="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
   echo "# $SELF: insert working copy commit (${COMMIT:0:12}) from operation ${OP:0:12} before @"
   ( set -x
-    jj new --insert-before @
-    jj restore --from "$COMMIT" --to @ --restore-descendants
+    jj new --no-edit --insert-before @
+    jj restore --from "$COMMIT" --to @- --restore-descendants
   ) || ERROR
 )
 FUNCTIONS+=( 'restore-op' )
