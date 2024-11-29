@@ -641,22 +641,19 @@ author-reset()
 KEYBINDINGS["Ctrl-A"]="author-reset"
 
 # Describe Commit Message
-DOC['describe']='Use `jj describe` to describe the currently selected revision.'
+DOC['describe']='Use `jj describe` to describe the currently selected revision (or divergent commit).'
 describe()
 (
-  R="$(xrev "${1:-@}")"
+  R="$(xrev_or_commit "${1:-@}")"
   MSG="$(echo_commit_msg "$R")"
   O="$MSG"
   user_editor_on_var "CHANGE-$R.txt" MSG ||
     ERROR "Describe cancelled by user"
   test "$O" != "$MSG" ||
     return
-  if test -z "$MSG" ; then	# bash adds a newline to <<<""
-    (set -x && jj describe --no-edit -r "$R" -m '')
-  else		# -m does not work if message starts with a '-'
-    (set -x && jj describe --no-edit -r "$R" --stdin <<<"$MSG")
-  fi \
-    || ERROR
+  (set -x
+   jj describe --no-edit -r "$R" --message="$MSG"
+  ) || ERROR
 )
 KEYBINDINGS["Ctrl-D"]="describe"
 
