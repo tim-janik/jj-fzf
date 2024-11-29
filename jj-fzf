@@ -99,6 +99,7 @@ JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph 
 JJFZFPAGER="less -Rc"
 JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset JJ_CONFIG && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
 INFO_BINDING=" fzf </dev/null >/dev/tty 2>&1 --prompt '        '  --disabled --layout=reverse --height 1 --margin 4 --padding 4 --border=block --no-info --no-scrollbar --no-clear --bind=enter:print-query "
+FUNCTIONS=()
 FZFSETTINGS=(
   --ansi --no-mouse -x -e --track
   --info default
@@ -218,6 +219,28 @@ xrev_or_commit()
     }
   fi
 )
+# Yield the commit_id for a (possibly divergent) revision or commit
+xrev_as_commit()
+(
+  # accept not-divergent working copy
+  [[ " $* " =~ ^\ +\@ ]] &&
+    RC='@' || RC=
+  # or match abbreviated change_id pattern
+  if test -z "$RC" && [[ " $* " =~ $REVPAT ]] ; then
+    UNIQUECOMMIT='if(self.divergent(), "", commit_id)'
+    # check for divergent: https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
+    RC=$(jj log --no-pager --ignore-working-copy --no-graph -r " ${BASH_REMATCH[1]} " -T "$UNIQUECOMMIT" 2>/dev/null)
+    test -n "$RC" ||	# non-divergent, else fallback to commit hash parsing
+      RC=$(echo " $* " | grep -Po '(?<= )[a-f0-9]{8,}(?= )' || :)
+  fi
+  # or match syntactically valid expressions
+  test -z "$RC" && # divergent matches produce concatenated commit_ids
+    RC=$(jj log --no-pager --ignore-working-copy --no-graph -r " $* " -T commit_id 2>/dev/null)
+  # final validation that $RC is indeed a unique identifier for a single commit
+  test -n "$RC" &&
+    jj --no-pager --ignore-working-copy log --no-graph -T commit_id -r "$RC" 2>/dev/null
+)
+FUNCTIONS+=( 'xrev_as_commit' )
 # List all bookmarks of a revision
 rev_bookmarks()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks))' -r "$1" )
 # Print first bookmark or the revision itself
@@ -425,7 +448,6 @@ read_completing()
 )
 
 # == Functions ==
-FUNCTIONS=()
 declare -A KEYBINDINGS
 FIRSTS=""
 NEXTS=""
