@@ -700,7 +700,7 @@ split-interactive()
   # (original) description, but keep the description for subsequent edits
   temp_dir
   cat > $TEMPD/trunc1st.sh <<-\__EOF__
-	#!/bin/bash
+	#!/usr/bin/env bash
 	set -Eeuo pipefail #-x
 	TRUNCATE=y
 	test $TRUNCATE == y && echo -n > "$1" || :
