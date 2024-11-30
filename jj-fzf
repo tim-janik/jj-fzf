@@ -1008,7 +1008,7 @@ split-files()
 (
   R="$(xrev "${1:-@}")"
   # save @
-  AT="$(rev_changeid @)"
+  AT="$(xrev @)"
   cd "$JJROOT"		# operate on root relative file names
   # show undo hints
   jj --no-pager op log -n1
@@ -1238,13 +1238,12 @@ rebase()
 	  --bind "ctrl-d:execute-silent( gsed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebase.env )+refresh-preview" \
 	  --bind "ctrl-a:execute-silent( gsed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebase.env )+refresh-preview" \
 	  --bind "ctrl-b:execute-silent( gsed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebase.env )+refresh-preview" \
-	  --no-tac --no-sort +m ) &&
-    [[ "$REV" =~ $REVPAT ]] &&
+	  --no-tac --no-sort +m )
+  [[ "$REV" =~ $REVPAT ]] &&
     REV="${BASH_REMATCH[1]}" ||
-      REV=
-  test -n "$REV" || exit 0
-  REV="$(rev_changeid "$REV")"
-  . $TEMPD/rebase.env
+      exit 0
+  REV="$(xrev "$REV")"
+  source $TEMPD/rebase.env
   rm -f TEMPD/rebase.env
   # duplicate input revision
   test -z "$DP" || {
