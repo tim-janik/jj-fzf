@@ -1344,7 +1344,7 @@ vivifydivergent()
   echo "# $SELF vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
   export EDITOR=true
-  ( # set -x
+  ( set -x
     jj new --insert-after "$COMMIT" $NOEDIT
     jj squash --from "$COMMIT" --into "$COMMIT+"
   ) || ERROR
