@@ -1304,11 +1304,8 @@ KEYBINDINGS["Alt-T"]="tag"
 # Log single change
 logrev()
 (
-  R="$(xrev_or_commit "${1:-@}")" ||
-    die "no such revision"
+  R="$(xrev_or_commit "${1:-@}")"
   cd "$JJROOT" # show root relative file names
-  test "${2:-}" = "--all" && R="::$R"
-  E=$'\e\[[0-9;,]*m'	# \e[1;2m - match ANSI escape sequences
   (
     unset JJ_CONFIG # support user revset aliases
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
@@ -1322,7 +1319,10 @@ DOC['log']='Use `jj log` to browse the history including patches, starting from 
 log()
 {
   R="$(xrev_or_commit "${1:-@}")"
-  exec $SELF logrev "$R" --all
+  cd "$JJROOT" # show root relative file names
+  ( unset JJ_CONFIG # support user revset aliases
+    jj log --ignore-working-copy --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -r "::$R" -s -p --ignore-space-change
+  ) | $JJFZFPAGER
 }
 KEYBINDINGS["Ctrl-L"]="log"
 
