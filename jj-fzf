@@ -301,7 +301,7 @@ ERROR()
 {
   FUNC="${FUNC:-$0}"
   echo "ERROR: ${FUNC:+$FUNC:}" "$*" >&2
-  read -t 2
+  read -t "${JJ_FZF_ERROR_DELAY:-2}"
   exit
 }
 
