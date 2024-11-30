@@ -1594,12 +1594,13 @@ fi
 
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[*]} ${FUNCTIONS[*]} " =~ \ $1\  ]] ; then
-  # Sync JJ with working-copy before func, probably has JJ_CONFIG: snapshot.auto-track="none()"
-  jj --no-pager status >/dev/null
-  FUNC="$1" "$@" && E=$? || E=$?
-  # Sync JJ after modifications, so user snapshot config and snapshot errors take effect
- ( unset JJ_CONFIG ; jj --no-pager status || : ) >/dev/null
-  exit $E
+  # Sync JJ working-copy before and after func, according to user config, but avoid paging
+  ( unset JJ_CONFIG=
+    jj status --no-pager >/dev/null
+    trap 'jj status --no-pager >/dev/null' 0 HUP INT QUIT TRAP USR1 PIPE TERM
+    FUNC="$1" "$@"
+  ) # preserves $FUNC exit status
+  exit $?
 fi
 
 # == Sync ==
