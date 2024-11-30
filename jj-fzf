@@ -180,46 +180,33 @@ temp_dir()
 }
 # Match JJ revision as first ASCII word (e.g. as in builtin_log_oneline)
 export OPPAT='^[^a-z()0-9]*([0-9a-f]{9,})\ '
-# Extract JJ revision from first word
+# Try to extract non-divergent revision or parse expression
+xrev_maybe()
+(
+  # accept not-divergent working copy
+  [[ " $* " =~ ^\ +\@ ]] &&
+    RV='@' || RV=
+  # or match abbreviated change_id pattern
+  if test -z "$RV" && [[ " $* " =~ $REVPAT ]] ; then
+    UNIQUECHANGE='if(self.divergent(), "", change_id)'
+    # only allow non-divergent: https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
+    RV=$(jj log --no-pager --ignore-working-copy --no-graph -r " ${BASH_REMATCH[1]} " -T "$UNIQUECHANGE" 2>/dev/null) || :
+  fi
+  # or match syntactically valid expressions
+  test -z "$RV" && # divergent matches produce concatenated change_ids
+    RV=$(jj log --no-pager --ignore-working-copy --no-graph -r " $* " -T change_id 2>/dev/null) || :
+  # final validation that $RV is indeed a unique identifier for a non-divergent change_id
+  test -n "$RV" &&
+    jj --no-pager --ignore-working-copy log --no-graph -T change_id -r "$RV" 2>/dev/null # pass on exit status
+)
+# Extract non-divergent revision or show error
 xrev()
 (
-  if [[ "$* " =~ $REVPAT ]] ; then      # jj log line
-    if [[ "${BASH_REMATCH[2]}" == '??' ]] ; then   # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
-      echo "${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
-      false
-    else
-      rev_changeid "${BASH_REMATCH[1]}" 2>/dev/null
-    fi
-  elif [[ "$*" =~ ^([^\ ]+)$ ]] ; then # commit_id/revision w/o whitespace
-    rev_changeid "${BASH_REMATCH[1]}"
-  fi
+  xrev_maybe "$@" ||
+    ERROR "failed to parse revision: ${1:-}"
 )
-# Look up full revision via JJ change_id
-rev_changeid()	( $JJFZFSHOW -T 'change_id' -r "$1" )
-# Look up full commit hash via JJ commit_id
-rev_commitid()	( $JJFZFSHOW -T 'commit_id' -r "$1" )
-# parse commit_id of given divergent change_id or return ""
-divergent_commitid()
-(
-  DIVERGENT_REVISION_COMMIT=' format_short_change_id_with_hidden_and_divergent_info(self) ++ " " ++ commit_id ++ "\n" '
-  # make sure it is a divergent commit id
-  COMMIT=$(jj --ignore-working-copy log --no-graph -T "$DIVERGENT_REVISION_COMMIT" -r "$1" | grep -Po '(?<=\?\? )[a-f0-9]{8,}\b') &&
-    echo "$COMMIT"
-)
-# Yield the revision change_id or a commit_id if it is divergent
-xrev_or_commit()
-(
-  if R="$(xrev "$*")" ; then
-    echo "$R"
-  else
-    # extract likely commit ID from divergent revision
-    COMMIT=$(echo " $* " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') && {
-      # validates commit of divergent change
-      divergent_commitid "$COMMIT"
-    }
-  fi
-)
-# Yield the commit_id for a (possibly divergent) revision or commit
+FUNCTIONS+=( 'xrev' )
+# Extract commit_id or show error
 xrev_as_commit()
 (
   # accept not-divergent working copy
@@ -229,20 +216,28 @@ xrev_as_commit()
   if test -z "$RC" && [[ " $* " =~ $REVPAT ]] ; then
     UNIQUECOMMIT='if(self.divergent(), "", commit_id)'
     # check for divergent: https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
-    RC=$(jj log --no-pager --ignore-working-copy --no-graph -r " ${BASH_REMATCH[1]} " -T "$UNIQUECOMMIT" 2>/dev/null)
+    RC=$(jj log --no-pager --ignore-working-copy --no-graph -r " ${BASH_REMATCH[1]} " -T "$UNIQUECOMMIT" 2>/dev/null) || :
     test -n "$RC" ||	# non-divergent, else fallback to commit hash parsing
-      RC=$(echo " $* " | grep -Po '(?<= )[a-f0-9]{8,}(?= )' || :)
+      RC=$(echo " $* " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') || :
   fi
   # or match syntactically valid expressions
   test -z "$RC" && # divergent matches produce concatenated commit_ids
-    RC=$(jj log --no-pager --ignore-working-copy --no-graph -r " $* " -T commit_id 2>/dev/null)
+    RC=$(jj log --no-pager --ignore-working-copy --no-graph -r " $* " -T commit_id 2>/dev/null) || :
   # final validation that $RC is indeed a unique identifier for a single commit
   test -n "$RC" &&
-    jj --no-pager --ignore-working-copy log --no-graph -T commit_id -r "$RC" 2>/dev/null
+    jj --no-pager --ignore-working-copy log --no-graph -T commit_id -r "$RC" 2>/dev/null ||
+      ERROR "failed to parse commit id: ${1:-}"
 )
 FUNCTIONS+=( 'xrev_as_commit' )
-# List all bookmarks of a revision
-rev_bookmarks()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks))' -r "$1" )
+# Yield the revision change_id or a commit_id if it is divergent
+xrev_or_commit()
+(
+  xrev_maybe "$@" ||
+    xrev_as_commit "$@"
+)
+FUNCTIONS+=( 'xrev_or_commit' )
+# Look up full commit hash via JJ commit_id
+rev_commitid()	( xrev_as_commit "$@" )
 # Print first bookmark or the revision itself
 rev_bookmark1()	( $JJFZFSHOW -T 'concat(separate(" ",bookmarks), " ", change_id)' -r "$1" | awk '{print $1;}' )
 # Get revision description
@@ -1344,7 +1339,7 @@ vivifydivergent()
   echo "# $SELF vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
   export EDITOR=true
-  ( # set -x
+  ( set -x
     jj new --insert-after "$COMMIT" $NOEDIT
     jj squash --from "$COMMIT" --into "$COMMIT+"
   ) || ERROR
@@ -1594,12 +1589,13 @@ fi
 
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[*]} ${FUNCTIONS[*]} " =~ \ $1\  ]] ; then
-  # Sync JJ with working-copy before func, probably has JJ_CONFIG: snapshot.auto-track="none()"
-  jj --no-pager status >/dev/null
-  FUNC="$1" "$@" && E=$? || E=$?
-  # Sync JJ after modifications, so user snapshot config and snapshot errors take effect
- ( unset JJ_CONFIG ; jj --no-pager status || : ) >/dev/null
-  exit $E
+  # Sync JJ working-copy before and after func, according to user config, but avoid paging
+  ( unset JJ_CONFIG=
+    jj status --no-pager >/dev/null
+    trap 'jj status --no-pager >/dev/null' 0 HUP INT QUIT TRAP USR1 PIPE TERM
+    FUNC="$1" "$@"
+  ) # preserves $FUNC exit status
+  exit $?
 fi
 
 # == Sync ==
