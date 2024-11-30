@@ -678,6 +678,7 @@ split-interactive()
 	gsed 's/TRUNCATE=./TRUNCATE=n/' -i "$0"
 	__EOF__
   chmod +x $TEMPD/trunc1st.sh
+  export JJ_CONFIG= # unset ui.editor
   export EDITOR=$TEMPD/trunc1st.sh
   ( set -x
     jj split --interactive -r "$R"
@@ -985,8 +986,9 @@ split-files()
   R1=true # skip first split, need n-1 splits for n files
   while read M F ; do
     $R1 && { R1=false; continue; } # skip first
-    ( export EDITOR=/usr/bin/true
-      set -x
+    export JJ_CONFIG= # unset ui.editor
+    export EDITOR=true
+    ( set -x
       jj split -r @ -- "$F"
     )
   done <<<"$MFS"
@@ -1306,6 +1308,7 @@ vivifydivergent()
   test "$COMMIT" == "$WCOPY" && NOEDIT= || NOEDIT=--no-edit
   echo "# $SELF vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
+  export JJ_CONFIG= # unset ui.editor
   export EDITOR=true
   ( set -x
     jj new --insert-after "$COMMIT" $NOEDIT
