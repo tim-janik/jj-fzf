@@ -107,3 +107,6 @@ clear_repo && mkcommits A B
   test "$WC" != "$NEW" ||
     die "failed to create new revision"
 ); TEST_OK "$TEST"
+
+# clear_repo && mkcommits A B 'A ->C' 'B|C ->D' && jj new >$DEVERR 2>&1
+# jj log --no-pager -r ..@
