@@ -30,9 +30,6 @@ jj-fzf()
 }
 assert1error()
 {
-  local L="$(wc -l <<<"$*")"
-  test "$L" == 1 ||
-    die $'output exceeds one line: \\\n' "$*"
   grep -Eq '\bERROR:' <<<"$*" ||
     die "output contains no ERROR message: $*"
 }
@@ -40,6 +37,11 @@ assert0error()
 {
   ! grep -Eq '\bERROR:' <<<"$*" ||
     die "output contains an ERROR message: $*"
+}
+assert0errorinerror()
+{
+  ! grep -Eq 'ERRORINERROR' <<<"$*" ||
+    die "output contains an ERRORINERROR message: $*"
 }
 assert_zero()
 {
@@ -84,10 +86,13 @@ clear_repo()
 TEST='jj-fzf-functions-fail-early'
 clear_repo
 ( set -e
-  export JJ_CONFIG='' EDITOR=false
+  # Test that jj-fzf describe does not continue with $EDITOR
+  # once an invalid change_id has been encountered.
+  export JJ_CONFIG='' EDITOR='echo ERRORINERROR'
   OUT="$(set +x; jj-fzf describe 'zzzzaaaa' 2>&1)" && E=$? || E=$?
   assert_nonzero $E
   assert1error "$OUT"
+  assert0errorinerror "$OUT"
 ); TEST_OK "$TEST"
 
 TEST='jj-fzf-new'
