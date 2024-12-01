@@ -22,7 +22,6 @@ concat(
 )' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 if test "${1:-}" == preview					# preview command, nested invocation
 then
-  unset JJ_CONFIG						# allow user config to take effect
   if [[ "${2:-} " =~ $REVPAT ]]					# match beginning of jj log line
   then
     cd "$(jj --ignore-working-copy root)"			# ensure root relative diffstat paths
@@ -50,18 +49,18 @@ fi
 export OPRPAT='^[^a-z0-9]*([0-9a-f]{9,})[?]*\ '	# line start, ignore --graph, parse hex letters, space separator
 case "${1:-}" in
   preview_oplog)
-    [[ " ${2:-} " =~ $OPRPAT ]] && unset JJ_CONFIG && {
+    [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log -r .. # -T builtin_log_oneline
       } ; exit ;;
   preview_opdiff)
-    [[ " ${2:-} " =~ $OPRPAT ]] && unset JJ_CONFIG && {
+    [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log --no-graph -s -r "@"
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always show -T ' "\n" ' -r "@"
       } ; exit ;;
   preview_opshow)
-    [[ " ${2:-} " =~ ^[^a-z0-9]*([0-9a-f]{9,})\  ]]	&& unset JJ_CONFIG && {
+    [[ " ${2:-} " =~ ^[^a-z0-9]*([0-9a-f]{9,})\  ]] && {
 	jj --no-pager --ignore-working-copy --color=always op show -p "${BASH_REMATCH[1]}"
       } ; exit ;;
 esac
@@ -97,7 +96,7 @@ JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
-JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset JJ_CONFIG && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
+JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
 INFO_BINDING=" fzf </dev/null >/dev/tty 2>&1 --prompt '        '  --disabled --layout=reverse --height 1 --margin 4 --padding 4 --border=block --no-info --no-scrollbar --no-clear --bind=enter:print-query "
 FUNCTIONS=()
 FZFSETTINGS=(
@@ -118,7 +117,7 @@ TEMPD=
 # for function exports to work sub-shell must be bash too
 export SHELL=bash
 
-# == JJ_CONFIG ==
+# == JJ CONFIG ==
 # parsable version of builtin_log_oneline; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
 JJ_FZF_ONELINE='
 if(root,
@@ -144,29 +143,6 @@ if(root,
     ),
   )
 )'
-jj_config() (
-  # As long as we use JJ_CONFIG to fully override the user
-  # config some vital settings must be carried over
-  JJNAME=$(jj --no-pager --ignore-working-copy config get user.name 2>/dev/null || :)
-  JJMAIL=$(jj --no-pager --ignore-working-copy config get user.email 2>/dev/null || :)
-  test -z "$JJNAME$JJMAIL" || {
-    echo "[user]"
-    test -z "$JJNAME" ||
-      echo "name = \"$JJNAME\""
-    test -z "$JJMAIL" ||
-      echo "email = \"$JJMAIL\""
-  }
-  cat <<-__EOF__
-	[snapshot]
-	# avoid intermediate errors like "<file> is too large to be snapshotted" around JJ-FZF functions
-	auto-track = "none()"
-	# Adjust colors for FZF display
-	[colors]
-	# "node working_copy" = { fg = "red", bold = true }
-	"diff removed token" = { underline = false }
-	"diff added token" = { underline = false }
-	__EOF__
-)
 
 # == Utils ==
 # Create temporary dir, assigns $TEMPD
@@ -400,7 +376,7 @@ user_editor_on_var()
   local TEMPFILE="$TEMPD/$FILE"
   cat >"$TEMPFILE" <<<"$_ueovMSG"
   # edit commit msg
-  JJ_EDITOR="$(unset JJ_CONFIG && jj config get ui.editor 2>/dev/null || echo "${EDITOR:-pico}")"
+  JJ_EDITOR="$(jj config get ui.editor 2>/dev/null || echo "${EDITOR:-pico}")"
   $JJ_EDITOR "$TEMPFILE" &&
     N="$(cat "$TEMPFILE")" && {
       test "$_ueovMSG" != "$N" &&
@@ -470,7 +446,6 @@ fzflog()
   if $REVSETNAME ; then
     echo "$REVSETS_LOG"
   else
-    unset JJ_CONFIG # support user revset aliases
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} \
        --config-toml "$(revsets_toml)" \
        log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG"
@@ -621,7 +596,6 @@ DOC['diffedit']='Use `jj diffedit` to select parts of the content diff to be kep
 diffedit()
 (
   R="$(xrev "${1:-@}")"
-  unset JJ_CONFIG		# allow user config to take effect
   ( set -x
     jj diffedit -r "$R"
   ) || sleep 1
@@ -704,6 +678,7 @@ split-interactive()
 	gsed 's/TRUNCATE=./TRUNCATE=n/' -i "$0"
 	__EOF__
   chmod +x $TEMPD/trunc1st.sh
+  export JJ_CONFIG= # unset ui.editor
   export EDITOR=$TEMPD/trunc1st.sh
   ( set -x
     jj split --interactive -r "$R"
@@ -719,7 +694,6 @@ diff()
   W="$(xrev_or_commit "@")" || ERROR
   REVS=( $(forward_chronologic "$R" "$W") )
   test "${#REVS[@]}" -ge 2 || REVS+=( "${REVS[0]}" )
-  unset JJ_CONFIG	# allow user config to take effect
   (
     # set -x
     jj --color=always log -r "${REVS[0]} | ${REVS[1]}" -T builtin_log_oneline # | gsed -r '/[k-xyz]/!d; s/ +/  /'
@@ -1012,8 +986,9 @@ split-files()
   R1=true # skip first split, need n-1 splits for n files
   while read M F ; do
     $R1 && { R1=false; continue; } # skip first
-    ( export EDITOR=/usr/bin/true
-      set -x
+    export JJ_CONFIG= # unset ui.editor
+    export EDITOR=true
+    ( set -x
       jj split -r @ -- "$F"
     )
   done <<<"$MFS"
@@ -1304,7 +1279,6 @@ logrev()
   R="$(xrev_or_commit "${1:-@}")"
   cd "$JJROOT" # show root relative file names
   (
-    unset JJ_CONFIG # support user revset aliases
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
   ) | $JJFZFPAGER
@@ -1317,9 +1291,8 @@ log()
 {
   R="$(xrev_or_commit "${1:-@}")"
   cd "$JJROOT" # show root relative file names
-  ( unset JJ_CONFIG # support user revset aliases
-    jj log --ignore-working-copy --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -r "::$R" -s -p --ignore-space-change
-  ) | $JJFZFPAGER
+  jj log --ignore-working-copy --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -r "::$R" -s -p --ignore-space-change \
+    | $JJFZFPAGER
 }
 KEYBINDINGS["Ctrl-L"]="log"
 
@@ -1335,6 +1308,7 @@ vivifydivergent()
   test "$COMMIT" == "$WCOPY" && NOEDIT= || NOEDIT=--no-edit
   echo "# $SELF vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
+  export JJ_CONFIG= # unset ui.editor
   export EDITOR=true
   ( set -x
     jj new --insert-after "$COMMIT" $NOEDIT
@@ -1556,7 +1530,6 @@ list_key_bindings()
     echo "Ctrl-H: help"		# no space left for jj-fzf.show-keys toggle
     exit 0
   }
-  unset JJ_CONFIG
   SHOW_KEYS="$(jj --ignore-working-copy config get 'jj-fzf.show-keys' 2>/dev/null || echo true)"
   [[ "$*" =~ --key-toggle ]] && {
     SHOW_KEYS="$(echo "$SHOW_KEYS" | sed 's/^false/x/; s/^true/false/; s/^x/true/')"
@@ -1587,7 +1560,7 @@ fi
 # == Function calling ==
 if [[ "${1:-}" =~ ^[a-z0-9A-Z_+@-]+ ]] && [[ " ${KEYBINDINGS[*]} ${FUNCTIONS[*]} " =~ \ $1\  ]] ; then
   # Sync JJ working-copy before and after func, according to user config, but avoid paging
-  ( unset JJ_CONFIG=
+  ( set -e
     jj status --no-pager >/dev/null
     trap 'jj status --no-pager >/dev/null' 0 HUP INT QUIT TRAP USR1 PIPE TERM
     FUNC="$1" "$@"
@@ -1597,12 +1570,11 @@ fi
 
 # == Sync ==
 # Sync JJ before starting FZF, so user snapshot config and snapshot errors take effect
-( unset JJ_CONFIG
-  set -x
+( set -x
   jj --no-pager status
 ) || exit $?
 
-# === TEMPD + JJ_CONFIG ==
+# === TEMPD ==
 if test -z "${TEMPD:-}" ; then
   temp_dir
   export JJFZF_OUTER_TEMPD="$TEMPD" JJFZF_COLUMNS="$COLUMNS" JJFZF_LINES="$LINES"
@@ -1618,8 +1590,6 @@ $ONESHOT && {
   )
   EXECKILLME="+execute( test -e $TEMPD/killme.pid && kill -1 \$(<$TEMPD/killme.pid) )"
 }
-jj_config >"$TEMPD/jjfzfconfig.toml"
-export JJ_CONFIG="$TEMPD/jjfzfconfig.toml"
 
 # == BIND COMMANDS ==
 RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
