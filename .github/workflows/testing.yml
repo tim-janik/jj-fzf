@@ -1,0 +1,50 @@
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+
+# Linting: xclip -sel c <.github/workflows/testing.yml # https://rhysd.github.io/actionlint/
+
+on:
+  push:
+    branches: [ 'trunk', 'next', 'wip/**' ]
+    # tags:   [ 'v[0-9]+.[0-9]+.[0-9]+*' ]
+  pull_request:
+    branches: [ 'trunk', 'next' ]
+
+jobs:
+
+  MakeCheck:
+    runs-on: ubuntu-latest
+    steps:
+    - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, submodules: recursive, github-server-url: 'https://github.com' } }
+    - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
+    - run: |
+        curl -s -L https://github.com/junegunn/fzf/releases/download/v0.56.3/fzf-0.56.3-linux_amd64.tar.gz |
+          tar zxvf - -C ~/.cargo/bin/ fzf
+        fzf --version
+    - run: |
+        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.23.0/jj-v0.23.0-x86_64-unknown-linux-musl.tar.gz |
+          tar zxvf - -C ~/.cargo/bin/ ./jj
+        jj --version
+    #- run: ./testing.sh -x
+    - run: |
+        make check
+
+  Ping-IRC:
+    if: always()
+    needs: [MakeCheck]
+    runs-on: ubuntu-latest
+    steps:
+    - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
+    - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
+    - name: Check Jobs
+      run: |
+        echo '${{ needs.MakeCheck.result }}'
+        [[ ${{ needs.MakeCheck.result }}    =~ success|skipped ]]
+    - name: Ping IRC
+      if: ${{ always() && !env.ACT }}
+      run: |
+        R='${{ github.repository }}' && R=${R#*/}
+        B='${{ github.ref }}' && B=${B#refs/heads/}
+        S='${{ job.status }}' && URL='${{ github.event.head_commit.url }}'
+        A='${{ github.actor }}' && B="$(git branch --show-current)"
+        MSG=$(git log -1 --format='%s')
+        .github/workflows/ircbot.py -q -j "#Anklang" -R "$R" -U "$A" -D "$B" -S "$S" "$MSG" "$URL"

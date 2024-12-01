@@ -6,17 +6,18 @@ SCRIPTDIR="$(readlink -f "$0")" && SCRIPTDIR="${SCRIPTDIR%/*}"
 TEST=
 die()
 {
-  set +x
-  R='\033[31m'
-  Z='\033[0m'
-  [ -n "$*" ] &&
-    echo -e "$SCRIPTNAME: $R**ERROR**:${TEST:+ $TEST:}$Z ${*:-aborting}" >&2
-  exit 127
+  ( set +x
+    R='\033[31m'
+    Z='\033[0m'
+    [ -n "$*" ] &&
+      echo -e "$SCRIPTNAME: $R**ERROR**:${TEST:+ $TEST:}$Z ${*:-aborting}"
+  ) >&2
+  exit 77
 }
 DEVERR=/dev/null
 [[ " $* " =~ -x ]] && {
   DEVERR=/dev/stderr
-  PS4="$SCRIPTNAME:\${LINENO}: "
+  PS4="+ $SCRIPTNAME:\${LINENO}: "
   set -x
 }
 
@@ -29,16 +30,18 @@ jj-fzf()
 }
 assert1error()
 {
-  local L="$(wc -l <<<"$*")"
-  test "$L" == 1 ||
-    die $'output exceeds one line: \\\n' "$*"
   grep -Eq '\bERROR:' <<<"$*" ||
     die "output contains no ERROR message: $*"
 }
 assert0error()
 {
-  grep -Eq '\bERROR:' <<<"$*" &&
+  ! grep -Eq '\bERROR:' <<<"$*" ||
     die "output contains an ERROR message: $*"
+}
+assert0errorinerror()
+{
+  ! grep -Eq 'ERRORINERROR' <<<"$*" ||
+    die "output contains an ERRORINERROR message: $*"
 }
 assert_zero()
 {
@@ -50,10 +53,9 @@ assert_nonzero()
   test "$1" != 0 ||
     die "command exit status failed to be non-zero: $1"
 }
-OK()
+TEST_OK()
 {
-  printf "  %-7s" OK
-  echo "${TEST:-}$*"
+  printf '  %-7s %s\n' OK "$*"
 }
 mkcommits() # mkcommits A B 'A|B ->C'
 ( # Create empty test commits with bookamrks
@@ -83,20 +85,25 @@ clear_repo()
 # == TESTS ==
 TEST='jj-fzf-functions-fail-early'
 clear_repo
-( set +e
-  OUT="$(export EDITOR=false JJ_CONFIG='' && jj-fzf describe 'zzzzaaaa' 2>&1)"
-  assert_nonzero $?
+( set -e
+  # Test that jj-fzf describe does not continue with $EDITOR
+  # once an invalid change_id has been encountered.
+  export JJ_CONFIG='' EDITOR='echo ERRORINERROR'
+  OUT="$(set +x; jj-fzf describe 'zzzzaaaa' 2>&1)" && E=$? || E=$?
+  assert_nonzero $E
   assert1error "$OUT"
-) && OK
+  assert0errorinerror "$OUT"
+); TEST_OK "$TEST"
 
 TEST='jj-fzf-new'
 clear_repo && mkcommits A B
-( set +e
+( set -e
+  export JJ_CONFIG=''
   WC="$(jj log --no-pager --ignore-working-copy --no-graph -T commit_id -r @)"
-  OUT="$(export JJ_CONFIG='' && jj-fzf new A B 2>&1)"
-  assert_zero $?
+  OUT="$(set +x; jj-fzf new A B 2>&1)" && E=$? || E=$?
+  assert_zero $E
   assert0error "$OUT"
   NEW="$(jj log --no-pager --ignore-working-copy --no-graph -T commit_id -r @)"
   test "$WC" != "$NEW" ||
     die "failed to create new revision"
-) && OK
+); TEST_OK "$TEST"
