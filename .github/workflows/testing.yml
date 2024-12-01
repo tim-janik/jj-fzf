@@ -26,7 +26,7 @@ jobs:
         jj --version
     #- run: ./testing.sh -x
     - run: |
-        make check V=1
+        make check
 
   Ping-IRC:
     if: always()
