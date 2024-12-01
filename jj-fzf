@@ -301,7 +301,7 @@ ERROR()
 {
   FUNC="${FUNC:-$0}"
   echo "ERROR: ${FUNC:+$FUNC:}" "$*" >&2
-  read -t 2
+  read -t "${JJ_FZF_ERROR_DELAY:-2}"
   exit
 }
 
@@ -754,7 +754,7 @@ if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
 fi
 
 # Merge into tracked bookmark
-DOC['merging']='Start a dialog to select parents for a new merge commit, using `jj new REVISIONS...`. For exactly two parents, a default commit message is suggested. Commits with no description are ignored.'
+DOC['merging']='Start a dialog to select parents for a new merge commit, using `jj new REVISIONS...`. Possibly rebase the working copy after merge commit creation.'
 merging()
 (
   P="$(xrev "${1:-@}")"
@@ -763,6 +763,9 @@ merging()
   # Find tracked upstream revision
   [[ $(jj --no-pager --ignore-working-copy log --no-graph -r 'trunk()' -T 'bookmarks') =~ ^([^@\ :]+).* ]] &&
     UPSTREAM="${BASH_REMATCH[1]}" || UPSTREAM=
+  WCA="$(jj log --ignore-working-copy --no-pager --no-graph -r "::@- & $P" -T change_id)" # is $P working copy ancestor?
+  test -z "$WCA" && WCA=0 || WCA=1
+  echo $WCA > $TEMPD/wcrebase.toggle
   echo 0 > $TEMPD/upstream.toggle
   export JJFZFONELINE REVPAT TEMPD UPSTREAM P
   # Parse jj log lines into merging.revs
@@ -788,11 +791,13 @@ merging()
   # Preview merge command for merging.revs
   merging_preview()
   (
-    echo && echo jj new `cat $TEMPD/merging.revs` && echo
-    test "$(cat $TEMPD/upstream.toggle)" -eq 1 &&
-      echo "Upstream: $UPSTREAM" ||
-	echo ''
-    echo && echo 'Parents:'
+    mapfile -t REVS < $TEMPD/merging.revs
+    test "$(< $TEMPD/wcrebase.toggle)" -eq 1 && NOEDIT=--no-edit || NOEDIT=
+    echo && echo jj "new $NOEDIT" "${REVS[@]}"
+    test "$(< $TEMPD/wcrebase.toggle)" -eq 1 && echo jj rebase -b @ -d "MERGE-OF-${REVS[0]:0:7}…"
+    echo
+    test "$(< $TEMPD/upstream.toggle)" -eq 1 && echo "Upstream: $UPSTREAM"
+    echo 'Parents:'
     while read R ; do
       $JJFZFONELINE -r "$R"
     done < $TEMPD/merging.revs
@@ -801,13 +806,15 @@ merging()
   export -f merging_revs merging_preview reverse_array
   # FZF popup to select parent list
   H=$'\n'
-  H="$H""Alt-U: Toggle merging into Upstream bookmark"$'\n'
+  H="$H"$'Alt-R: Toggle rebasing the working copy after merge creation\n'
+  H="$H"$'Alt-U: Toggle merging into Upstream bookmark\n'
   export FZF_DEFAULT_COMMAND="$SELF fzflog"
   "${FZFPOPUP[@]}" \
 	  --preview "merging_revs {+} && merging_preview" \
 	  --border-label '-[ MERGING ]-' --color=border:bright-blue,label:bright-blue \
 	  --prompt "Merge +> " \
 	  --header "$H" --header-first \
+	  --bind "alt-r:execute-silent( gsed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/wcrebase.toggle )+refresh-preview" \
 	  --bind "alt-u:execute-silent( gsed 's/0/2/;s/1/0/;s/2/1/' -i $TEMPD/upstream.toggle )+refresh-preview" \
 	  -m --color=pointer:grey \
 	  --no-tac --no-sort > $TEMPD/selections.txt &&
@@ -825,16 +832,26 @@ merging()
     user_editor_on_var "MERGE-MSG.txt" MSG &&
       test "$O" != "$MSG" ||
 	ERROR "Merge commit cancelled by user"
-    JJNEW_ARGS+=(-m "$MSG")
+    JJNEW_ARGS+=(--message="$MSG")
   }
+  test "$(< $TEMPD/wcrebase.toggle)" -eq 1 && NOEDIT=--no-edit || NOEDIT=
   # Merge revisions
+  A=( $(rev_children "${JJNEW_ARGS[0]}") )	# record parent0 children, *before*
   ( set -x
-    jj new "${JJNEW_ARGS[@]}"
-  ) && {
-    test "$(cat $TEMPD/upstream.toggle)" -ne 1 ||
-      ( set -x
-	jj bookmark set -B -r @ "$UPSTREAM" )
-  } || sleep 1
+    jj new $NOEDIT "${JJNEW_ARGS[@]}"
+  ) || ERROR
+  B=( $(rev_children "${JJNEW_ARGS[0]}") )	# record parent0 children, *after*
+  C=() && diff_arrays A B C			# detect new commit
+  [ ${#C[@]} -eq 1 ] || die "failed to find newly created revision"
+  RM="${C[0]}"					# new merge commit
+  test "$(< $TEMPD/upstream.toggle)" -ne 1 ||
+    ( set -x
+      jj bookmark set -r "$RM" -B "$UPSTREAM"
+    ) || ERROR
+  test "$(< $TEMPD/wcrebase.toggle)" -ne 1 ||
+    ( set -x
+      jj rebase -b @ -d "$RM"
+    ) || ERROR
 )
 KEYBINDINGS["Alt-M"]="merging"		FIRSTS="$FIRSTS merging"
 
