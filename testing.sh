@@ -13,7 +13,9 @@ die()
     echo -e "$SCRIPTNAME: $R**ERROR**:${TEST:+ $TEST:}$Z ${*:-aborting}" >&2
   exit 127
 }
+DEVERR=/dev/null
 [[ " $* " =~ -x ]] && {
+  DEVERR=/dev/stderr
   PS4="$SCRIPTNAME:\${LINENO}: "
   set -x
 }
@@ -53,17 +55,34 @@ OK()
   printf "  %-7s" OK
   echo "${TEST:-}$*"
 }
+mkcommits() # mkcommits A B 'A|B ->C'
+( # Create empty test commits with bookamrks
+  while test $# -ne 0 ; do
+    P=@ && [[ "$1" =~ (.+)-\>(.+) ]] && P="${BASH_REMATCH[1]}" C="${BASH_REMATCH[2]}" || C="$1"; shift
+    jj --no-pager new -m="$C" -r all:"$P"
+    jj bookmark set -r @ "$C"
+  done >$DEVERR 2>&1
+)
 
 # == Setup Environment ==
 TEMPD="`mktemp --tmpdir -d jjfzftstXXXXXX`" || die "mktemp failed"
 trap "cd '$TEMPD/..' && rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
 echo "$$" > $TEMPD/testing.sh.pid
-mkdir $TEMPD/repo
-cd $TEMPD/repo
-git init >/dev/null && jj git init --colocate >/dev/null 2>&1
+cd $TEMPD/
+clear_repo()
+{
+  REPO="${1:-repo}"
+  cd $TEMPD/
+  rm -rf $TEMPD/$REPO
+  mkdir $TEMPD/$REPO
+  cd $TEMPD/$REPO
+  git init >$DEVERR 2>&1
+  jj git init --colocate >$DEVERR 2>&1
+}
 
 # == TESTS ==
 TEST='jj-fzf-functions-fail-early'
+clear_repo
 ( set +e
   OUT="$(export EDITOR=false JJ_CONFIG='' && jj-fzf describe 'zzzzaaaa' 2>&1)"
   assert_nonzero $?
@@ -71,14 +90,13 @@ TEST='jj-fzf-functions-fail-early'
 ) && OK
 
 TEST='jj-fzf-new'
+clear_repo && mkcommits A B
 ( set +e
   WC="$(jj log --no-pager --ignore-working-copy --no-graph -T commit_id -r @)"
-  OUT="$(export JJ_CONFIG='' && jj-fzf new '@' 2>&1)"
+  OUT="$(export JJ_CONFIG='' && jj-fzf new A B 2>&1)"
   assert_zero $?
   assert0error "$OUT"
   NEW="$(jj log --no-pager --ignore-working-copy --no-graph -T commit_id -r @)"
   test "$WC" != "$NEW" ||
     die "failed to create new revision"
 ) && OK
-
-
