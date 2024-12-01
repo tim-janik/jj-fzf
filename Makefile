@@ -15,9 +15,12 @@ install: jj-fzf
 uninstall:
 	$(RM) "$(bindir)/jj-fzf"
 
-check: jj-fzf
-	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
-	shellcheck -W 3 -S error jj-fzf
-warn: jj-fzf
+shellcheck-warning: jj-fzf
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
 	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 jj-fzf
+shellcheck-error:
+	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
+	shellcheck -W 3 -S error jj-fzf
+test: jj-fzf
+	$Q ./testing.sh
+check: jj-fzf shellcheck-error test
