@@ -15,16 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, submodules: recursive, github-server-url: 'https://github.com' } }
-    - run: git fetch -f --tags          # Fix actions/checkout#290
-    - run: git describe --always --long
-    - run: make check
+    - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
+    - run: |
+        make check V=1
 
   Ping-IRC:
+    if: always()
     needs: [MakeCheck]
     runs-on: ubuntu-latest
     steps:
-    - { uses: actions/checkout@v4.1.1,	with: { fetch-depth: 0 } } # Fix actions/checkout#290
-    - run: git fetch -f --tags && git describe --always --long
+    - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
+    - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
     - name: Check Jobs
       run: |
         echo '${{ needs.MakeCheck.result }}'
