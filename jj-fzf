@@ -1328,11 +1328,10 @@ vivifydivergent()
   test "$COMMIT" == "$WCOPY" && NOEDIT= || NOEDIT=--no-edit
   echo "# $SELF vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
-  export JJ_CONFIG= # unset ui.editor
-  export EDITOR=true
+  # Override ui.editor to implement --squash-with-no-description
   ( set -x
     jj new --insert-after "$COMMIT" $NOEDIT
-    jj squash --from "$COMMIT" --into "$COMMIT+"
+    jj squash --from "$COMMIT" --into "$COMMIT+" --config-toml 'ui.editor="true"'
   ) || ERROR
 )
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
