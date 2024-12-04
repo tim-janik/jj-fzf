@@ -297,10 +297,13 @@ require_git_dir()
 	  die "$PWD: failed to find .git store"
     }
 }
+
+# Exit the current shell with an error message and delay
 ERROR()
 {
   FUNC="${FUNC:-$0}"
   echo "ERROR: ${FUNC:+$FUNC:}" "$*" >&2
+  # Wait a few seconds unless the user presses Enter
   read -t "${JJ_FZF_ERROR_DELAY:-2}"
   exit
 }
