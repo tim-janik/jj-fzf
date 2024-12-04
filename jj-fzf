@@ -670,22 +670,20 @@ DOC['split-interactive']='Use `jj split` to interactively select content diff hu
 split-interactive()
 (
   R="$(xrev "${1:-@}")"
-  # Use $EDITOR to implement --split-with-no-description, truncate the first
-  # (original) description, but keep the description for subsequent edits
+  # Override ui.editor to implement --split-with-no-description: truncate the first
+  # (original) description, then keep the other description for subsequent edits
   temp_dir
-  cat > $TEMPD/trunc1st.sh <<-\__EOF__
+  cat > $TEMPD/noeditor <<-\__EOF__
 	#!/usr/bin/env bash
 	set -Eeuo pipefail #-x
-	TRUNCATE=y
+	TRUNCATE=n
 	test $TRUNCATE == y && echo -n > "$1" || :
-	gsed 's/TRUNCATE=./TRUNCATE=n/' -i "$0"
+	gsed 's/TRUNCATE=./TRUNCATE=y/' -i "$0"
 	__EOF__
-  chmod +x $TEMPD/trunc1st.sh
-  export JJ_CONFIG= # unset ui.editor
-  export EDITOR=$TEMPD/trunc1st.sh
+  chmod +x $TEMPD/noeditor
   ( set -x
-    jj split --interactive -r "$R"
-  ) || sleep 1
+    jj split --interactive -r "$R" --config-toml "ui.editor='$TEMPD/noeditor'"
+  ) || ERROR
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
 
