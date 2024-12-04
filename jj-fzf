@@ -993,34 +993,21 @@ DOC['split-files']='Use `jj split` in a loop to split each file modified by the 
 split-files()
 (
   R="$(xrev "${1:-@}")"
-  # save @
-  AT="$(xrev @)"
   cd "$JJROOT"		# operate on root relative file names
-  # show undo hints
-  jj --no-pager op log -n1
+  # read files affected by $R
+  mapfile -t MAPFILE < <(git diff-tree --no-commit-id --name-only -r "$(rev_commitid "$R")")
+  [[ ${#MAPFILE[@]} -gt 1 ]] ||
+    return
+  # show undo hint
   echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following split"
-  # adjust working copy, so 'jj split' resulting change_id is predictable
-  test "$R" == "$AT" || (set -x; jj edit -r "$R")
-  # split for n-1 files
-  MFS=$(git diff-tree --no-commit-id --name-status -r "$(rev_commitid @)")
-  R1=true # skip first split, need n-1 splits for n files
-  while read M F ; do
-    $R1 && { R1=false; continue; } # skip first
-    export JJ_CONFIG= # unset ui.editor
-    export EDITOR=true
+  # create n-1 new commits from n files
+  while [[ ${#MAPFILE[@]} -gt 1 ]] ; do
+    unset 'MAPFILE[-1]' # unset 'MAPFILE[${#MAPFILE[@]}-1]'
+    # Override ui.editor to implement --split-with-no-description
     ( set -x
-      jj split -r @ -- "$F"
-    )
-  done <<<"$MFS"
-  # restore working copy
-  test "$R" == "$AT" || {
-    EXISTS=$($JJFZFSHOW -r "$AT" -T '"true"' 2>/dev/null) # squash might have killed an empty commit
-    if [[ $EXISTS =~ ^true ]] ; then
-      (set -x; jj edit -r "$AT")
-    else
-      (set -x; jj new -r "@")
-    fi
-  }
+      jj split --config-toml 'ui.editor="true"' -r "$R" -- "${MAPFILE[@]}"
+    ) || ERROR
+  done
 )
 KEYBINDINGS["Alt-F"]="split-files"
 
