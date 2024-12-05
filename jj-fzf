@@ -297,10 +297,13 @@ require_git_dir()
 	  die "$PWD: failed to find .git store"
     }
 }
+
+# Exit the current shell with an error message and delay
 ERROR()
 {
   FUNC="${FUNC:-$0}"
   echo "ERROR: ${FUNC:+$FUNC:}" "$*" >&2
+  # Wait a few seconds unless the user presses Enter
   read -t "${JJ_FZF_ERROR_DELAY:-2}"
   exit
 }
@@ -740,10 +743,12 @@ if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
     echo file=${absfile:((1+${#absroot}))}
     jj --no-pager status
     COMMIT="$(rev_commitid @)"
+    EMPTY=$'^[| \033\[0-9;m]*$' # anchored pattern for empty line with git log graph chars
+    SIGBY=$'^[| \033\[0-9;m]*Signed-off-by:.*@.*$' # anchored pattern for Signed-off-by
     grep -s -n '' "$file" /dev/null |
     "${FZFPOPUP[@]}" \
       --border-label '-[ LINE HISTORY (EXPERIMENTAL) ]-' --color=border:yellow,label:yellow \
-      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%s%n%b' -L{2}:{1} --color $COMMIT | gsed 's/Signed-off-by:.*//; /^ *$/d' " \
+      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%B' -L{2}:{1} --color $COMMIT | gsed -nre '/($EMPTY|$SIGBY)/!p; /$EMPTY/{ p; :NEXT n; /($EMPTY|$SIGBY)/b NEXT; p; }' " \
       --bind "enter:execute( git log -M -C --find-copies-harder -L{2},+7:{1} --color $COMMIT | $JJFZFPAGER)" \
       --header "File Line History" \
       --no-tac --no-sort +m -d: \
