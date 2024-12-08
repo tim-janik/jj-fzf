@@ -945,6 +945,7 @@ op-log()
   H="$H"$'Ctrl-L: Preview history at a specific operation\n'
   H="$H"$'Ctrl-P: Preview patch at a specific operation via `jj op show -p`\n'
   H="$H"$'\n'
+  H="$H"$'Alt-R: Restore repository to the selected operation via `jj op restore`\n'
   H="$H"$'Alt-W: Restore working copy of the selected operation into a new commit before @\n'
   H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
   H="$H"$'Alt-Z: Undo the next operation\n'
@@ -958,7 +959,8 @@ op-log()
     --bind "ctrl-d:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-w:execute( $SELF restore-op {} )+abort" \
+    --bind "alt-r:execute( $SELF op-restore {} )+abort" \
+    --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
     --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
     --bind "alt-z:execute( $SELF undo )+$RELOAD" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
@@ -977,7 +979,7 @@ undo-op()
 )
 FUNCTIONS+=( 'undo-op' )
 
-restore-op()
+restore-commit()
 (
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   COMMIT="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
@@ -987,7 +989,18 @@ restore-op()
     jj restore --from "$COMMIT" --to @- --restore-descendants
   ) || ERROR
 )
-FUNCTIONS+=( 'restore-op' )
+FUNCTIONS+=( 'restore-commit' )
+
+op-restore()
+(
+  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
+  # show undo hint
+  echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following jj op restore"
+  ( set -x
+    jj op restore "$OP"
+  ) || ERROR
+)
+FUNCTIONS+=( 'op-restore' )
 
 # Split files
 DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
