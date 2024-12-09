@@ -23,4 +23,6 @@ shellcheck-error:
 	shellcheck -W 3 -S error jj-fzf
 test: jj-fzf
 	$Q ./testing.sh
-check: jj-fzf shellcheck-error test
+tests-basics.sh:
+	$Q tests/basics.sh
+check: jj-fzf shellcheck-error test tests-basics.sh
