@@ -53,15 +53,19 @@ case "${1:-}" in
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log -r .. # -T builtin_log_oneline
       } ; exit ;;
-  preview_opdiff)
+  preview_opshow)
     [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log --no-graph -s -r "@"
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always show -T ' "\n" ' -r "@"
       } ; exit ;;
-  preview_opshow)
-    [[ " ${2:-} " =~ ^[^a-z0-9]*([0-9a-f]{9,})\  ]] && {
+  preview_oppatch)
+    [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --color=always op show -p "${BASH_REMATCH[1]}"
+      } ; exit ;;
+  preview_opdiff)
+    [[ " ${2:-} " =~ $OPRPAT ]] && {
+	jj --no-pager --ignore-working-copy --color=always op diff -f "${BASH_REMATCH[1]}" -t @
       } ; exit ;;
 esac
 
@@ -71,6 +75,7 @@ gawk --version | grep -Fq 'GNU Awk' || die "failed to find 'gawk' in \$PATH (GNU
 version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1,$2,$3,$4,$5);exit}' <<<" $* "; }
 versionge() { test "$(version0d "$2")a" '<' "$(version0d "$1")b"; }
 versionge "$(bash --version)" 5.1.16 || die "failed to find 'bash' version 5.1.16 in \$PATH"
+[[ `set -o` =~ emacs ]] || die "the 'bash' executable lacks interactive readline support"
 versionge "$(jj --version --ignore-working-copy)" 0.24 || die "failed to find 'jj' version 0.24.0 in \$PATH"
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { sed "$@"; } && export -f gsed ||
@@ -940,14 +945,16 @@ op-log()
   temp_dir
   echo > $TEMPD/oplog.env
   H=$'\n'
-  H="$H"$'Ctrl-D: Preview diff of "@" at a specific operation\n'
-  H="$H"$'Ctrl-L: Preview history at a specific operation\n'
-  H="$H"$'Ctrl-P: Preview patch at a specific operation via `jj op show -p`\n'
+  H="$H"$'Ctrl-D: Preview the differences of an operation via `jj op diff -f <op> -t @`\n'
+  H="$H"$'Ctrl-L: Preview history at a specific operation via `jj log -r ..`\n'
+  H="$H"$'Ctrl-P: Preview changes in an operation with patch via `jj op show -p <op>`\n'
+  H="$H"$'Ctrl-S: Preview "@" at a specific operation via `jj show @`\n'
   H="$H"$'\n'
+  H="$H"$'Alt-R: Restore repository to the selected operation via `jj op restore`\n'
   H="$H"$'Alt-W: Restore working copy of the selected operation into a new commit before @\n'
   H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
   H="$H"$'Alt-Z: Undo the next operation\n'
-  echo 'VIEW=preview_opshow'		>> $TEMPD/oplog.env
+  echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
   export FZF_DEFAULT_COMMAND="$SELF op_log_oneline"
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
@@ -956,8 +963,10 @@ op-log()
     --header "$H" --header-first \
     --bind "ctrl-d:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-w:execute( $SELF restore-op {} )+abort" \
+    --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oppatch/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-s:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-r:execute( $SELF op-restore {} )+abort" \
+    --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
     --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
     --bind "alt-z:execute( $SELF undo )+$RELOAD" \
     --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
@@ -976,7 +985,7 @@ undo-op()
 )
 FUNCTIONS+=( 'undo-op' )
 
-restore-op()
+restore-commit()
 (
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   COMMIT="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
@@ -986,7 +995,18 @@ restore-op()
     jj restore --from "$COMMIT" --to @- --restore-descendants
   ) || ERROR
 )
-FUNCTIONS+=( 'restore-op' )
+FUNCTIONS+=( 'restore-commit' )
+
+op-restore()
+(
+  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
+  # show undo hint
+  echo "# jj op restore $(jj op log -n1 --no-graph -T 'self.id().short()') # <- command to undo the following jj op restore"
+  ( set -x
+    jj op restore "$OP"
+  ) || ERROR
+)
+FUNCTIONS+=( 'op-restore' )
 
 # Split files
 DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
