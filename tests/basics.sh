@@ -6,6 +6,20 @@ SCRIPTNAME="${0##*/}" && SCRIPTDIR="$(readlink -f "$0")" && SCRIPTDIR="${SCRIPTD
 source $SCRIPTDIR/utils.sh
 
 # == TESTS ==
+test-functions-fail-early()
+(
+  cd_new_repo
+  # Check `jj-fzf describe` does not continue with $EDITOR
+  # once an invalid change_id has been encountered.
+  export JJ_CONFIG='' EDITOR='echo ERRORINERROR'
+  OUT="$(set +x; jj-fzf describe 'zzzzaaaa' 2>&1)" && E=$? || E=$?
+  assert_nonzero $E
+  assert1error "$OUT"
+  ! grep -Eq 'ERRORINERROR' <<<"$OUT" ||
+    die "${FUNCNAME[0]}: detected nested invocation, output:"$'\n'"$(echo "$OUT" | sed 's/^/> /')"
+)
+TESTS+=( test-functions-fail-early )
+
 test-edit-workspace()
 (
   cd_new_repo
