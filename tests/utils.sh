@@ -91,7 +91,7 @@ commit_count()
   R="${1:-::}"
   jj --ignore-working-copy log --no-graph -T '"\n"' -r "$R" | wc -l
 )
-jj_log_oneline()
+jj_log()
 (
   jj --ignore-working-copy log -T builtin_log_oneline -r ::
 )
