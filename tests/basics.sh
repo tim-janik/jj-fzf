@@ -21,6 +21,9 @@ test-edit-workspace()
   jj-fzf edit-workspace 'Ic' >$DEVERR 2>&1
   assert_commit_count $((2 + 5 + 4 + 1))
   assert_@- `get_commit_id Ic`
+  jj-fzf new '@' >$DEVERR 2>&1
+  assert_commit_count $((2 + 5 + 4 + 1 + 1))
+  assert_commits_eq @-- `get_commit_id Ic`
 )
 TESTS+=( test-edit-workspace )
 
