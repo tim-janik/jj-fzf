@@ -21,6 +21,6 @@ shellcheck-warning: jj-fzf
 shellcheck-error:
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
 	shellcheck -W 3 -S error jj-fzf
-test: jj-fzf
-	$Q ./testing.sh
-check: jj-fzf shellcheck-error test
+tests-basics.sh:
+	$Q tests/basics.sh
+check: jj-fzf shellcheck-error tests-basics.sh
