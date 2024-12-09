@@ -1365,8 +1365,8 @@ gitk()
 KEYBINDINGS["Ctrl-V"]="gitk"
 
 # Edit (New) Working Copy
-DOC['edit-workspace']='Use `jj {edit|new}` to set the currently selected revision (or divergent commit) as the working-copy revision. Will create a new empty commit if the selected revision is immutable.'
-edit-workspace()
+DOC['edit']='Use `jj {edit|new}` to set the currently selected revision (or divergent commit) as the working-copy revision. Will create a new empty commit if the selected revision is immutable.'
+edit()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
     die "no such revision"
@@ -1376,7 +1376,7 @@ edit-workspace()
     jj $CMD -r "$R"
   ) || ERROR
 )
-KEYBINDINGS["Ctrl-E"]="edit-workspace"
+KEYBINDINGS["Ctrl-E"]="edit"
 
 # Swap Commits
 DOC['swap-commits']='Use `jj rebase --insert-before` to quickly swap the currenly selected revision with the revision immediately before it.'

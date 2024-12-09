@@ -20,7 +20,7 @@ test-functions-fail-early()
 )
 TESTS+=( test-functions-fail-early )
 
-test-edit-workspace()
+test-edit-new()
 (
   cd_new_repo
   mkcommits 'Ia' 'Ib' 'Ia ->Ic' 'Ib|Ic ->Id'
@@ -29,17 +29,17 @@ test-edit-workspace()
   assert_commit_count $((2 + 5))
   mkcommits A B 'A ->C' 'B|C ->D'
   assert_commit_count $((2 + 5 + 4))
-  jj-fzf edit-workspace 'C' >$DEVERR 2>&1
+  jj-fzf edit 'C' >$DEVERR 2>&1
   assert_commit_count $((2 + 5 + 4))
   assert_@ `get_commit_id C` && assert_@- `get_commit_id A`
-  jj-fzf edit-workspace 'Ic' >$DEVERR 2>&1
+  jj-fzf edit 'Ic' >$DEVERR 2>&1
   assert_commit_count $((2 + 5 + 4 + 1))
   assert_@- `get_commit_id Ic`
   jj-fzf new '@' >$DEVERR 2>&1
   assert_commit_count $((2 + 5 + 4 + 1 + 1))
   assert_commits_eq @-- `get_commit_id Ic`
 )
-TESTS+=( test-edit-workspace )
+TESTS+=( test-edit-new )
 
 test-undo-undo-redo()
 (
