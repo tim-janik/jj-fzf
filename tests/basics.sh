@@ -47,21 +47,25 @@ test-undo-undo-redo()
   mkcommits A B 'A ->C' 'B|C ->D' E
   assert_commit_count $((2 + 5))
   ( jj new -m U1 && jj new -m U2 && jj new -m U3 ) >$DEVERR 2>&1
-  assert_commit_count $((2 + 5 + 3))
-  assert_@ `get_commit_id U3` && assert_@- `get_commit_id U2`
-  jj-fzf undo >$DEVERR 2>&1
-  assert_commit_count $((2 + 5 + 2))
-  jj-fzf undo >$DEVERR 2>&1
-  assert_commit_count $((2 + 5 + 1))
+  assert_commit_count $((2 + 5 + 3)) && assert_@ `get_commit_id U3` && assert_@- `get_commit_id U2`
+  jj-fzf undo >$DEVERR 2>&1 && assert_commit_count $((2 + 5 + 2))
+  jj-fzf undo >$DEVERR 2>&1 && assert_commit_count $((2 + 5 + 1))
   assert_@ `get_commit_id U1` && assert_@- `get_commit_id E`
   jj new >$DEVERR 2>&1 # resets undo pointer
   assert_commit_count $((2 + 5 + 1 + 1))
   jj-fzf undo >$DEVERR 2>&1
-  assert_commit_count $((2 + 5 + 1))
+  assert_commit_count $((2 + 5 + 1)) && assert_@ `get_commit_id U1` && assert_@- `get_commit_id E`
   jj-fzf undo >$DEVERR 2>&1
   jj-fzf undo >$DEVERR 2>&1
   assert_commit_count $((2 + 5 + 3))
   assert_@ `get_commit_id U3` && assert_@- `get_commit_id U2`
+  jj-fzf undo >$DEVERR 2>&1
+  jj-fzf undo >$DEVERR 2>&1
+  assert_commit_count $((2 + 5 + 1)) && assert_@ `get_commit_id U1` && assert_@- `get_commit_id E`
+  jj-fzf undo-reset >$DEVERR 2>&1 # resets undo pointer
+  jj-fzf undo >$DEVERR 2>&1
+  jj-fzf undo >$DEVERR 2>&1
+  assert_commit_count $((2 + 5 + 3)) && assert_@ `get_commit_id U3` && assert_@- `get_commit_id U2`
 )
 TESTS+=( test-undo-undo-redo )
 
