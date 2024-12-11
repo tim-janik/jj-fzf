@@ -21,7 +21,7 @@ jobs:
           tar zxvf - -C ~/.cargo/bin/ fzf
         fzf --version
     - run: |
-        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.23.0/jj-v0.23.0-x86_64-unknown-linux-musl.tar.gz |
+        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.24.0/jj-v0.24.0-x86_64-unknown-linux-musl.tar.gz |
           tar zxvf - -C ~/.cargo/bin/ ./jj
         jj --version
     #- run: ./testing.sh -x
