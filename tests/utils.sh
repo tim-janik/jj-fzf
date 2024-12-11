@@ -1,3 +1,10 @@
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+
+# == Check Dependencies ==
+jj --help >/dev/null
+PATH="$SCRIPTDIR/..:$PATH"	# ensure jj-fzf is in $PATH
+jj-fzf --help >/dev/null
+
 # == VARIABLE Setup ==
 export JJ_FZF_ERROR_DELAY=0 # instant errors for testing
 TEMPD=
