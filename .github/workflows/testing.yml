@@ -24,7 +24,8 @@ jobs:
         curl -s -L https://github.com/martinvonz/jj/releases/download/v0.24.0/jj-v0.24.0-x86_64-unknown-linux-musl.tar.gz |
           tar zxvf - -C ~/.cargo/bin/ ./jj
         jj --version
-    #- run: ./testing.sh -x
+    - run: |
+        jj git init --colocate
     - run: |
         make check
 
