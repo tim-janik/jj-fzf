@@ -1,3 +1,57 @@
+## JJ-FZF 0.24.0
+
+### Added:
+* Added Alt-O: Absorb content diff into mutable ancestors
+* Added `jj op show -p` as default op log preview (indicates absorbed changes)
+* Added marker based multi-step undo which improved robustness
+* Op-log: Added restore (Alt-R), undo memory reset (Alt-K) and op-diff (Ctrl-D)
+* Added RFC-1459 based simple message IRC bot for CI notifications
+* Added checks for shellcheck-errors to CI
+* Creating a Merge commit can now automatically rebase (Alt-R) other work
+* Added duplicate (Alt-D) support to rebase (including descendants)
+* Added auto-completion support to bookmarks set/move (Alt-B)
+* Reparenting: added Alt-P to simplify-parents after `jj rebase`
+* Implemented faster op log preview handling
+* New config `jj-fzf.fzflog-depth` to increase `fzflog` depth
+* Ctrl-I: add diff browser between selected revision and working copy
+* F5: trigger a reload (shows concurrent jj repo changes)
+* Support rebase with --ignore-immutable via Alt-I
+* Implement adaptive key binding display (Alt-H)
+* Ctrl-H: show extended jj-fzf help via pager
+* Broadened divergent commit support: squash-into-parent, describe, log
+* Started adding unit tests and automated unit testing in CI
+* Introduced Makefile with rules to check, install, uninstall
+
+### Breaking:
+* Depend on jj-0.24.0 and require fzf-0.43.0
+* Removed Alt-U for `jj duplicate`, use rebase instead: Alt-R Alt-D
+* Assert that bash supports interactive mode with readline editing
+* Check-deps: check dependencies before installing
+* Rebase: rename rebasing to `jj-fzf rebase`
+* Rebase: apply simplify-parents to the rebased revision only
+* Rename 'edit' (from 'edit-workspace')
+* Rename revset-assign → revset-filter
+* Op-log: Ctrl-S: Preview "@" at a specific operation via `jj show @`
+  (formerly Ctrl-D)
+
+### Changed:
+* Avoid JJ_CONFIG overrides in all places
+* Support ui.editor, ui.diff-editor and other settings
+* Squash-into-parent: use `jj new -A` to preserve change_id
+* Jump to first when reparenting and after rebase
+* Ctrl-P: jj git fetch default remote, not all
+* Support deletion of conflicted bookmarks
+* Line Blame: skip signoff and empty lines
+
+### Fixed:
+* Avoid slowdowns during startup
+* Fixed some cases of undesired snapshotting
+* Lots of fixes and improvements to allow automated testing
+* Minor renames to make shellcheck happy
+* Log: Ctrl-L: fix missing patch output
+* Ensure `jj log` view change_id width matches jj log default width
+
+
 ## JJ-FZF 0.23.0
 
 Development version - may contain bugs or compatibility issues.

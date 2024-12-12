@@ -70,7 +70,7 @@ case "${1:-}" in
 esac
 
 # == Check Deps ==
-VERSION=0.23.0
+VERSION=0.24.0
 gawk --version | grep -Fq 'GNU Awk' || die "failed to find 'gawk' in \$PATH (GNU Awk)"
 version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1,$2,$3,$4,$5);exit}' <<<" $* "; }
 versionge() { test "$(version0d "$2")a" '<' "$(version0d "$1")b"; }
