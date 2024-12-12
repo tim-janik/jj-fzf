@@ -9,9 +9,11 @@ Q	::= $(if $(findstring 1, $(V)),, @)
 
 all: check
 
-install: jj-fzf
-	$(INSTALL) -t "$(bindir)" $<
-
+check-deps: jj-fzf
+	$Q jj-fzf --version
+	$Q jj-fzf --help >/dev/null # check-deps
+install: check-deps
+	$(INSTALL) -t "$(bindir)" jj-fzf
 uninstall:
 	$(RM) "$(bindir)/jj-fzf"
 
@@ -23,4 +25,8 @@ shellcheck-error:
 	shellcheck -W 3 -S error jj-fzf
 tests-basics.sh:
 	$Q tests/basics.sh
-check: jj-fzf shellcheck-error tests-basics.sh
+check-gsed: jj-fzf
+	$Q ! grep --color=auto -E '[^\\]\bsed ' jj-fzf \
+	|| { echo "ERROR: use gsed" >&2 ; false; }
+	$Q echo '  OK      gsed uses'
+check: check-deps shellcheck-error check-gsed tests-basics.sh
