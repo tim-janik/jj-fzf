@@ -12,7 +12,7 @@ on:
 jobs:
 
   MakeCheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, submodules: recursive, github-server-url: 'https://github.com' } }
     - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
@@ -21,17 +21,18 @@ jobs:
           tar zxvf - -C ~/.cargo/bin/ fzf
         fzf --version
     - run: |
-        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.23.0/jj-v0.23.0-x86_64-unknown-linux-musl.tar.gz |
+        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.24.0/jj-v0.24.0-x86_64-unknown-linux-musl.tar.gz |
           tar zxvf - -C ~/.cargo/bin/ ./jj
         jj --version
-    #- run: ./testing.sh -x
+    - run: |
+        jj git init --colocate
     - run: |
         make check
 
   Ping-IRC:
     if: always()
     needs: [MakeCheck]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
     - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
