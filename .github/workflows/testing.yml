@@ -12,7 +12,7 @@ on:
 jobs:
 
   MakeCheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, submodules: recursive, github-server-url: 'https://github.com' } }
     - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
@@ -32,7 +32,7 @@ jobs:
   Ping-IRC:
     if: always()
     needs: [MakeCheck]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
     - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
