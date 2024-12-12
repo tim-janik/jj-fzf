@@ -10,8 +10,8 @@ Q	::= $(if $(findstring 1, $(V)),, @)
 all: check
 
 check-deps: jj-fzf
-	$Q jj-fzf --version
-	$Q jj-fzf --help >/dev/null # check-deps
+	$Q ./jj-fzf --version
+	$Q ./jj-fzf --help >/dev/null # check-deps
 install: check-deps
 	$(INSTALL) -t "$(bindir)" jj-fzf
 uninstall:
