@@ -78,7 +78,7 @@ versionge "$(bash --version)" 5.1.16 || die "failed to find 'bash' version 5.1.1
 [[ `set -o` =~ emacs ]] || die "the 'bash' executable lacks interactive readline support"
 versionge "$(jj --version --ignore-working-copy)" 0.24 || die "failed to find 'jj' version 0.24.0 in \$PATH"
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
-sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { sed "$@"; } && export -f gsed ||
+sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
 command -v column >/dev/null || column() { cat; }
 
@@ -507,7 +507,7 @@ bookmark()
   R="$(xrev_or_commit "${1:-@}")"
   #echo "# Existing Bookmarks:" && jj --no-pager --ignore-working-copy bookmark list
   readarray -t BOOKMARKS < <(jj --no-pager --ignore-working-copy bookmark list -T 'self.name()++"\n"' | sort | uniq)
-  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "::$R|$R+" -T 'bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "::$R|$R+" -T 'bookmarks++"\n"' | gsed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
   [[ ${#NEAREST[@]} -ge 1 ]] && INIT="${NEAREST[0]}" || INIT=""
   PROMPT='Bookmark Name: '
   echo "# Assign Bookmark to:"
@@ -566,7 +566,7 @@ delete-refs()
 (
   R="$(xrev_or_commit "${1:-@}")"
   # find first local bookmark in $R, use as query arg
-  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++"\n"' | gsed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
   [[ ${#NEAREST[@]} -ge 1 ]] && B=(-q "${NEAREST[0]}") || B=()
   require_git_dir # exports GIT_DIR
   # select bookmark or tag
@@ -579,7 +579,7 @@ delete-refs()
       "${B[@]}" \
       < <(
       # list local bookmarks
-      jj --ignore-working-copy bookmark list | # sed reorders conflicted
+      jj --ignore-working-copy bookmark list | # gsed reorders conflicted
 	gsed -r ':0; /^\s/!s/ \(conflicted\):/: (conflicted)/; N; $!b0; s/\n\s+/ /g' |
 	while read MARK rest ; do
 	  printf "%-32s [bookmark] %s\n" "${MARK%:}" "$rest"
@@ -931,7 +931,7 @@ op_log_oneline()
   if LAST_OPID=$(jj --no-pager --ignore-working-copy config get jj-fzf.last-undo 2>/dev/null) &&
       jj --no-pager --ignore-working-copy op log -n1 --no-graph -T "$OP_LOG_FIRSTLINE" | grep -qF ": undo operation $LAST_OPID" ; then
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16" |
-      sed -r "1,/${LAST_OPID:0:16}\b/s/([@○])/⋯/" # ⮌ ⋯ ⤺↶
+      gsed -r "1,/${LAST_OPID:0:16}\b/s/([@○])/⋯/" # ⮌ ⋯ ⤺↶
   else
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16"
   fi
@@ -1567,7 +1567,7 @@ list_key_bindings()
   }
   SHOW_KEYS="$(jj --ignore-working-copy config get 'jj-fzf.show-keys' 2>/dev/null || echo true)"
   [[ "$*" =~ --key-toggle ]] && {
-    SHOW_KEYS="$(echo "$SHOW_KEYS" | sed 's/^false/x/; s/^true/false/; s/^x/true/')"
+    SHOW_KEYS="$(echo "$SHOW_KEYS" | gsed 's/^false/x/; s/^true/false/; s/^x/true/')"
     jj --ignore-working-copy config set --user 'jj-fzf.show-keys' "$SHOW_KEYS"
   }
   $SHOW_KEYS || {
