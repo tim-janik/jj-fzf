@@ -56,3 +56,5 @@ for mbox in "${MBOXES[@]}" ; do
   git mailinfo -b -u --encoding=POSIX.UTF-8 "$TEMPD/body" "$TEMPD/patch" > "$TEMPD/header" < "$mbox"
   jj_commit "$TEMPD/header" "$TEMPD/body" "$TEMPD/patch"
 done
+# snapshot last patch
+jj status
