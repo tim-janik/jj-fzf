@@ -42,10 +42,10 @@ jj_commit()
     --config-toml "user.email=\"$EMAIL\""
     --message="$SUBJECT$NL$BODY"
   )
+  # create commit
+  jj new "${ARGS[@]}"
   # try patch
   patch -p1 < "$PATCH"
-  # apply
-  jj new "${ARGS[@]}"
 )
 
 # == Process ==
