@@ -1642,7 +1642,7 @@ done
 
 # == FZF ==
 export FZF_DEFAULT_COMMAND="$SELF fzflog"
-fzflog |
+fzflog 2>&1 |
   fzf \
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
