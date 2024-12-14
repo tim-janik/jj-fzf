@@ -5,7 +5,8 @@ SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **
 SELF="$0"
 
 # == PREVIEW fast path ==
-export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
+JJFZF_PRIVATE="$(jj config get --ignore-working-copy --no-pager git.private-commits 2>/dev/null)" &&
+  [[ "$JJFZF_PRIVATE" =~ ^[.a-z_()-]+$ ]] || JJFZF_PRIVATE=''	# only supported unquoted revset names
 JJ_FZF_SHOWDETAILS='
 concat(
   builtin_log_oneline,
@@ -13,6 +14,7 @@ concat(
   "Commit ID: " ++ commit_id ++ "\n",
   "Flags:     ", separate(" ",
     if(immutable, label("node immutable", "immutable")),
+    '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', 'private')), }"'
   ) ++ "\n",
   surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
   "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
@@ -22,6 +24,7 @@ concat(
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
   "\n",
 )' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
 if test "${1:-}" == preview					# preview command, nested invocation
 then
   if [[ "${2:-} " =~ $REVPAT ]]					# match beginning of jj log line
@@ -145,6 +148,7 @@ if(root,
         if(git_head, label("git_head", "git_head()")),
         if(conflict, label("conflict", "conflict")),
         if(empty, label("empty", "(empty)")),
+        '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', '🌟')), }"'
         if(description,
           description.first_line(),
           label(if(empty, "empty"), description_placeholder),
