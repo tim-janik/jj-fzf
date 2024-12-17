@@ -86,6 +86,9 @@ These scripts are aimed at developers and provide useful utilities for working w
 * **jj-am.sh:** A very simple script that allows to apply patches to a jj repository.
   `Usage: ~/jj-fzf/contrib/jj-am.sh [format-patch-file...]`
 
+* **jj-undirty.el:** A simple Emacs lisp script that automatically runs `jj status` every time a buffer is saved to snapshot file modifications.
+  `Usage: (load (expand-file-name "~/jj-fzf/contrib/jj-undirty.el"))`
+
 <!-- LICENSE -->
 ## License
 
