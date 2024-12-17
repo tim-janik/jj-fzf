@@ -77,6 +77,15 @@ To end up with a linear history, the demo then shows how to merge a single branc
 ![Mega-Merge Workflow](https://github.com/user-attachments/assets/f944afa2-b6ea-438d-802b-8af83650a65f)
 **Mega-Merge:** [Asciicast](https://asciinema.org/a/685256) [MP4](https://github.com/user-attachments/assets/eb1a29e6-b1a9-47e0-871e-b2db5892dbf1)
 
+<!-- CONTRIB -->
+## Contrib Directory
+
+The `contrib/` directory contains additional tools or scripts that complement the main jj-fzf functionality.
+These scripts are aimed at developers and provide useful utilities for working with jj.
+
+* **jj-am.sh:** A very simple script that allows to apply patches to a jj repository.
+  `Usage: ~/jj-fzf/contrib/jj-am.sh [format-patch-file...]`
+
 <!-- LICENSE -->
 ## License
 

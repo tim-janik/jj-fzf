@@ -2,13 +2,30 @@
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
-VERSION=0.0.1-alpha
+VERSION=0.2.0
+
+# == Help ==
+show_help()
+{
+  cat <<-__EOF__
+	Usage: $SCRIPTNAME [OPTIONS...] PATCHFILE...
+
+	Apply one or more patch files (from git-format-patch) to a jj repository.
+
+	Options:
+	  -h, --help     Display this help and exit
+	  --version      Display version information and exit
+	Arguments:
+	  PATCHFILE      Path to a patch file containing commit message and diff
+	__EOF__
+}
 
 # == Parse Options ==
 MBOXES=()
 while test $# -ne 0 ; do
   case "$1" in \
     --version)  echo "$SCRIPTNAME $VERSION"; exit ;;
+    -h|--help)	show_help; exit 0 ;;
     -*)		die "unknown option: $1" ;;
     *)		MBOXES+=("$1") ;;
   esac

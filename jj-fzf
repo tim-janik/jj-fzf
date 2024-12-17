@@ -83,12 +83,15 @@ sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && expor
 command -v column >/dev/null || column() { cat; }
 
 # == Early Options ==
-ONESHOT=false
+SHOWHELP= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false
 while test $# -ne 0 ; do
   case "$1" in \
-    --version)	echo "$SCRIPTNAME $VERSION"; exit ;;
-    --oneshot)	ONESHOT=true ;; # auto-exit after first command
-    *)         	break ;;
+    -h|--help)		SHOWHELP=t ;;
+    --key-bindings)	SHOWKEYBINDINGS=t ;;
+    --version)		echo "$SCRIPTNAME $VERSION"; exit ;;
+    --oneshot)		ONESHOT=true ;; # auto-exit after first command
+    --color=always)	COLORALWAYS=t ;;
+    *)         		break ;;
   esac
   shift
 done
@@ -1522,7 +1525,7 @@ HELP_OUTRO='
 
 # == --help ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
-if [[ " $* " =~ --help ]] ; then
+if test -n "$SHOWHELP" ; then
   # Key bdingins only shown in long form help
   HELPKEYS[Shift-↑]='preview-up'
   HELPKEYS[Ctrl-↑]='preview-up'
@@ -1537,9 +1540,9 @@ if [[ " $* " =~ --help ]] ; then
 fi
 DISPLAYKEYS="${!HELPKEYS[@]}"
 DISPLAYKEYS=$(sort <<<"${DISPLAYKEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
-if [[ " $* " =~ --help ]] ; then
+if test -n "$SHOWHELP" ; then
   tty -s <&1 && COLOR=true || { COLOR=false; JJFZFPAGER=cat; }
-  [[ " $* " =~ --color ]] && COLOR=true
+  test -z "$COLORALWAYS" || COLOR=true
   ( :
     echo -n "$HELP_INTRO"
     for k in $DISPLAYKEYS ; do
@@ -1587,7 +1590,7 @@ list_key_bindings()
   done
   echo -n "$OUTPUT"
 }
-if [[ " $* " =~ --key-bindings ]] ; then
+if test -n "$SHOWKEYBINDINGS" ; then
   list_key_bindings "$@"
   exit 0
 fi
