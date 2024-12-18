@@ -104,7 +104,7 @@ JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
-JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
+JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset FZF_DEFAULT_COMMAND && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
 INFO_BINDING=" fzf </dev/null >/dev/tty 2>&1 --prompt '        '  --disabled --layout=reverse --height 1 --margin 4 --padding 4 --border=block --no-info --no-scrollbar --no-clear --bind=enter:print-query "
 FUNCTIONS=()
 FZFSETTINGS=(
@@ -459,7 +459,7 @@ fzflog()
   else
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} \
        --config-toml "$(revsets_toml)" \
-       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG"
+       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG" 2>/dev/null
   fi
 )
 FUNCTIONS+=( 'fzflog' )
@@ -1642,7 +1642,7 @@ done
 
 # == FZF ==
 export FZF_DEFAULT_COMMAND="$SELF fzflog"
-fzflog |
+fzflog 2>&1 |
   fzf \
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
