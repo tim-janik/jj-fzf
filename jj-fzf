@@ -459,7 +459,7 @@ fzflog()
   else
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} \
        --config-toml "$(revsets_toml)" \
-       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG"
+       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG" 2>/dev/null
   fi
 )
 FUNCTIONS+=( 'fzflog' )
