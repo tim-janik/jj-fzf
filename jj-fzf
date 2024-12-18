@@ -1042,7 +1042,7 @@ split-files()
   R="$(xrev "${1:-@}")"
   cd "$JJROOT"		# operate on root relative file names
   # read files affected by $R
-  mapfile -t MAPFILE < <(git diff-tree --no-commit-id --name-only -r "$(rev_commitid "$R")")
+  mapfile -t MAPFILE < <(jj diff --name-only -r "$(rev_commitid "$R")")
   [[ ${#MAPFILE[@]} -gt 1 ]] ||
     return
   # show undo hint
