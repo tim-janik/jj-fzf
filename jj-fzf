@@ -1043,12 +1043,12 @@ split-files()
 KEYBINDINGS["Alt-F"]="split-files"
 
 # Fetch and push to remote Git repositories
-DOC['push-remote']='Use `jj git fetch --all-remotes` and `jj git push --tracked` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
+DOC['push-remote']='Use `jj git fetch` and `jj git push --tracked` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
 push-remote()
 (
   ( set -x
-    jj git fetch # --remote `jj config get git.fetch`
-    jj git push --tracked --dry-run # --remote `jj config get git.push`
+    jj git fetch
+    jj git push --tracked --dry-run
   ) || ERROR
   read -p 'Try to push to remote? ' YN
   [[ "${YN:0:1}" =~ [yY] ]] ||
