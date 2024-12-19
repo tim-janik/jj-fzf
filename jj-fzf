@@ -1043,12 +1043,12 @@ split-files()
 KEYBINDINGS["Alt-F"]="split-files"
 
 # Fetch and push to remote Git repositories
-DOC['push-remote']='Use `jj git fetch --all-remotes` and `jj git push --tracked` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
+DOC['push-remote']='Use `jj git fetch` and `jj git push --tracked` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
 push-remote()
 (
   ( set -x
-    jj git fetch # --remote `jj config get git.fetch`
-    jj git push --tracked --dry-run # --remote `jj config get git.push`
+    jj git fetch
+    jj git push --tracked --dry-run
   ) || ERROR
   read -p 'Try to push to remote? ' YN
   [[ "${YN:0:1}" =~ [yY] ]] ||
@@ -1082,8 +1082,8 @@ squash-into-parent()
     # Squashing without --keep-emptied would start a new branch at @- which is
     # undesired if @+ exists. But using --keep-emptied does not squash the
     # message. As a workaround, create a new @+, so we never squash directly
-    # from @. This new working copy will receive any children, merge parents
-    # and bookmarks from the original squashed working copy.
+    # from @. This new working copy will receive any children from the original
+    # squashed working copy.
     ( set -x
       jj new --insert-after @
       jj squash --from "$W" --into "$W-"
@@ -1355,7 +1355,7 @@ vivifydivergent()
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
 # Gitk View
-DOC['gitk']='Start `gitk` to browse the *Git* history of the repository.'
+DOC['gitk']='DEPRECATED: Start `gitk` to browse the *Git* history of the repository.'
 gitk()
 (
   R="$(xrev "${1:-@}")"
@@ -1484,10 +1484,10 @@ HELP_INTRO="# JJ-FZF ($VERSION)"'
     **◆**: Indicates an immutable commit, that has been pushed to a remote or occurs
        in the ancestry of a tag. In `jj`, the set of immutable commits can be
        configured via the `revset-aliases."immutable_heads()"` config
-  **Change ID**: The unique identifier for the changes associated with the revision
+  **Change ID**: The (mostly unique) identifier to track this change across commits
   **Username**:  The abbreviated username of the author
   **Date**:      The day when the commit was authored
-  **Commit ID**: The unique identifier for the commit in Git
+  **Commit ID**: The unique hash for this commit and its meta data
   **Refs**:      Any tags or bookmarks associated with the revisions
   **Message**:   A brief description of the changes made in the revisions
 
@@ -1499,7 +1499,7 @@ HELP_INTRO="# JJ-FZF ($VERSION)"'
   **First Line**: The `jj log -T builtin_log_oneline` output for the selected commit
   **Change ID**:  The `jj` revision identifier for this revisions
   **Commit ID**:  The unique identifier for the Git commit
-  **Refs**:       Tags and bookmarks (similar to Git branches) for this revisions
+  **Refs**:       Tags and bookmarks (similar to branch names) for this revisions
   **Immutable**:  A boolean indication for immutable revisions
   **Parents**:    A list of parent revisions (more than one for merge commits)
   **Author**:     The author of the revision, including name and email, timestamp
