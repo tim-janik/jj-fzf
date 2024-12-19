@@ -1484,10 +1484,10 @@ HELP_INTRO="# JJ-FZF ($VERSION)"'
     **◆**: Indicates an immutable commit, that has been pushed to a remote or occurs
        in the ancestry of a tag. In `jj`, the set of immutable commits can be
        configured via the `revset-aliases."immutable_heads()"` config
-  **Change ID**: The unique identifier for the changes associated with the revision
+  **Change ID**: The (mostly unique) identifier to track this change across commits
   **Username**:  The abbreviated username of the author
   **Date**:      The day when the commit was authored
-  **Commit ID**: The unique identifier for the commit in Git
+  **Commit ID**: The unique hash for this commit and its meta data
   **Refs**:      Any tags or bookmarks associated with the revisions
   **Message**:   A brief description of the changes made in the revisions
 
@@ -1499,7 +1499,7 @@ HELP_INTRO="# JJ-FZF ($VERSION)"'
   **First Line**: The `jj log -T builtin_log_oneline` output for the selected commit
   **Change ID**:  The `jj` revision identifier for this revisions
   **Commit ID**:  The unique identifier for the Git commit
-  **Refs**:       Tags and bookmarks (similar to Git branches) for this revisions
+  **Refs**:       Tags and bookmarks (similar to branch names) for this revisions
   **Immutable**:  A boolean indication for immutable revisions
   **Parents**:    A list of parent revisions (more than one for merge commits)
   **Author**:     The author of the revision, including name and email, timestamp
