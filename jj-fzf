@@ -1355,7 +1355,7 @@ vivifydivergent()
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
 
 # Gitk View
-DOC['gitk']='Start `gitk` to browse the *Git* history of the repository.'
+DOC['gitk']='DEPRECATED: Start `gitk` to browse the *Git* history of the repository.'
 gitk()
 (
   R="$(xrev "${1:-@}")"
