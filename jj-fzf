@@ -383,21 +383,34 @@ echo_commit_msg()
   # ensure signoff
   echo_signoff
 )
-# Run user editor: user_editor_on_var <FILE> <VARIABLE>
+# Run user editor: user_editor_on_var <FILE> <VARIABLE> [COMMIT]
 user_editor_on_var()
 {
-  local FILE="$1" N=
+  local FILE="$1" COMMIT="${3:-}" N=
   declare -n _ueovMSG="$2"			# <VARIABLE> alias
   # create msg file
   temp_dir
   local TEMPFILE="$TEMPD/$FILE"
   cat >"$TEMPFILE" <<<"$_ueovMSG"
+  test -z "$COMMIT" || {
+    jj diff --ignore-working-copy --no-pager --color=never -r "$COMMIT" |
+      head -n 4000 > "$TEMPFILE.diff"
+    test -s "$TEMPFILE.diff" && {
+      echo
+      echo '# -------- >8 -------- >8 -------- 8< -------- 8< --------'
+      echo '# Everything below the snippet mark will be ignored'
+      echo '#'
+      echo '# Content diff of this revision:'
+      cat "$TEMPFILE.diff"
+    }
+    rm -f "$TEMPFILE.diff"
+  } >> "$TEMPFILE"
   # edit commit msg
   JJ_EDITOR="$(jj config get ui.editor 2>/dev/null || echo "${EDITOR:-pico}")"
   $JJ_EDITOR "$TEMPFILE" &&
     N="$(cat "$TEMPFILE")" && {
       test "$_ueovMSG" != "$N" &&
-	_ueovMSG="$(cat "$TEMPFILE")"
+	_ueovMSG="$(gsed -r '/^# -+ >8 -+ >8 -+ 8< -+ 8< -+/Q' < "$TEMPFILE")"
       rm -f "$TEMPFILE"
       return 0
     }
@@ -547,15 +560,15 @@ commit()
   MSG="$(echo_commit_msg "$R")"
   O="$MSG"
   if test "$R" == "$W" -a "$IMMU" != true ; then
-    user_editor_on_var "COMMIT-$R.txt" MSG &&
+    user_editor_on_var "COMMIT-$R.txt" MSG "$R" &&
       test "$O" != "$MSG" ||
 	ERROR "Commit cancelled by user"
       ( set -x
 	jj commit -m "$MSG"
       ) || sleep 1
-  else # R is @ and mutable
+  else # R is not @, may be immutable
     [[ $IMMU =~ ^true ]] || {
-      user_editor_on_var "COMMIT-$R.txt" MSG &&
+      user_editor_on_var "COMMIT-$R.txt" MSG "$R" &&
 	test "$O" != "$MSG" ||
 	  ERROR "Commit cancelled by user"
       test "$O" != "$MSG" &&
@@ -638,7 +651,7 @@ describe()
   R="$(xrev_or_commit "${1:-@}")"
   MSG="$(echo_commit_msg "$R")"
   O="$MSG"
-  user_editor_on_var "CHANGE-$R.txt" MSG ||
+  user_editor_on_var "CHANGE-$R.txt" MSG "$R" ||
     ERROR "Describe cancelled by user"
   test "$O" != "$MSG" ||
     return
