@@ -698,8 +698,7 @@ DOC['split-interactive']='Use `jj split` to interactively select content diff hu
 split-interactive()
 (
   R="$(xrev "${1:-@}")"
-  # Override ui.editor to implement --split-with-no-description: truncate the first
-  # (original) description, then keep the other description for subsequent edits
+  # To avoid message editing, truncate all but the first (original) description
   temp_dir
   cat > $TEMPD/noeditor <<-\__EOF__
 	#!/usr/bin/env bash
@@ -709,8 +708,9 @@ split-interactive()
 	gsed 's/TRUNCATE=./TRUNCATE=y/' -i "$0"
 	__EOF__
   chmod +x $TEMPD/noeditor
+  export JJ_EDITOR="$TEMPD/noeditor" # Override ui.editor to implement --split-with-no-description
   ( set -x
-    jj split --interactive -r "$R" --config-toml "ui.editor='$TEMPD/noeditor'"
+    jj split --interactive -r "$R"
   ) || ERROR
 )
 KEYBINDINGS["Alt-I"]="split-interactive"
@@ -1048,9 +1048,9 @@ split-files()
   # create n-1 new commits from n files
   while [[ ${#MAPFILE[@]} -gt 1 ]] ; do
     unset 'MAPFILE[-1]' # unset 'MAPFILE[${#MAPFILE[@]}-1]'
-    # Override ui.editor to implement --split-with-no-description
+    export JJ_EDITOR='true' # Override ui.editor to implement --split-with-no-description
     ( set -x
-      jj split --config-toml 'ui.editor="true"' -r "$R" -- "${MAPFILE[@]}"
+      jj split -r "$R" -- "${MAPFILE[@]}"
     ) || ERROR
   done
 )
@@ -1360,10 +1360,10 @@ vivifydivergent()
   test "$COMMIT" == "$WCOPY" && NOEDIT= || NOEDIT=--no-edit
   echo "# $SELF vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
-  # Override ui.editor to implement --squash-with-no-description
+  export JJ_EDITOR='true' # Override ui.editor to implement --squash-with-no-description
   ( set -x
     jj new --insert-after "$COMMIT" $NOEDIT
-    jj squash --from "$COMMIT" --into "$COMMIT+" --config-toml 'ui.editor="true"'
+    jj squash --from "$COMMIT" --into "$COMMIT+"
   ) || ERROR
 )
 KEYBINDINGS["Alt-V"]="vivifydivergent"	NEXTS="$NEXTS vivifydivergent"
