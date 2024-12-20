@@ -371,6 +371,7 @@ echo_commit_msg()
 	gsed '/^\([A-Z][a-z0-9-]*-by\|Cc\):/d' | # strip Signed-off-by:
 	gsed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /'
     done
+    echo_signoff
   else # Commit message based on files
     # start with file name prefixes
     cd "$JJROOT" # create root relative file names
@@ -380,9 +381,9 @@ echo_commit_msg()
       printf "%s: \n" "${FILES[@]}" ||
 	echo ""
     jj config --no-pager get 'ui.default-description' 2>/dev/null || :
+    test ${#FILES[@]} -le 0 ||
+      echo_signoff
   fi
-  # ensure signoff
-  echo_signoff
 )
 # Run user editor: user_editor_on_var <FILE> <VARIABLE> [COMMIT]
 user_editor_on_var()
