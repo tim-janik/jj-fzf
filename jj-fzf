@@ -379,6 +379,7 @@ echo_commit_msg()
     test ${#FILES[@]} -gt 0 &&
       printf "%s: \n" "${FILES[@]}" ||
 	echo ""
+    jj config --no-pager get 'ui.default-description' 2>/dev/null || :
   fi
   # ensure signoff
   echo_signoff
