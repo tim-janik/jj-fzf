@@ -406,7 +406,8 @@ user_editor_on_var()
     rm -f "$TEMPFILE.diff"
   } >> "$TEMPFILE"
   # edit commit msg
-  JJ_EDITOR="$(jj config get ui.editor 2>/dev/null || echo "${EDITOR:-pico}")"
+  test -n "${JJ_EDITOR:-}" || # https://jj-vcs.github.io/jj/latest/config/#editor
+    JJ_EDITOR="$(jj config get ui.editor 2>/dev/null || echo "${VISUAL:-${EDITOR:-pico}}")"
   $JJ_EDITOR "$TEMPFILE" &&
     N="$(cat "$TEMPFILE")" && {
       test "$_ueovMSG" != "$N" &&
