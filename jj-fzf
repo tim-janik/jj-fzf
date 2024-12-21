@@ -567,7 +567,7 @@ commit()
       test "$O" != "$MSG" ||
 	ERROR "Commit cancelled by user"
       ( set -x
-	jj commit -m "$MSG"
+	jj commit --message="$MSG"
       ) || sleep 1
   else # R is not @, may be immutable
     [[ $IMMU =~ ^true ]] || {
@@ -576,7 +576,7 @@ commit()
 	  ERROR "Commit cancelled by user"
       test "$O" != "$MSG" &&
 	( set -x
-	  jj describe --no-edit -r "$R" -m "$MSG"
+	  jj describe --no-edit -r "$R" --message="$MSG"
 	) || sleep 1
     }
     # open new empty working copy commit
