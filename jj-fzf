@@ -1083,6 +1083,17 @@ evolog_oneline()
 )
 FUNCTIONS+=( 'evolog_oneline' )
 
+# Show `jj evolog`
+evolog_pager()
+(
+  [[ " $* " =~ $HEX7PAT ]] && {
+    # builtin_log_detailed
+    jj --no-pager --ignore-working-copy evolog --color=always -p -r "${BASH_REMATCH[1]}" -T "$JJ_FZF_SHOWDETAILS" 2>&1 |
+      $JJFZFPAGER
+  }
+)
+FUNCTIONS+=( 'evolog_pager' )
+
 # Evolog
 DOC['evolog']='Use `jj evolog` to browse the evolution of the selected revision.'
 evolog()
@@ -1090,6 +1101,7 @@ evolog()
   R="$(xrev_or_commit "${1:-@}")"
   temp_dir
   H=$'\n'
+  H="$H"$'Enter: Browse evolog with diff\n'
   H="$H"$'\n'
   export FZF_DEFAULT_COMMAND="$SELF evolog_oneline $R"
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
@@ -1097,6 +1109,7 @@ evolog()
     --border-label "-[ EVOLOG $R ]-" --color=border:yellow,label:bright-yellow \
     --prompt "Evolog > " \
     --header "$H" --header-first \
+    --bind "enter:execute( $SELF evolog_pager {} )" \
     --preview-window 'nowrap,right,border-left' \
     --preview "$SELF preview_evolog {}" \
     --no-tac --no-sort +m
