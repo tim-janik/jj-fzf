@@ -244,6 +244,12 @@ rev_edpstate()
   $JJFZFSHOW -r "$1" -T "$EDPSTATE" # empty-description-p2 diff-silent-p1 etc
 )
 
+# List parents of a revision
+rev_parents()
+(
+  jj --no-pager --ignore-working-copy log --no-graph -r "all: $1-" -T 'change_id++"\n"'
+)
+
 # List children of a revision
 rev_children()
 (
@@ -314,6 +320,24 @@ require_git_dir()
 	export GIT_DIR="$JJROOT/.jj/repo/store/git" ||
 	  die "$PWD: failed to find .git store"
     }
+}
+
+# Write revision from `jj new -m $3 --no-edit -B $2` to $1
+jj_new_before_no_edit()
+{
+  local -n result_=$1 # nameref
+  local R="$(xrev "${2:-}")" # must use revision to find new parents
+  local M="${3:-}"
+  # record base commit parents before/after
+  local A=( $(rev_parents "$R") )
+  ( set -x
+    jj new --no-edit --message="$M" --insert-before "$R" # --no-pager
+  ) || die
+  local B=( $(rev_parents "$R") )
+  local C=() && diff_arrays A B C
+  [ ${#C[@]} -eq 1 ] ||
+    die "failed to find newly created revision"
+  result_="${C[0]}"
 }
 
 # Exit the current shell with an error message and delay
