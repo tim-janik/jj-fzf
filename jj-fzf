@@ -1083,6 +1083,21 @@ evolog_oneline()
 )
 FUNCTIONS+=( 'evolog_oneline' )
 
+# Inject historic commit of a revision
+evolog-inject()
+(
+  R="$(xrev "${1:-}")"
+  [[ " $2 " =~ $HEX7PAT ]] || die "missing commit"
+  C="$(xrev_as_commit "${BASH_REMATCH[1]}")"
+  MSG="$(rev_description "$C")"
+  NEWREV=
+  jj_new_before_no_edit NEWREV "$R" "$MSG"
+  ( set -x
+    jj restore --from "$C" --to "$NEWREV" --restore-descendants
+  ) || ERROR
+)
+FUNCTIONS+=( 'evolog-inject' )
+
 # Show `jj evolog`
 evolog_pager()
 (
@@ -1095,7 +1110,7 @@ evolog_pager()
 FUNCTIONS+=( 'evolog_pager' )
 
 # Evolog
-DOC['evolog']='Use `jj evolog` to browse the evolution of the selected revision.'
+DOC['evolog']='Use `jj evolog` to browse the evolution of the selected revision. Inject historic commits into the ancestry without changing descendants.'
 evolog()
 {
   R="$(xrev_or_commit "${1:-@}")"
@@ -1103,6 +1118,7 @@ evolog()
   H=$'\n'
   H="$H"$'Enter: Browse evolog with diff\n'
   H="$H"$'\n'
+  H="$H"$'Alt-J: Inject evolog entry as historic commit before the revision without changing it.\n'
   export FZF_DEFAULT_COMMAND="$SELF evolog_oneline $R"
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
@@ -1110,6 +1126,7 @@ evolog()
     --prompt "Evolog > " \
     --header "$H" --header-first \
     --bind "enter:execute( $SELF evolog_pager {} )" \
+    --bind "alt-j:execute( $SELF evolog-inject $R {} )+abort" \
     --preview-window 'nowrap,right,border-left' \
     --preview "$SELF preview_evolog {}" \
     --no-tac --no-sort +m
