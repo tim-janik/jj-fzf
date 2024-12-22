@@ -43,8 +43,9 @@ then
     then
       jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$REVISION"
     else							# show commit and diff
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-      exec jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
+      { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
+	jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
+      } | head -n 4000
     fi
   else								# no valid revision
     true
@@ -67,7 +68,7 @@ case "${1:-}" in
   preview_oppatch)
     [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --color=always op show -p "${BASH_REMATCH[1]}"
-      } ; exit ;;
+      } | head -n 4000 ; exit ;;
   preview_opdiff)
     [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --color=always op diff -f "${BASH_REMATCH[1]}" -t @
@@ -1042,7 +1043,7 @@ split-files()
   R="$(xrev "${1:-@}")"
   cd "$JJROOT"		# operate on root relative file names
   # read files affected by $R
-  mapfile -t MAPFILE < <(git diff-tree --no-commit-id --name-only -r "$(rev_commitid "$R")")
+  mapfile -t MAPFILE < <(jj diff --name-only -r "$(rev_commitid "$R")")
   [[ ${#MAPFILE[@]} -gt 1 ]] ||
     return
   # show undo hint
