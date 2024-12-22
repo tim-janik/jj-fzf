@@ -988,7 +988,7 @@ label(if(current_operation, "current_operation"),
 )'
 OP_LOG_FIRSTLINE='self.id() ++ ": " ++ self.description().first_line() ++ "\n"'
 
-# Show `jj op log` but mark undone operations with '-'
+# Show `jj op log` but mark undone operations with '⋯'
 op_log_oneline()
 (
   temp_dir
