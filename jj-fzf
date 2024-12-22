@@ -14,6 +14,9 @@ concat(
   "Commit ID: " ++ commit_id ++ "\n",
   "Flags:     ", separate(" ",
     if(immutable, label("node immutable", "immutable")),
+    if(hidden, label("hidden", "hidden")),
+    if(divergent, label("divergent", "divergent")),
+    if(conflict, label("conflict", "conflict")),
     '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', 'private')), }"'
   ) ++ "\n",
   surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
