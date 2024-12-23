@@ -14,6 +14,9 @@ concat(
   "Commit ID: " ++ commit_id ++ "\n",
   "Flags:     ", separate(" ",
     if(immutable, label("node immutable", "immutable")),
+    if(hidden, label("hidden", "hidden")),
+    if(divergent, label("divergent", "divergent")),
+    if(conflict, label("conflict", "conflict")),
     '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', 'private')), }"'
   ) ++ "\n",
   surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
@@ -39,20 +42,16 @@ then
       echo
       echo
     fi
-    if test -e "${JJFZF_OUTER_TEMPD:-/..InVaLiD}/evolog" 	# display evolog if toggled
-    then
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} evolog --color=always -r "$REVISION"
-    else							# show commit and diff
-      { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-	jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
-      } | head -n 4000
-    fi
+    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
+      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
+    } | head -n 4000
   else								# no valid revision
     true
   fi
   exit 0
 fi
 export OPRPAT='^[^a-z0-9]*([0-9a-f]{9,})[?]*\ '	# line start, ignore --graph, parse hex letters, space separator
+export HEX7PAT='\ ([0-9a-f]{7,})\ ' # space enclosed hexadecimal pattern
 case "${1:-}" in
   preview_oplog)
     [[ " ${2:-} " =~ $OPRPAT ]] && {
@@ -73,6 +72,11 @@ case "${1:-}" in
     [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --color=always op diff -f "${BASH_REMATCH[1]}" -t @
       } ; exit ;;
+  preview_evolog)
+    [[ " ${2:-} " =~ $HEX7PAT ]] && {
+      jj --no-pager --ignore-working-copy evolog --color=always -n1 -p -T "$JJ_FZF_SHOWDETAILS" -r "${BASH_REMATCH[1]}" |
+	head -n 4000
+    } ; exit ;;
 esac
 
 # == Check Deps ==
@@ -150,6 +154,31 @@ if(root,
         if(conflict, label("conflict", "conflict")),
         if(empty, label("empty", "(empty)")),
         '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', '🌟')), }"'
+        if(description,
+          description.first_line(),
+          label(if(empty, "empty"), description_placeholder),
+        ),
+      ) ++ "\n",
+    ),
+  )
+)'
+# builtin_log_oneline with commit_id *before* other tags/bookmarks/etc and force committer().timestamp
+EVOLOG_ONELINE='
+if(root,
+  format_root_commit(self),
+  label(if(current_working_copy, "working_copy"),
+    concat(
+      separate(" ",
+        format_short_change_id_with_hidden_and_divergent_info(self),
+        if(author.email(), author.email().local(), email_placeholder),
+        format_timestamp(self.committer().timestamp()),
+        format_short_commit_id(commit_id),
+        bookmarks,
+        tags,
+        working_copies,
+        if(git_head, label("git_head", "git_head()")),
+        if(conflict, label("conflict", "conflict")),
+        if(empty, label("empty", "(empty)")),
         if(description,
           description.first_line(),
           label(if(empty, "empty"), description_placeholder),
@@ -241,6 +270,12 @@ rev_edpstate()
   $JJFZFSHOW -r "$1" -T "$EDPSTATE" # empty-description-p2 diff-silent-p1 etc
 )
 
+# List parents of a revision
+rev_parents()
+(
+  jj --no-pager --ignore-working-copy log --no-graph -r "all: $1-" -T 'change_id++"\n"'
+)
+
 # List children of a revision
 rev_children()
 (
@@ -311,6 +346,24 @@ require_git_dir()
 	export GIT_DIR="$JJROOT/.jj/repo/store/git" ||
 	  die "$PWD: failed to find .git store"
     }
+}
+
+# Write revision from `jj new -m $3 --no-edit -B $2` to $1
+jj_new_before_no_edit()
+{
+  local -n result_=$1 # nameref
+  local R="$(xrev "${2:-}")" # must use revision to find new parents
+  local M="${3:-}"
+  # record base commit parents before/after
+  local A=( $(rev_parents "$R") )
+  ( set -x
+    jj new --no-edit --message="$M" --insert-before "$R" # --no-pager
+  ) || die
+  local B=( $(rev_parents "$R") )
+  local C=() && diff_arrays A B C
+  [ ${#C[@]} -eq 1 ] ||
+    die "failed to find newly created revision"
+  result_="${C[0]}"
 }
 
 # Exit the current shell with an error message and delay
@@ -499,20 +552,6 @@ revset-filter()
   ) || ERROR
 )
 KEYBINDINGS["Ctrl-R"]="revset-filter"	# overridden below
-
-# Toggle preview of evolution-log
-DOC['toggle-evolog']='Toggle the preview between `jj evolution-log` and *change_id* diff view.'
-toggle-evolog()
-{
-  if test -n "${JJFZF_OUTER_TEMPD:-}" ; then
-    if test -e "${JJFZF_OUTER_TEMPD:-}/evolog" ; then
-      rm -f "${JJFZF_OUTER_TEMPD:-}/evolog"
-    else
-      touch "${JJFZF_OUTER_TEMPD:-}/evolog"
-    fi
-  fi
-}
-KEYBINDINGS["Ctrl-T"]="toggle-evolog"
 
 # Abandon Revision
 DOC['abandon']='Use `jj abandon` to remove the currently selected revision (or divergent commit) from the history.'
@@ -1035,6 +1074,64 @@ op-restore()
   ) || ERROR
 )
 FUNCTIONS+=( 'op-restore' )
+
+# Show `jj evolog`
+evolog_oneline()
+(
+  R="$1"
+  jj evolog --no-pager --ignore-working-copy --color=always -T "$EVOLOG_ONELINE" -r "$R"
+)
+FUNCTIONS+=( 'evolog_oneline' )
+
+# Inject historic commit of a revision
+evolog-inject()
+(
+  R="$(xrev "${1:-}")"
+  [[ " $2 " =~ $HEX7PAT ]] || die "missing commit"
+  C="$(xrev_as_commit "${BASH_REMATCH[1]}")"
+  MSG="$(rev_description "$C")"
+  NEWREV=
+  jj_new_before_no_edit NEWREV "$R" "$MSG"
+  ( set -x
+    jj restore --from "$C" --to "$NEWREV" --restore-descendants
+  ) || ERROR
+)
+FUNCTIONS+=( 'evolog-inject' )
+
+# Show `jj evolog`
+evolog_pager()
+(
+  [[ " $* " =~ $HEX7PAT ]] && {
+    # builtin_log_detailed
+    jj --no-pager --ignore-working-copy evolog --color=always -p -r "${BASH_REMATCH[1]}" -T "$JJ_FZF_SHOWDETAILS" 2>&1 |
+      $JJFZFPAGER
+  }
+)
+FUNCTIONS+=( 'evolog_pager' )
+
+# Evolog
+DOC['evolog']='Use `jj evolog` to browse the evolution of the selected revision. Inject historic commits into the ancestry without changing descendants.'
+evolog()
+{
+  R="$(xrev_or_commit "${1:-@}")"
+  temp_dir
+  H=$'\n'
+  H="$H"$'Enter: Browse evolog with diff\n'
+  H="$H"$'\n'
+  H="$H"$'Alt-J: Inject evolog entry as historic commit before the revision without changing it.\n'
+  export FZF_DEFAULT_COMMAND="$SELF evolog_oneline $R"
+  RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
+  "${FZFPOPUP[@]}" \
+    --border-label "-[ EVOLOG $R ]-" --color=border:yellow,label:bright-yellow \
+    --prompt "Evolog > " \
+    --header "$H" --header-first \
+    --bind "enter:execute( $SELF evolog_pager {} )" \
+    --bind "alt-j:execute( $SELF evolog-inject $R {} )+abort" \
+    --preview-window 'nowrap,right,border-left' \
+    --preview "$SELF preview_evolog {}" \
+    --no-tac --no-sort +m
+}
+KEYBINDINGS["Ctrl-T"]="evolog"
 
 # Split files
 DOC['split-files']='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
