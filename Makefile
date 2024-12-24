@@ -1,11 +1,11 @@
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 
-SHELL	::= /bin/bash -o pipefail
+SHELL	:= /bin/bash -o pipefail
 prefix	 ?= /usr/local
 bindir	 ?= ${prefix}/bin
-INSTALL	::= install -c
-RM	::= rm -f
-Q	::= $(if $(findstring 1, $(V)),, @)
+INSTALL	:= install -c
+RM	:= rm -f
+Q	:= $(if $(findstring 1, $(V)),, @)
 
 all: check
 
@@ -13,7 +13,7 @@ check-deps: jj-fzf
 	$Q ./jj-fzf --version
 	$Q ./jj-fzf --help >/dev/null # check-deps
 install: check-deps
-	$(INSTALL) -t "$(bindir)" jj-fzf
+	$(INSTALL) jj-fzf "$(bindir)"
 uninstall:
 	$(RM) "$(bindir)/jj-fzf"
 
