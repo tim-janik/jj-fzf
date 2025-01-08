@@ -1394,7 +1394,7 @@ restore-file()
   cd "$JJROOT"		# operate on root relative file names
   MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
 		"${FZFPOPUP[@]}" \
-		  --border-label '-[ REBASE ]-' --color=border:blue,label:blue \
+		  --border-label '-[ RESTORE-FILE ]-' --color=border:blue,label:blue \
 		  --preview 'read M F <<<{} && test -n \"$F\" || exit; jj --no-pager --ignore-working-copy log --color=always -s --patch -T builtin_log_oneline -r "'"$R"'" -- "$F"' \
 		  --header "Restore File into @" \
 		  )
