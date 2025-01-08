@@ -834,8 +834,10 @@ merging()
   cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   temp_dir
   # Find tracked upstream revision
-  [[ $(jj --no-pager --ignore-working-copy log --no-graph -r 'trunk()' -T 'bookmarks') =~ ^([^@\ :]+).* ]] &&
-    UPSTREAM="${BASH_REMATCH[1]}" || UPSTREAM=
+  for ups in $(jj --no-pager --ignore-working-copy log --no-graph -r 'trunk()' -T 'bookmarks') ; do
+    [[ $ups =~ ^(master|main|trunk)(@.*)$ ]] && { UPSTREAM="${BASH_REMATCH[1]}" && break ; }
+    [[ $ups =~ ^([^@\ :]+).* ]] && UPSTREAM="${BASH_REMATCH[1]}"
+  done && echo $UPSTREAM
   WCA="$(jj log --ignore-working-copy --no-pager --no-graph -r "::@- & $P" -T change_id)" # is $P working copy ancestor?
   test -z "$WCA" && WCA=0 || WCA=1
   echo $WCA > $TEMPD/wcrebase.toggle
