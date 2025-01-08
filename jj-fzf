@@ -434,7 +434,7 @@ echo_commit_msg()
     test ${#FILES[@]} -gt 0 &&
       printf "%s: \n" "${FILES[@]}" ||
 	echo ""
-    jj config --no-pager get 'ui.default-description' 2>/dev/null || :
+    { jj config --no-pager get 'ui.default-description' 2>/dev/null || : ; } | sed '1{/^$/d}'
     test ${#FILES[@]} -le 0 ||
       echo_signoff
   fi
@@ -988,7 +988,7 @@ label(if(current_operation, "current_operation"),
 )'
 OP_LOG_FIRSTLINE='self.id() ++ ": " ++ self.description().first_line() ++ "\n"'
 
-# Show `jj op log` but mark undone operations with '-'
+# Show `jj op log` but mark undone operations with '⋯'
 op_log_oneline()
 (
   temp_dir
@@ -1394,7 +1394,7 @@ restore-file()
   cd "$JJROOT"		# operate on root relative file names
   MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
 		"${FZFPOPUP[@]}" \
-		  --border-label '-[ REBASE ]-' --color=border:blue,label:blue \
+		  --border-label '-[ RESTORE-FILE ]-' --color=border:blue,label:blue \
 		  --preview 'read M F <<<{} && test -n \"$F\" || exit; jj --no-pager --ignore-working-copy log --color=always -s --patch -T builtin_log_oneline -r "'"$R"'" -- "$F"' \
 		  --header "Restore File into @" \
 		  )
