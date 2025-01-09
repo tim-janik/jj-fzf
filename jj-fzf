@@ -434,7 +434,7 @@ echo_commit_msg()
     test ${#FILES[@]} -gt 0 &&
       printf "%s: \n" "${FILES[@]}" ||
 	echo ""
-    { jj config --no-pager get 'ui.default-description' 2>/dev/null || : ; } | sed '1{/^$/d}'
+    { jj config --no-pager get 'ui.default-description' 2>/dev/null || : ; } | gsed '1{/^$/d}'
     test ${#FILES[@]} -le 0 ||
       echo_signoff
   fi
