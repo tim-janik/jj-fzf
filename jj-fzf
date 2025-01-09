@@ -434,7 +434,7 @@ echo_commit_msg()
     test ${#FILES[@]} -gt 0 &&
       printf "%s: \n" "${FILES[@]}" ||
 	echo ""
-    { jj config --no-pager get 'ui.default-description' 2>/dev/null || : ; } | sed '1{/^$/d}'
+    { jj config --no-pager get 'ui.default-description' 2>/dev/null || : ; } | gsed '1{/^$/d}'
     test ${#FILES[@]} -le 0 ||
       echo_signoff
   fi
@@ -834,8 +834,10 @@ merging()
   cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   temp_dir
   # Find tracked upstream revision
-  [[ $(jj --no-pager --ignore-working-copy log --no-graph -r 'trunk()' -T 'bookmarks') =~ ^([^@\ :]+).* ]] &&
-    UPSTREAM="${BASH_REMATCH[1]}" || UPSTREAM=
+  for ups in $(jj --no-pager --ignore-working-copy log --no-graph -r 'trunk()' -T 'bookmarks') ; do
+    [[ $ups =~ ^(master|main|trunk)(@.*)$ ]] && { UPSTREAM="${BASH_REMATCH[1]}" && break ; }
+    [[ $ups =~ ^([^@\ :]+).* ]] && UPSTREAM="${BASH_REMATCH[1]}"
+  done && echo $UPSTREAM
   WCA="$(jj log --ignore-working-copy --no-pager --no-graph -r "::@- & $P" -T change_id)" # is $P working copy ancestor?
   test -z "$WCA" && WCA=0 || WCA=1
   echo $WCA > $TEMPD/wcrebase.toggle
@@ -1015,9 +1017,9 @@ op-log()
   H="$H"$'Ctrl-P: Preview changes in an operation with patch via `jj op show -p <op>`\n'
   H="$H"$'Ctrl-S: Preview "@" at a specific operation via `jj show @`\n'
   H="$H"$'\n'
+  H="$H"$'Alt-J: Inject working copy of the selected operation as historic commit before @\n'
   H="$H"$'Alt-K: Kill undo memory (marked `⋯`), to restart undo at the top\n'
   H="$H"$'Alt-R: Restore repository to the selected operation via `jj op restore`\n'
-  H="$H"$'Alt-W: Restore working copy of the selected operation into a new commit before @\n'
   H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
@@ -1031,6 +1033,7 @@ op-log()
     --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oppatch/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-s:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-j:execute( $SELF restore-commit {} )+abort" \
     --bind "alt-k:execute( $SELF undo-reset {} )+$RELOAD" \
     --bind "alt-r:execute( $SELF op-restore {} )+abort" \
     --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
@@ -1040,6 +1043,7 @@ op-log()
     --preview-window 'nowrap,right,border-left' \
     --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {}" \
     --no-tac --no-sort +m
+  # TODO: remove alt-w in jj-fzf-0.26
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
 
