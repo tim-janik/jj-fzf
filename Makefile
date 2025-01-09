@@ -26,7 +26,7 @@ shellcheck-error:
 tests-basics.sh:
 	$Q tests/basics.sh
 check-gsed: jj-fzf
-	$Q ! grep --color=auto -E '[^\\]\bsed ' jj-fzf \
+	$Q ! grep --color=auto -nE '[^\\]\bsed ' jj-fzf /dev/null \
 	|| { echo "ERROR: use gsed" >&2 ; false; }
 	$Q echo '  OK      gsed uses'
 check: check-deps shellcheck-error check-gsed tests-basics.sh
