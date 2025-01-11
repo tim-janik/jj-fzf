@@ -86,7 +86,7 @@ version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1
 versionge() { test "$(version0d "$2")a" '<' "$(version0d "$1")b"; }
 versionge "$(bash --version)" 5.1.16 || die "failed to find 'bash' version 5.1.16 in \$PATH"
 [[ `set -o` =~ emacs ]] || die "the 'bash' executable lacks interactive readline support"
-versionge "$(jj --version --ignore-working-copy)" 0.24 || die "failed to find 'jj' version 0.24.0 in \$PATH"
+versionge "$(jj --version --ignore-working-copy)" 0.25 || die "failed to find 'jj' version 0.25.0 in \$PATH"
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
@@ -144,7 +144,7 @@ if(root,
     concat(
       separate(" ",
         format_short_change_id_with_hidden_and_divergent_info(self),
-        if(author.email(), author.username(), email_placeholder),
+        if(author.email(), author.email().local(), email_placeholder),
         author.timestamp().local().format("%Y-%m-%d"),
         format_short_commit_id(commit_id),
         bookmarks,
@@ -1185,10 +1185,8 @@ absorb()
     jj absorb --from "$R"
   ) || ERROR
 )
-jj --ignore-working-copy absorb --help >/dev/null 2>&1 && { # TODO: adjust for jj-0.24
-  DOC['absorb']='Use `jj absorb` to split the content diff of the current revision and squash pieces into related mutable ancestors.'
-  KEYBINDINGS["Alt-O"]="absorb"
-}
+DOC['absorb']='Use `jj absorb` to split the content diff of the current revision and squash pieces into related mutable ancestors.'
+KEYBINDINGS["Alt-O"]="absorb"
 
 # Squash Into Parent
 DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision (or divergent commit) into its parent.'
