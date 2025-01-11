@@ -86,7 +86,7 @@ version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1
 versionge() { test "$(version0d "$2")a" '<' "$(version0d "$1")b"; }
 versionge "$(bash --version)" 5.1.16 || die "failed to find 'bash' version 5.1.16 in \$PATH"
 [[ `set -o` =~ emacs ]] || die "the 'bash' executable lacks interactive readline support"
-versionge "$(jj --version --ignore-working-copy)" 0.24 || die "failed to find 'jj' version 0.24.0 in \$PATH"
+versionge "$(jj --version --ignore-working-copy)" 0.25 || die "failed to find 'jj' version 0.25.0 in \$PATH"
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
