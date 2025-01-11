@@ -515,10 +515,9 @@ NEXTS=""
 # fzflog revset aliases
 revsets_toml()
 (
-  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 2)"
-  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., $FZFLOG_DEPTH) | present(bookmarks()) | present(tags()) ''' "
-  REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
-  echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
+  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 0)"
+  echo "revset-aliases.fzflog = ''' jjlog | ancestors(bookmarks() | remote_bookmarks(), $FZFLOG_DEPTH) ''' "
+  echo "revset-aliases.jjlog = ''' $(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..) '''"
   echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(8)'"
   echo "template-aliases.'format_short_commit_id(id)' = 'id.shortest(8)'"
 )
