@@ -46,9 +46,9 @@ then
       echo
       echo
     fi
-    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
-    } | head -n 4000
+    { jj --no-pager --ignore-working-copy log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
+      jj --no-pager --ignore-working-copy show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
+    } 2>&1 | head -n 4000
   else								# no valid revision
     true
   fi
@@ -114,7 +114,7 @@ done
 export FZF_DEFAULT_OPTS=	# prevent user defaults from messing up the layout
 declare -A DOC
 # JJ repository
-JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
+JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
 JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset FZF_DEFAULT_COMMAND && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
@@ -534,7 +534,7 @@ fzflog()
   if $REVSETNAME ; then
     echo "$REVSETS_LOG"
   else
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} \
+    jj --no-pager --ignore-working-copy \
        --config-toml "$(revsets_toml)" \
        log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG" 2>/dev/null
   fi
@@ -1021,7 +1021,7 @@ op-log()
   H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
-  export FZF_DEFAULT_COMMAND="$SELF op_log_oneline"
+  export FZF_DEFAULT_COMMAND="$SELF op_log_oneline" TEMPD SELF
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
     --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
@@ -1037,9 +1037,9 @@ op-log()
     --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
     --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
     --bind "alt-z:execute( $SELF undo )+$RELOAD" \
-    --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
+    --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $SELF logrev "$COMMIT" )' \
     --preview-window 'nowrap,right,border-left' \
-    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {}" \
+    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && $SELF $VIEW {}' \
     --no-tac --no-sort +m
   # TODO: remove alt-w in jj-fzf-0.26
 )
@@ -1437,8 +1437,8 @@ logrev()
 (
   R="$(xrev_or_commit "${1:-@}")"
   (
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
+    jj --no-pager --ignore-working-copy log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
+    jj --no-pager --ignore-working-copy show --color=always -T ' "\n" ' -r "$R"
   ) | $JJFZFPAGER
 )
 FUNCTIONS+=( 'logrev' )
