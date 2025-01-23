@@ -1,4 +1,59 @@
-## JJ-FZF 0.24.0
+## JJ-FZF 0.25.0 - 2025-01-23
+
+### Added:
+* Fzflog: use jjlog unless jj-fzf.fzflog-depth adds bookmark ancestry
+* Use author.email().local(), required by jj-0.25
+* Absorb: unconditionally support absorb
+* Evolog: add Alt-J to inject a historic commit
+* Evolog: add Enter to browse detailed evolution with patches
+* Add Ctrl-T evolog dialog with detailed preview
+* Add content-diff to jj describe
+* Add ui.default-description to commit messages
+* Display 'private' as a flag in preview
+* Add jj-am.sh to apply several patches in email format
+* Add jj-undirty.el, an elisp hook to auto-snapshot after saving emacs buffers
+
+### Changed:
+* Always cd to repo root, so $PWD doesn't vanish
+* Adjust Makefile to work with macOS, #6
+* Merging: prefer (master|main|trunk) as UPSTREAM
+* Make sure to use gsed
+* Check-gsed: show line numbers
+* Echo_commit_msg: strip leading newline from ui.default-description
+* Flags: display hidden, divergent, conflict
+* Cut off the preview after a few thausand lines
+* Split-files: try using `jj diff` instead of `git diff-tree`
+* Use JJ_EDITOR to really override th JJ editor settings
+* Honor the JJ_EDITOR precedence
+* Show content diff when editing commit message
+* Adjust Bookmark, Commit, Change ID descriptions
+* Display 'immutable' as a flag in preview
+* Fzflog: silence deprecation warnings on stderr
+* Include fzflog error messages in fzf input if any
+* Unset FZF_DEFAULT_COMMAND in subshells
+
+### Fixed:
+* Fix RESTORE-FILE title
+* Properly parse options --help, --key-bindings, --color=always
+* Echo_commit_msg: skip signoff if no files changed
+
+### Deprecation:
+* Deprecate Alt-S for restore-file
+* Deprecate Ctrl-V for gitk
+
+### Breaking:
+* Depend on jj-0.25.0
+* Op-log: use Alt-J to inject an old working copy as historic commit
+* Alt-Z: subshells will always execute in the repository root dir
+
+### Contributors
+
+Thanks to everyone who made this release happen!
+
+* Tim Janik (@tim-janik)
+* Douglas Stephen (@dljsjr)
+
+## JJ-FZF 0.24.0 - 2024-12-12
 
 ### Added:
 * Added Alt-O: Absorb content diff into mutable ancestors
@@ -52,7 +107,7 @@
 * Ensure `jj log` view change_id width matches jj log default width
 
 
-## JJ-FZF 0.23.0
+## JJ-FZF 0.23.0 - 2024-11-11
 
 Development version - may contain bugs or compatibility issues.
 
@@ -104,7 +159,7 @@ Thanks to everyone who made this release happen!
 * Tim Janik (@tim-janik)
 
 
-## JJ-FZF 0.22.0
+## JJ-FZF 0.22.0 - 2024-11-05
 
 First project release, depending on jj-0.22.0, including the following commands:
 - *Alt-A:* abandon
