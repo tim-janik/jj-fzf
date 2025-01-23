@@ -1386,22 +1386,31 @@ rebase()
 KEYBINDINGS["Alt-R"]="rebase"			FIRSTS="$FIRSTS rebase"
 
 # Restore File
-DOC['restore-file']='DEPRECATED: Start a dialog to select a file from the currently selected revision and use `jj restore` to restore the file into the working copy.'
+DOC['restore-file']='Start a dialog to select a file to `jj restore` from the currently selected revision into the working copy.'
 restore-file()
 (
   R="$(xrev "${1:-@}")"
-  MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
-		"${FZFPOPUP[@]}" \
-		  --border-label '-[ RESTORE-FILE ]-' --color=border:blue,label:blue \
-		  --preview 'read M F <<<{} && test -n \"$F\" || exit; jj --no-pager --ignore-working-copy log --color=always -s --patch -T builtin_log_oneline -r "'"$R"'" -- "$F"' \
-		  --header "Restore File into @" \
-		  )
-  read M F <<<"$MODE_FILE"
-  test -n "$M" -a -n "$F" || return
-  ( set -x
-    jj restore --from "$R" -- "$F"
-  ) ||
-    sleep 1
+  temp_dir
+  # find differing fileset
+  mapfile -t MAPFILE < <(jj --no-pager --ignore-working-copy diff --name-only --from @ --to "$R")
+  [[ ${#MAPFILE[@]} -ge 1 ]] ||
+    return
+  # file picker
+  PREVIEW='read F <<<{} && test -n \"$F\" || exit '
+  PREVIEW+='&& jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "'"$R|@"'" && echo '
+  PREVIEW+='&& jj --no-pager --ignore-working-copy diff --color=always -s --git --from @ --to "'"$R"'" -- cwd-file:"$F" '
+  printf '%s\n' "${MAPFILE[@]}" |
+    "${FZFPOPUP[@]}" \
+      --border-label '-[ RESTORE-FILE ]-' --color=border:blue,label:blue \
+      --preview "$PREVIEW" \
+      --header "Restore File from $R into @" \
+      > $TEMPD/restore-file.sel
+  # restore file if any
+  FILENAME="$(<$TEMPD/restore-file.sel)"
+  test -z "$FILENAME" || (
+    set -x
+    jj restore --from "$R" -- cwd-file:"$FILENAME"
+  ) || ERROR
 )
 KEYBINDINGS["Alt-S"]="restore-file"
 
