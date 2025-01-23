@@ -4,6 +4,11 @@ set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 SELF="$0"
 
+# == only jj-root cannot vanish during checkouts ==
+JJROOT=$(jj --ignore-working-copy root) &&
+  cd "$JJROOT" ||	# always ensure root relative paths
+    die "$PWD: not a JJ repository"
+
 # == PREVIEW fast path ==
 JJFZF_PRIVATE="$(jj config get --ignore-working-copy --no-pager git.private-commits 2>/dev/null)" &&
   [[ "$JJFZF_PRIVATE" =~ ^[.a-z_()-]+$ ]] || JJFZF_PRIVATE=''	# only supported unquoted revset names
@@ -32,7 +37,6 @@ if test "${1:-}" == preview					# preview command, nested invocation
 then
   if [[ "${2:-} " =~ $REVPAT ]]					# match beginning of jj log line
   then
-    cd "$(jj --ignore-working-copy root)"			# ensure root relative diffstat paths
     REVISION="${BASH_REMATCH[1]}"
     if [[ "${BASH_REMATCH[2]}" == '??' ]]			# divergent change_id
     then
@@ -110,7 +114,6 @@ done
 export FZF_DEFAULT_OPTS=	# prevent user defaults from messing up the layout
 declare -A DOC
 # JJ repository
-JJROOT=$(jj --ignore-working-copy root) || die "$PWD: not a JJ repository"
 JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
@@ -428,7 +431,6 @@ echo_commit_msg()
     echo_signoff
   else # Commit message based on files
     # start with file name prefixes
-    cd "$JJROOT" # create root relative file names
     FILES=()
     readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | gsed 's/^\w //')
     test ${#FILES[@]} -gt 0 &&
@@ -513,10 +515,9 @@ NEXTS=""
 # fzflog revset aliases
 revsets_toml()
 (
-  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 2)"
-  echo "revset-aliases.fzflog = ''' present(@) | present(trunk()) | ancestors(immutable_heads().., $FZFLOG_DEPTH) | present(bookmarks()) | present(tags()) ''' "
-  REVSET_JJLOG="$(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..)"
-  echo "revset-aliases.jjlog = ''' $REVSET_JJLOG '''"
+  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 0)"
+  echo "revset-aliases.fzflog = ''' jjlog | ancestors(bookmarks() | remote_bookmarks(), $FZFLOG_DEPTH) ''' "
+  echo "revset-aliases.jjlog = ''' $(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..) '''"
   echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(8)'"
   echo "template-aliases.'format_short_commit_id(id)' = 'id.shortest(8)'"
 )
@@ -710,8 +711,6 @@ file-editor()
 (
   R="$(xrev "${1:-@}")"
   W="$(xrev "@")"
-  # cd root; otherwise revision file paths will mismatch
-  cd "$JJROOT"
   # read files edited by revision
   readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | gsed 's/^\w //')
   # make sure to edit revision
@@ -802,7 +801,7 @@ KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
 # Line Blame: jj-fzf +<line> <gitfile>
 if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
-  absroot="$(readlink -f "$(jj --no-pager --ignore-working-copy root)")"
+  absroot="$(readlink -f "$JJROOT")"
   absfile="$(readlink -f "$2")"
   [[ $absfile == $absroot/* ]] && {
     echo absroot=$absroot
@@ -831,7 +830,6 @@ DOC['merging']='Start a dialog to select parents for a new merge commit, using `
 merging()
 (
   P="$(xrev "${1:-@}")"
-  cd "$JJROOT" # otherwise, a subdir and $PWD could vanish
   temp_dir
   # Find tracked upstream revision
   for ups in $(jj --no-pager --ignore-working-copy log --no-graph -r 'trunk()' -T 'bookmarks') ; do
@@ -1142,7 +1140,6 @@ DOC['split-files']='Use `jj split` in a loop to split each file modified by the 
 split-files()
 (
   R="$(xrev "${1:-@}")"
-  cd "$JJROOT"		# operate on root relative file names
   # read files affected by $R
   mapfile -t MAPFILE < <(jj diff --name-only -r "$(rev_commitid "$R")")
   [[ ${#MAPFILE[@]} -gt 1 ]] ||
@@ -1393,7 +1390,6 @@ DOC['restore-file']='EXPERIMENTAL: Start a dialog to select a file from the curr
 restore-file()
 (
   R="$(xrev "${1:-@}")"
-  cd "$JJROOT"		# operate on root relative file names
   MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
 		"${FZFPOPUP[@]}" \
 		  --border-label '-[ RESTORE-FILE ]-' --color=border:blue,label:blue \
@@ -1431,7 +1427,6 @@ KEYBINDINGS["Alt-T"]="tag"
 logrev()
 (
   R="$(xrev_or_commit "${1:-@}")"
-  cd "$JJROOT" # show root relative file names
   (
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
     jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
@@ -1444,7 +1439,6 @@ DOC['log']='Use `jj log` to browse the history including patches, starting from 
 log()
 {
   R="$(xrev_or_commit "${1:-@}")"
-  cd "$JJROOT" # show root relative file names
   jj log --ignore-working-copy --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -r "::$R" -s -p --ignore-space-change \
     | $JJFZFPAGER
 }
@@ -1477,7 +1471,6 @@ gitk()
   R="$(xrev "${1:-@}")"
   # jj git export --quiet
   COMMIT="$(rev_commitid "$R")"
-  cd "$JJROOT"
   git update-index --refresh || :
   #test -e "$JJROOT/.jj/repo/store/git" && export GIT_DIR="$JJROOT/.jj/repo/store/git" || export GIT_DIR="$JJROOT/.git"
   # readarray -t HEADS < <( jj --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r ' heads(..) ' )
