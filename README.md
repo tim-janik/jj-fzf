@@ -88,6 +88,16 @@ These scripts are aimed at developers and provide useful utilities for working w
 
 * **jj-undirty.el:** A simple Emacs lisp script that automatically runs `jj status` every time a buffer is saved to snapshot file modifications.
   `Usage: (load (expand-file-name "~/jj-fzf/contrib/jj-undirty.el"))`
+  This will install an after-save-hook that calls `jj-undirty` to snapshot the changes in a saved buffer in a jj repository.
+
+* **suspend-with-shell.el:** A simple Emacs lisp script that allows to suspend Emacs with a custom command.
+  ```
+  Usage:
+    ;; Suspend emacs with a custom command, without using `ioctl(TIOCSTI)`
+    (load (expand-file-name "~/jj-fzf/contrib/suspend-with-shell.el"))
+    ;; Suspend emacs and start jj-fzf on Ctrl+T
+    (global-set-key (kbd "C-t") (lambda () (interactive) (suspend-with-shell "jj-fzf")))
+  ```
 
 <!-- LICENSE -->
 ## License
