@@ -2,7 +2,11 @@
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
-SELF="$0"
+
+# == Execution Trampoline ==
+# Hook to serve as a single-executable trampoline for JJ
+test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
+SELF="$0" # Allow to re-execute this script
 
 # == only jj-root cannot vanish during checkouts ==
 JJROOT=$(jj --ignore-working-copy root) &&
@@ -32,6 +36,20 @@ concat(
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
   "\n",
 )' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
+# Show commit diff according to jj-fzf.diff-mode
+jj_show_diff()
+{
+  local COLOR && [[ " $* " =~ --color=always ]] && COLOR=--color=always || COLOR=--color=never
+  # JJ-0.25 only has diff without hunk-header, so for --git and --word-diff, use JJFZF_EXEC_WITH0_AS_ to run git-diff
+  case "$(jj --no-pager --ignore-working-copy config get jj-fzf.diff-mode 2>/dev/null || true)" in
+    diff-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b '"$COLOR"
+		jj show --no-pager --ignore-working-copy "$@" --tool "$SELF" ;;
+    word-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b --word-diff '"$COLOR"
+		jj show --no-pager --ignore-working-copy "$@" --tool "$SELF" ;;
+    *)		jj show --no-pager --ignore-working-copy "$@" ;;
+  esac
+}
+# handle 'preview' early on to avoid slow previews due to parsing the entire script
 export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
 if test "${1:-}" == preview					# preview command, nested invocation
 then
@@ -42,13 +60,12 @@ then
     then
       # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
       jj --no-pager --ignore-working-copy show -T builtin_log_oneline -r "${BASH_REMATCH[1]}" 2>&1 || :
-      REVISION=$(echo " $2 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') || exit 0	# find likely commit id
-      echo
-      echo
+      echo && echo
     fi
-    { jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-      jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$REVISION" --ignore-space-change
-    } | head -n 4000
+    REVISION=$(echo " $2 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') || exit 0	# find likely commit id
+    { jj --no-pager --ignore-working-copy log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
+      jj_show_diff --color=always -T '"\n"' -r "$REVISION"
+    } 2>&1 | head -n 4000
   else								# no valid revision
     true
   fi
@@ -114,7 +131,7 @@ done
 export FZF_DEFAULT_OPTS=	# prevent user defaults from messing up the layout
 declare -A DOC
 # JJ repository
-JJFZFSHOW="jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --tool true"
+JJFZFSHOW="jj --no-pager --ignore-working-copy show --tool true"
 JJFZFONELINE="jj --no-pager --ignore-working-copy log --color=always --no-graph -T builtin_log_oneline"
 JJFZFPAGER="less -Rc"
 JJSUBSHELL='T=$(tty 2>/dev/null||tty <&1 2>/dev/null||tty <&2 2>/dev/null)&&test -n "$T"&&echo -e "\n#\n# Type \"exit\" to leave subshell\n#" && unset FZF_DEFAULT_COMMAND && exec /usr/bin/env '"$SHELL"' <$T 1>$T 2>$T'
@@ -451,7 +468,7 @@ user_editor_on_var()
   local TEMPFILE="$TEMPD/$FILE"
   cat >"$TEMPFILE" <<<"$_ueovMSG"
   test -z "$COMMIT" || {
-    jj diff --ignore-working-copy --no-pager --color=never -r "$COMMIT" |
+    jj_show_diff --color=never -T '"\n"' -r "$COMMIT" |
       head -n 4000 > "$TEMPFILE.diff"
     test -s "$TEMPFILE.diff" && {
       echo
@@ -511,6 +528,7 @@ read_completing()
 declare -A KEYBINDINGS
 FIRSTS=""
 NEXTS=""
+SILENTREFRESH=""
 
 # fzflog revset aliases
 revsets_toml()
@@ -534,7 +552,7 @@ fzflog()
   if $REVSETNAME ; then
     echo "$REVSETS_LOG"
   else
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} \
+    jj --no-pager --ignore-working-copy \
        --config-toml "$(revsets_toml)" \
        log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG" 2>/dev/null
   fi
@@ -1021,7 +1039,7 @@ op-log()
   H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
-  export FZF_DEFAULT_COMMAND="$SELF op_log_oneline"
+  export FZF_DEFAULT_COMMAND="$SELF op_log_oneline" TEMPD SELF
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
     --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
@@ -1037,9 +1055,9 @@ op-log()
     --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
     --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
     --bind "alt-z:execute( $SELF undo )+$RELOAD" \
-    --bind "enter:execute( [[ {} =~ \$OPPAT ]] || exit && export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && $SELF logrev @ {q} )" \
+    --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $SELF logrev "$COMMIT" )' \
     --preview-window 'nowrap,right,border-left' \
-    --preview "[[ {} =~ $OPPAT ]] || exit; export JJFZF_ATOP=\"\${BASH_REMATCH[1]}\" && . $TEMPD/oplog.env && $SELF \$VIEW {}" \
+    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && $SELF $VIEW {}' \
     --no-tac --no-sort +m
   # TODO: remove alt-w in jj-fzf-0.26
 )
@@ -1386,22 +1404,31 @@ rebase()
 KEYBINDINGS["Alt-R"]="rebase"			FIRSTS="$FIRSTS rebase"
 
 # Restore File
-DOC['restore-file']='DEPRECATED: Start a dialog to select a file from the currently selected revision and use `jj restore` to restore the file into the working copy.'
+DOC['restore-file']='Start a dialog to select a file to `jj restore` from the currently selected revision into the working copy.'
 restore-file()
 (
   R="$(xrev "${1:-@}")"
-  MODE_FILE=$(jj show --tool true -T '' -s -r "$R" |
-		"${FZFPOPUP[@]}" \
-		  --border-label '-[ RESTORE-FILE ]-' --color=border:blue,label:blue \
-		  --preview 'read M F <<<{} && test -n \"$F\" || exit; jj --no-pager --ignore-working-copy log --color=always -s --patch -T builtin_log_oneline -r "'"$R"'" -- "$F"' \
-		  --header "Restore File into @" \
-		  )
-  read M F <<<"$MODE_FILE"
-  test -n "$M" -a -n "$F" || return
-  ( set -x
-    jj restore --from "$R" -- "$F"
-  ) ||
-    sleep 1
+  temp_dir
+  # find differing fileset
+  mapfile -t MAPFILE < <(jj --no-pager --ignore-working-copy diff --name-only --from @ --to "$R")
+  [[ ${#MAPFILE[@]} -ge 1 ]] ||
+    return
+  # file picker
+  PREVIEW='read F <<<{} && test -n \"$F\" || exit '
+  PREVIEW+='&& jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "'"$R|@"'" && echo '
+  PREVIEW+='&& jj --no-pager --ignore-working-copy diff --color=always -s --git --from @ --to "'"$R"'" -- cwd-file:"$F" '
+  printf '%s\n' "${MAPFILE[@]}" |
+    "${FZFPOPUP[@]}" \
+      --border-label '-[ RESTORE-FILE ]-' --color=border:blue,label:blue \
+      --preview "$PREVIEW" \
+      --header "Restore File from $R into @" \
+      > $TEMPD/restore-file.sel
+  # restore file if any
+  FILENAME="$(<$TEMPD/restore-file.sel)"
+  test -z "$FILENAME" || (
+    set -x
+    jj restore --from "$R" -- cwd-file:"$FILENAME"
+  ) || ERROR
 )
 KEYBINDINGS["Alt-S"]="restore-file"
 
@@ -1426,10 +1453,10 @@ KEYBINDINGS["Alt-T"]="tag"
 # Log single change
 logrev()
 (
-  R="$(xrev_or_commit "${1:-@}")"
+  R="$(xrev_as_commit "${1:-@}")"
   (
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
-    jj --no-pager --ignore-working-copy ${JJFZF_ATOP:+--at-op $JJFZF_ATOP} show --color=always -T ' "\n" ' -r "$R"
+    jj --no-pager --ignore-working-copy log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$R"
+    jj_show_diff --color=always -T '"\n"' -r "$R"
   ) | $JJFZFPAGER
 )
 FUNCTIONS+=( 'logrev' )
@@ -1481,6 +1508,21 @@ gitk()
   # jj git import --quiet
 )
 KEYBINDINGS["Ctrl-V"]="gitk"
+
+# Toggle between various diff formats
+DOC['word-diff-toggle']='Toggle/cycle between various diff formats, including JJ, Git, word-diff, with and without whitespace.'
+word-diff-toggle()
+(
+  currentmode=$(jj --no-pager --ignore-working-copy config get jj-fzf.diff-mode 2>/dev/null || true)
+  diffmodes=("jj-diff" "diff-b" "word-b")
+  index=0
+  for i in "${!diffmodes[@]}"; do
+    [[ "${diffmodes[$i]}" == "$currentmode" ]] && { index=$i && break; }
+  done
+  next_index=$(( (index + 1) % ${#diffmodes[@]} ))
+  jj --no-pager --ignore-working-copy config set --repo jj-fzf.diff-mode "${diffmodes[$next_index]}"
+)
+KEYBINDINGS["Ctrl-W"]="word-diff-toggle"	SILENTREFRESH="$SILENTREFRESH word-diff-toggle"
 
 # Edit (New) Working Copy
 DOC['edit']='Use `jj {edit|new}` to set the currently selected revision (or divergent commit) as the working-copy revision. Will create a new empty commit if the selected revision is immutable.'
@@ -1751,8 +1793,10 @@ for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
   postcmd=""
   [[ " $FIRSTS " == *" $fun "* ]] && postcmd="+first"
+  [[ " $SILENTREFRESH " == *" $fun "* ]] && EXECUTE=execute-silent || EXECUTE=execute
   [[ " $NEXTS " == *" $fun "* ]] && postcmd="+down"
-  BIND+=( --bind "${k,,}:execute( $SELF $fun {} {q} )$EXECKILLME+$RELOAD$postcmd" )
+  [[ " $SILENTREFRESH " == *" $fun "* ]] && REPAINT=refresh-preview || REPAINT="$RELOAD"
+  BIND+=( --bind "${k,,}:$EXECUTE( $SELF $fun {} {q} )$EXECKILLME+$REPAINT$postcmd" )
 done
 
 # == FZF ==
