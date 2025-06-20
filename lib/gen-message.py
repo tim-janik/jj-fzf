@@ -8,15 +8,20 @@ DEBUG = False
 DEBUG_PROMPT = False
 DUP_OUTPUT = False
 
-def get_api_config():
-  """Get API configuration from environment variables"""
+def configure_model_stream():
+  chcompl = '/chat/completions'
   if os.environ.get ('LLM_API_BASE'):
     base, key = os.environ['LLM_API_BASE'], os.environ.get ('LLM_API_KEY', '')
+    return lambda p: stream_text (base + chcompl, key, 'llama.cpp', p)
+  elif os.environ.get ('GEMINI_API_KEY'):
+    # https://ai.google.dev/gemini-api/docs/models
+    model = 'gemini-2.0-flash-lite' # 'gemini-1.5-flash-latest'
+    return lambda p: gemini_stream (os.environ['GEMINI_API_KEY'], model, p)
   elif os.environ.get ('OPENAI_API_KEY'):
-    base, key = os.environ.get ('OPENAI_API_BASE', 'https://api.openai.com/v1'), os.environ['OPENAI_API_KEY']
-  else:
-    base, key = 'http://localhost:8080/v1', os.environ.get ('LLM_API_KEY', '')
-  return f"{base}/chat/completions", key
+    model = 'gpt-3.5-turbo' # 'gpt-4.1-nano' 'gpt-4o-mini'
+    base = os.environ.get ('OPENAI_API_BASE', 'https://api.openai.com/v1')
+    return lambda p: stream_text (base + chcompl, os.environ['OPENAI_API_KEY'], model, p)
+  return lambda p: stream_text ('http://localhost:8080/v1' + chcompl, os.environ.get ('LLM_API_KEY', ''), 'llama.cpp', p)
 
 def stream_text (chat_url, api_key, model, prompt):
   """Stream text from the llama.cpp API"""
@@ -51,9 +56,37 @@ def stream_text (chat_url, api_key, model, prompt):
                choice['delta']['content']):
             yield choice['delta']['content']
 
+def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None, None]:
+  """Stream text from the Gemini API"""
+  GOOGAPI_URL = "https://generativelanguage.googleapis.com/v1beta"
+  url = f"{GOOGAPI_URL}/models/{model}:streamGenerateContent?key={api_key}"
+  data: Dict[str, Any] = { "contents": [{"parts": [{"text": prompt}]}] }
+  json_data = json.dumps (data).encode ('utf-8')
+  req = urllib.request.Request (url, data = json_data, headers = {'Content-Type': 'application/json'})
+  with urllib.request.urlopen (req) as response:
+    buffer, decoder = "", json.JSONDecoder()
+    for chunk_bytes in iter (lambda: response.read (512), b''):
+      buffer = (buffer + chunk_bytes.decode ('utf-8')).lstrip (' \n\r,')
+      if buffer.startswith ('['):                       # enter JSON list
+        buffer = buffer[1:].lstrip (' \n\r,')
+      while buffer:
+        try:
+          obj, idx = decoder.raw_decode (buffer)        # parse valid JSON object
+        except json.JSONDecodeError:
+          break                                         # buffer too short
+        buffer = buffer[idx:].lstrip (' \n\r,')         # skip over JSON object
+        candidates = obj.get ('candidates', [])
+        if candidates:
+          content = candidates[0].get ('content', {})
+          parts = content.get ('parts', [])
+          if parts and 'text' in parts[0]:
+            yield parts[0]['text']
+    if DEBUG and buffer.strip() and buffer.strip() != ']':
+      print (f"\nWarning: unprocessed JSON: {buffer.strip()}", file = sys.stderr)
+
 def generate_commit_message (commit_hash, max_count=99):
   """Generate a commit message for the given commit hash"""
-  chat_url, api_key = get_api_config()
+  llm_stream = configure_model_stream()
   if DEBUG:
     print ("EXEC: Running `git log ...`", file = sys.stderr)
   try:
@@ -82,7 +115,7 @@ def generate_commit_message (commit_hash, max_count=99):
   if DEBUG_PROMPT:
     print ("PROMPT:", file = sys.stderr)
     print (constructed_prompt, file = sys.stderr)
-  iterable = stream_text (chat_url, api_key, 'llama.cpp', constructed_prompt)
+  iterable = llm_stream (constructed_prompt)
   if DEBUG:
     print ("HTTP: Starting LLM request", file = sys.stderr)
   tidy_print (iterable)
