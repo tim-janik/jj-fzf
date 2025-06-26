@@ -108,7 +108,8 @@ def generate_commit_message (commit_hash, max_count=99):
     "======== COMMIT & DIFF ========\n" +
     diff + "\n\n" +
     "======== REQUEST ========\n" +
-    "Generate a brief commit title, a seperate empty line and a suitable commit message body for the above commit & diff, generate nothing else.\n" +
+    "Generate a brief commit title, a separate empty line and a suitable commit message body for the above commit & diff.\n" +
+    "Focus on *why* something is done, especially for complex logic, rather than *what* is done. Generate nothing else.\n" +
     "/no-think" +
     "\n"
   )
