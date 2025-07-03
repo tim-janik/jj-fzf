@@ -78,7 +78,7 @@ case "${1:-}" in
   preview_oplog)
     [[ " ${2:-} " =~ $OPRPAT ]] && {
 	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
-	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log -r .. # -T builtin_log_oneline
+	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log -s -r .. # -T builtin_log_oneline
       } ; exit ;;
   preview_opshow)
     [[ " ${2:-} " =~ $OPRPAT ]] && {
