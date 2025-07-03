@@ -814,28 +814,15 @@ diff()
 KEYBINDINGS["Ctrl-I"]="diff"
 
 # Backout Commit
-DOC['backout']='Use `jj backout` to create a new commit that undoes the changes made by the currently selected revision and apply the changes on top of the working-copy.'
+DOC['backout']='Use `jj backout` to create new commits that undo the changes made by the currently selected revisions and apply the changes on top of the working-copy.'
 backout()
 (
-  R="$(xrev "${1:-@}")"
-  # use working copy as destination, unless it is empty
-  test "$(rev_edpstate @)" == empty-silent-p1 &&
-    D=@- ||
-      D=@
-  # record base commit children before/after, then backout
-  A=( $(rev_children "$D") )
+  local -a REVS && parse_xrevs_or_commits REVS '-r' "$@"
   ( set -x
-    jj backout -r "$R" -d "$D"
-  ) || die
-  B=( $(rev_children "$D") )
-  C=() && diff_arrays A B C
-  [ ${#C[@]} -eq 1 ] ||
-    die "failed to find newly created backout revision"
-  ( set -x
-    jj edit "${C[0]}"
+    jj backout -d @ "${REVS[@]}"
   ) || die
 )
-KEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
+MULTIKEYBINDINGS["Alt-K"]="backout"		FIRSTS="$FIRSTS backout"
 
 # Line Blame: jj-fzf +<line> <gitfile>
 if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
