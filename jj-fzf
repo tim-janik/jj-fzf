@@ -1492,7 +1492,7 @@ undo()
   # Known cases where the above multi-step undo logic breaks:
   # * Undo of an operation like "reconcile divergent operations" just gives "Error: Cannot undo a merge operation"
 )
-KEYBINDINGS["Alt-Z"]="undo"
+MULTIKEYBINDINGS["Alt-Z"]="undo"
 
 # Reset undo memory
 undo-reset()
