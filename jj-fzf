@@ -316,10 +316,10 @@ rev_parents()
   jj --no-pager --ignore-working-copy log --no-graph -r "all: $1-" -T 'change_id++"\n"'
 )
 
-# List children of a revision
-rev_children()
+# List commits of a revset
+list_revset()
 (
-  jj --no-pager --ignore-working-copy log --no-graph -r "all: $1+" -T 'change_id++"\n"'
+  jj --no-pager --ignore-working-copy log --no-graph -r "all: $* " -T 'commit_id++"\n"'
 )
 
 # join_args <joiner> [args...]
@@ -1116,12 +1116,17 @@ DOC['absorb']='Use `jj absorb` to split the content diff of the current revision
 KEYBINDINGS["Alt-O"]="absorb"
 
 # Squash Into Parent
-DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision (or divergent commit) into its parent.'
+DOC['squash-into-parent']='Use `jj squash` to move the changes from the currently selected revision(s) (or divergent commit) into its parent.'
 squash-into-parent()
 (
-  R="$(xrev_or_commit "${1:-@}")"
+  local -a REVS && parse_xrevs_or_commits REVS '' "$@"
   W="$(xrev_or_commit "@")"
-  if test "$W" == "$R" ; then
+  PARENTS="roots( none() $(printf '|%s-::' "${REVS[@]}") )"
+  PARENTS=( $(list_revset " $PARENTS ") )
+  test ${#PARENTS[@]} -eq 1 ||
+    ERROR "revisions lack common parent"
+  if [[ " ${REVS[*]} " == *" $W "* ]]; then
+    # The working copy @ is to be squashed.
     # Squashing without --keep-emptied would start a new branch at @- which is
     # undesired if @+ exists. But using --keep-emptied does not squash the
     # message. As a workaround, create a new @+, so we never squash directly
@@ -1129,15 +1134,13 @@ squash-into-parent()
     # squashed working copy.
     ( set -x
       jj new --insert-after @
-      jj squash --from "$W" --into "$W-"
-    ) || ERROR
-  else
-    ( set -x
-      jj squash -r "$R" # --use-destination-message
     ) || ERROR
   fi
+  ( set -x
+    jj squash --from "$(IFS='|' && echo "${REVS[*]}")" --into "${PARENTS[0]}"
+  ) || ERROR
 )
-KEYBINDINGS["Alt-Q"]="squash-into-parent"
+MULTIKEYBINDINGS["Alt-Q"]="squash-into-parent"
 
 # Squash @ Commit
 DOC['squash-@-into']='Use `jj squash` to move the changes from the working copy into the currently selected revision.'
