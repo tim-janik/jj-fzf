@@ -594,16 +594,15 @@ revset-filter()
 KEYBINDINGS["Ctrl-R"]="revset-filter"	# overridden below
 
 # Abandon Revision
-DOC['abandon']='Use `jj abandon` to remove the currently selected revision (or divergent commit) from the history.'
+DOC['abandon']='Use `jj abandon` to remove the currently selected revisions (or divergent commit) from the history.'
 abandon()
 (
-  R="$(xrev_or_commit "${1:-@}")" ||
-    die "no such revision"
+  local -a REVS && parse_xrevs_or_commits REVS '-r' "$@"
   ( set -x
-    jj abandon -r "$R" ) ||
+    jj abandon "${REVS[@]}" ) ||
     sleep 1
 )
-KEYBINDINGS["Alt-A"]="abandon"
+MULTIKEYBINDINGS["Alt-A"]="abandon"
 
 # Bookmark Creation
 DOC['bookmark']='Use `jj bookmark {create|set -B}` to (re-)assign a bookmark name to the currently selected revision (or divergent commit).'
