@@ -115,10 +115,13 @@ sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && expor
 command -v column >/dev/null || column() { cat; }
 
 # == Early Options ==
-SHOWHELP= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false
+MULTISELECT= SHOWHELP= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false POSTCMDEXIT=
 while test $# -ne 0 ; do
   case "$1" in \
     -h|--help)		SHOWHELP=t ;;
+    -m)			MULTISELECT=-m ;;
+    +m)			MULTISELECT= ;;
+    --postcmd-exit)	POSTCMDEXIT=1 ;;
     --key-bindings)	SHOWKEYBINDINGS=t ;;
     --version)		echo "$SCRIPTNAME $VERSION"; exit ;;
     --oneshot)		ONESHOT=true ;; # auto-exit after first command
@@ -278,6 +281,21 @@ xrev_or_commit()
     xrev_as_commit "$@"
 )
 FUNCTIONS+=( 'xrev_or_commit' )
+# Fill <ARRAY> with <PREFIX> and xrev_or_commit from $@
+parse_xrevs_or_commits()
+{
+  local -n _parsed_REVS=$1	# nameref to the target array
+  local _prefix_REV=$2
+  shift 2
+  test $# -ne 0 && _parsed_REVS=() || _parsed_REVS=($_prefix_REV @)
+  while test $# -ne 0; do
+    local _rev
+    _parsed_rev=$(xrev_or_commit "$1") || die "no such revision: $1"
+    _parsed_REVS+=($_prefix_REV "$_parsed_rev")
+    shift
+  done
+}
+
 # Look up full commit hash via JJ commit_id
 rev_commitid()	( xrev_as_commit "$@" )
 # Print first bookmark or the revision itself
@@ -528,6 +546,7 @@ read_completing()
 
 # == Functions ==
 declare -A KEYBINDINGS
+declare -A MULTIKEYBINDINGS
 FIRSTS=""
 NEXTS=""
 SILENTREFRESH=""
@@ -947,6 +966,14 @@ merging()
     ) || ERROR
 )
 KEYBINDINGS["Alt-M"]="merging"		FIRSTS="$FIRSTS merging"
+
+# Start multi-select mode
+DOC["multi-select"]='Select multiple revisions to operate on.'
+multi-select()
+(
+  $SELF -m --postcmd-exit || :
+)
+KEYBINDINGS["Alt-M"]="multi-select"
 
 # New --insert-before
 DOC['new-before']='Use `jj new --insert-before` to create and insert a new revision before the currently selected revision (or divergent commit). Creates a new branch for merge commits.'
@@ -1682,6 +1709,15 @@ HELP_OUTRO='
   For revsets, see: https://martinvonz.github.io/jj/latest/revsets
 '
 
+# == MULTISELECT ==
+if test -n "$MULTISELECT" ; then
+  KEYBINDINGS=$(declare -p MULTIKEYBINDINGS) && declare -A KEYBINDINGS="${KEYBINDINGS#*=}"	# copy MULTIKEYBINDINGS -> KEYBINDINGS
+else
+  for key in "${!MULTIKEYBINDINGS[@]}"; do							# merge MULTIKEYBINDINGS -> KEYBINDINGS
+    KEYBINDINGS["$key"]="${MULTIKEYBINDINGS[$key]}"
+  done
+fi
+
 # == --help ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 if test -n "$SHOWHELP" ; then
@@ -1696,6 +1732,9 @@ if test -n "$SHOWHELP" ; then
   DOC['clear-filter']='Discard the current *fzf* query string.'
   HELPKEYS[Alt-H]='toggle-show-keys'
   DOC['toggle-show-keys']='Display or hide the list of avilable key bindings, persist the setting in `jj-fzf.show-keys` of the `jj` user config.'
+else
+  test -n "$MULTISELECT" &&
+    HELPKEYS[Alt-M]='multi-select-exit'
 fi
 DISPLAYKEYS="${!HELPKEYS[@]}"
 DISPLAYKEYS=$(sort <<<"${DISPLAYKEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
@@ -1798,7 +1837,9 @@ for k in "${!KEYBINDINGS[@]}" ; do
   [[ " $SILENTREFRESH " == *" $fun "* ]] && EXECUTE=execute-silent || EXECUTE=execute
   [[ " $NEXTS " == *" $fun "* ]] && postcmd="+down"
   [[ " $SILENTREFRESH " == *" $fun "* ]] && REPAINT=refresh-preview || REPAINT="$RELOAD"
-  BIND+=( --bind "${k,,}:$EXECUTE( $SELF $fun {} {q} )$EXECKILLME+$REPAINT$postcmd" )
+  [[ -v MULTIKEYBINDINGS["$k"] ]] && FUNARGS='{+}' || FUNARGS='{} {q}'
+  [[ -n "$POSTCMDEXIT" ]] && postcmd=+abort
+  BIND+=( --bind "${k,,}:$EXECUTE( $SELF $MULTISELECT $fun $FUNARGS )$EXECKILLME+$REPAINT$postcmd" )
 done
 
 # == FZF ==
@@ -1808,15 +1849,17 @@ fzflog 2>&1 |
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
   --bind "ctrl-u:clear-query+clear-selection+clear-screen" \
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
+  --bind "alt-m:abort" \
   --bind "f5:$RELOAD" \
   --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
   --bind "ctrl-r:transform-query( $SELF revset-filter {q} )+become( exec $SELF )" \
   --preview " exec $SELF preview {} {q} " \
   --header "$(list_key_bindings)" --header-first \
-  --bind "alt-h:transform-header:$SELF --key-bindings --key-toggle" \
-  --prompt "  $(fzflog --revsetname) > " \
-  --no-tac --no-sort +m
+  --bind "alt-h:transform-header:$SELF $MULTISELECT --key-bindings --key-toggle" \
+  --prompt "  $(fzflog --revsetname) ${MULTISELECT/-m/(MULTI)}> " \
+  --no-tac --no-sort +m $MULTISELECT
+
 # Notes:
 # * Do not use 'exec' as last command, otherwise trap-handlers are skipped.
 # * Ctrl-R: This must be rebound to run transform-query, ideally we would just transform-query+transform-prompt+reload
