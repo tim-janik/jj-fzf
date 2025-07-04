@@ -41,7 +41,7 @@ concat(
 jj_show_diff()
 {
   local COLOR && [[ " $* " =~ --color=always ]] && COLOR=--color=always || COLOR=--color=never
-  # JJ-0.25 only has diff without hunk-header, so for --git and --word-diff, use JJFZF_EXEC_WITH0_AS_ to run git-diff
+  # Use git-diff (for --git and --word-diff) which has better heuristics for informative hunk headers than jj (0.31.0)
   case "$(jj --no-pager --ignore-working-copy config get jj-fzf.diff-mode 2>/dev/null || true)" in
     diff-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b '"$COLOR"
 		jj show --no-pager --ignore-working-copy "$@" --tool "$SELF" ;;
@@ -108,7 +108,7 @@ version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1
 versionge() { test "$(version0d "$2")a" '<' "$(version0d "$1")b"; }
 versionge "$(bash --version)" 5.1.16 || die "failed to find 'bash' version 5.1.16 in \$PATH"
 [[ `set -o` =~ emacs ]] || die "the 'bash' executable lacks interactive readline support"
-versionge "$(jj --version --ignore-working-copy)" 0.25 || die "failed to find 'jj' version 0.25.0 in \$PATH"
+versionge "$(jj --version --ignore-working-copy)" 0.31 || die "failed to find 'jj' version 0.31.0 in \$PATH"
 versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in \$PATH" # 0.43.0 supports offset-up
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
