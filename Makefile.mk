@@ -18,10 +18,32 @@ QGEN		 = @echo '  GEN     ' $@
 INSTALL	:= install -c
 RM	:= rm -f
 
+# == Compare Versions ==
+# Shell command that is true if $1 <= $2 in version comparisons
+VERSION_LE := python3 -c 'import sys, re; v1 = list (map (int, sys.argv[1].split ("."))); v2 = list (map (int, re.search (r"\b[0-9]+\.[0-9]+\.[0-9]+", sys.argv[2]).group().split ("."))); sys.exit (v1 > v2)'
+
+# == Check presence of dependencies ==
+check-deps: jj-fzf
+	$(QGEN)
+	$Q python3 -c "import sys; sys.exit ((3,9) >= sys.version_info);" || { echo "$@: ERROR: python3 >= 3.9 is required" >&2; false; }
+	$Q V="5.1.16" && T="`bash --version`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: \`bash\` >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
+	$Q [[ "`bash -c 'set -o'`" =~ emacs ]] || { echo "$@: ERROR: the \`bash\` executable lacks interactive readline support" >&2; false; }
+	$Q command -v gsed 2>/dev/null 1>&2 || gsed() { \sed "$$@"; } \
+	&& gsed --version 2>/dev/null | grep -Fq 'GNU sed' || { echo "$@: failed to detect GNU sed as \`gsed\` or \`sed\`" >&2; false; }
+	$Q [[ "`awk 'BEGIN{print(123)}'`" =~ 123 ]] || { echo "$@: ERROR: a usable \`awk\` executable is required" >&2; false; }
+	$Q V="0.31.0" && T="`jj --version --ignore-working-copy`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: jj >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
+	$Q V="0.44.1" && T="`fzf --version`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: fzf >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
+	$Q [[ "`command -v column`" =~ column ]] || { echo "$@: ERROR: failed to find the \`column\` executable in \$$PATH" >&2; false; }
+	$Q ./jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
+.PHONY: check-deps
+all check: check-deps
+
 # == doc/jj-fzf.1 ==
 doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
 	$(QGEN)
-	$Q ./jj-fzf --help-bindings > doc/keys.tmp
+	$Q TEMPD="`mktemp -d`" && cd "$$TEMPD" && jj git init 2>/dev/null \
+	&& $(abspath ./jj-fzf) --help-bindings > $(abspath doc/keys.tmp) \
+	&& cd / && rm -r -f "$$TEMPD" # jj-fzf needs a .jj repo to run
 	$Q sed -r $$'/```jj-fzf --help-bindings```/ { r doc/keys.tmp\n d ; }' $< > doc/jj-fzf.1.tmp.md
 	$Q pandoc $(man/markdown-flavour) -s -p \
 		-M date="$(word 2, $(version_full))" \
@@ -32,11 +54,8 @@ man/markdown-flavour	:= -f markdown+hard_line_breaks+autolink_bare_uris+emoji+li
 CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
-check-deps: jj-fzf
-	$Q ./jj-fzf --version
-	$Q ./jj-fzf --help >/dev/null # check-deps
-
-install: doc/jj-fzf.1
+# == install & uninstall ==
+install: all
 	$(QGEN)
 	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
 	install -c version.sh jj-fzf $(DESTDIR)$(PRJDIR)
@@ -45,23 +64,37 @@ install: doc/jj-fzf.1
 	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
 	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
 	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
+installcheck:
+	$(QGEN)
+	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start $(BINDIR)/jj-fzf" >&2; false; }
+	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 | grep -qF jj-fzf || { echo "$@: ERROR: failed to render $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1" >&2; false; }
 uninstall:
 	$(QGEN)
 	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
 
+# == tests ==
+tests-basics.sh:
+	$Q tests/basics.sh
+.PHONY: tests-basics.sh
+
+# == shellcheck ==
 shellcheck-warning: jj-fzf
+	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
 	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 jj-fzf
 shellcheck-error:
+	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
 	shellcheck -W 3 -S error jj-fzf
-tests-basics.sh:
-	$Q tests/basics.sh
 check-gsed: jj-fzf
+	$(QGEN)
 	$Q ! grep --color=auto -nE '[^\\]\bsed ' jj-fzf /dev/null \
 	|| { echo "ERROR: use gsed" >&2 ; false; }
 	$Q echo '  OK      gsed uses'
-check: check-deps shellcheck-error check-gsed tests-basics.sh
+check-help:
+	$(QGEN)
+	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
+check: check-deps check-gsed check-help shellcheck-error tests-basics.sh
 
 # == clean ==
 clean:

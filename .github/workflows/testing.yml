@@ -24,9 +24,17 @@ jobs:
           tar zxvf - -C ~/.cargo/bin/ ./jj
         jj --version
     - run: |
-        jj git init --colocate
+        make all
     - run: |
         make check
+    - run: |
+        make install
+    - run: |
+        make installcheck
+    - run: |
+        make uninstall
+    - run: |
+        make clean
 
   Ping-IRC:
     if: always()
