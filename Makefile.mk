@@ -54,18 +54,24 @@ uninstall:
 	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
 
 shellcheck-warning: jj-fzf
+	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
 	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 jj-fzf
 shellcheck-error:
+	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
 	shellcheck -W 3 -S error jj-fzf
 tests-basics.sh:
 	$Q tests/basics.sh
 check-gsed: jj-fzf
+	$(QGEN)
 	$Q ! grep --color=auto -nE '[^\\]\bsed ' jj-fzf /dev/null \
 	|| { echo "ERROR: use gsed" >&2 ; false; }
 	$Q echo '  OK      gsed uses'
-check: check-deps shellcheck-error check-gsed tests-basics.sh
+check-help:
+	$(QGEN)
+	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
+check: check-deps check-gsed check-help shellcheck-error tests-basics.sh
 
 # == clean ==
 clean:
