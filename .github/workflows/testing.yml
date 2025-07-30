@@ -31,11 +31,11 @@ jobs:
     - run: |
         make check
     - run: |
-        make install
+        sudo make install
     - run: |
         make installcheck
     - run: |
-        make uninstall
+        sudo make uninstall
     - run: |
         make clean
 
