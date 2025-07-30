@@ -18,6 +18,26 @@ QGEN		 = @echo '  GEN     ' $@
 INSTALL	:= install -c
 RM	:= rm -f
 
+# == Compare Versions ==
+# Shell command that is true if $1 <= $2 in version comparisons
+VERSION_LE := python3 -c 'import sys, re; v1 = list (map (int, sys.argv[1].split ("."))); v2 = list (map (int, re.search (r"\b[0-9]+\.[0-9]+\.[0-9]+", sys.argv[2]).group().split ("."))); sys.exit (v1 > v2)'
+
+# == Check presence of dependencies ==
+check-deps: jj-fzf
+	$(QGEN)
+	$Q python3 -c "import sys; sys.exit ((3,9) >= sys.version_info);" || { echo "$@: ERROR: python3 >= 3.9 is required" >&2; false; }
+	$Q V="5.1.16" && T="`bash --version`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: \`bash\` >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
+	$Q [[ "`bash -c 'set -o'`" =~ emacs ]] || { echo "$@: ERROR: the \`bash\` executable lacks interactive readline support" >&2; false; }
+	$Q command -v gsed 2>/dev/null 1>&2 || gsed() { \sed "$$@"; } \
+	&& gsed --version 2>/dev/null | grep -Fq 'GNU sed' || { echo "$@: failed to detect GNU sed as \`gsed\` or \`sed\`" >&2; false; }
+	$Q [[ "`awk 'BEGIN{print(123)}'`" =~ 123 ]] || { echo "$@: ERROR: a usable \`awk\` executable is required" >&2; false; }
+	$Q V="0.31.0" && T="`jj --version --ignore-working-copy`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: jj >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
+	$Q V="0.44.1" && T="`fzf --version`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: fzf >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
+	$Q [[ "`command -v column`" =~ column ]] || { echo "$@: ERROR: failed to find the \`column\` executable in \$$PATH" >&2; false; }
+	$Q ./jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
+.PHONY: check-deps
+all check: check-deps
+
 # == doc/jj-fzf.1 ==
 doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
 	$(QGEN)
@@ -33,10 +53,6 @@ doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
 man/markdown-flavour	:= -f markdown+hard_line_breaks+autolink_bare_uris+emoji+lists_without_preceding_blankline-smart
 CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
-
-check-deps: jj-fzf
-	$Q ./jj-fzf --version
-	$Q ./jj-fzf --help >/dev/null # check-deps
 
 # == install & uninstall ==
 install: all
