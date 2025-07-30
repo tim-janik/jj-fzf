@@ -11,6 +11,8 @@ MANDIR		?= $(SHAREDIR)/man
 PKGVERSION      := $(word 1, $(version_bits)).$(word 2, $(version_bits))
 LIBEXEC		?= libexec/jj-fzf-$(PKGVERSION)
 PRJDIR		?= $(PREFIX)/$(LIBEXEC)
+CLEANFILES	:= *.tmp
+CLEANDIRS	:=
 Q		:= $(if $(findstring 1, $(V)),, @)
 QGEN		 = @echo '  GEN     ' $@
 INSTALL	:= install -c
@@ -27,6 +29,7 @@ doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
 		-t man doc/jj-fzf.1.tmp.md -o $@.tmp
 	$Q rm -f doc/keys.tmp doc/jj-fzf.1.tmp.md && mv $@.tmp $@
 man/markdown-flavour	:= -f markdown+hard_line_breaks+autolink_bare_uris+emoji+lists_without_preceding_blankline-smart
+CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
 check-deps: jj-fzf
@@ -59,3 +62,10 @@ check-gsed: jj-fzf
 	|| { echo "ERROR: use gsed" >&2 ; false; }
 	$Q echo '  OK      gsed uses'
 check: check-deps shellcheck-error check-gsed tests-basics.sh
+
+# == clean ==
+clean:
+	rm -f $(CLEANFILES)
+	rm -f -r $(CLEANDIRS)
+.PHONY: clean
+
