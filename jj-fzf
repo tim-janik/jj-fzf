@@ -4,7 +4,7 @@ set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 
 # == Execution Trampoline ==
-# Hook to serve as a single-executable trampoline for JJ
+# Hook to serve as a single-executable trampoline for `jj show --tool $SELF`
 test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
 SELF="$0" # Allow to re-execute this script
 
@@ -859,38 +859,28 @@ multi-select()
 KEYBINDINGS["Alt-M"]="multi-select"
 
 # New --insert-before
-DOC['new-before']='Use `jj new --insert-before` to create and insert a new revision before the currently selected revision (or divergent commit). Creates a new branch for merge commits.'
+DOC['new-before']='Use `jj new --no-edit --insert-before` to create and insert a new revision before the currently selected revision (or divergent commit).'
 new-before()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
     die "no such revision"
-  if test "$($JJFZFSHOW -r "$R" -T '"p" ++ self.parents().len() ++ "\n"')" == p1 ; then
-    ( set -x
-      jj new --insert-before "$R"
-    ) || ERROR
-  else # merge commit
-    PARENTS=( $(jj --no-pager --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r all:"$R-") )
-    MERGE_BASE=$(git merge-base --octopus "${PARENTS[@]}")
-    D_PARENTS=( -d $(join_args ' -d ' "${PARENTS[@]}") )
-    ( set -x
-      jj new -r $MERGE_BASE
-      jj rebase -s $R "${D_PARENTS[@]}" -d @
-    ) || ERROR
-  fi
+  ( set -x
+    jj new --no-edit --insert-before "$R"
+  ) || ERROR
 )
-KEYBINDINGS["Alt-N"]="new-before"
+KEYBINDINGS["Ctrl-Alt-N"]="new-before"
 
 # New --insert-after
-DOC['new-after']='EXPERIMENTAL: Use `jj new --insert-after` to create and insert a new revision after the currently selected revision (or divergent commit).'
+DOC['new-after']='Use `jj new --no-edit --insert-after` to create and insert a new revision after the currently selected revision (or divergent commit).'
 new-after()
 (
   R="$(xrev_or_commit "${1:-@}")" ||
     die "no such revision"
   ( set -x
-    jj new --insert-after "$R"
+    jj new --no-edit --insert-after "$R"
   ) || ERROR
 )
-KEYBINDINGS["Ctrl-Alt-N"]="new-after"
+KEYBINDINGS["Alt-N"]="new-after"
 
 # New
 DOC['new']='Use `jj new` to create a new revision on top of the currently selected revision (or divergent commit).'
