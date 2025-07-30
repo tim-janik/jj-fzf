@@ -115,10 +115,10 @@ command -v column >/dev/null || column() { cat; }
 pkgversion() ( ${ABSPATHSCRIPT%/*}/version.sh )
 
 # == Early Options ==
-MULTISELECT= SHOWHELP= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false POSTCMDEXIT=
+MULTISELECT= HELPKEYBINDINGS= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false POSTCMDEXIT=
 while test $# -ne 0 ; do
   case "$1" in \
-    -h|--help)		SHOWHELP=t ;;
+    --help-bindings)	HELPKEYBINDINGS=t ;;
     -m)			MULTISELECT=-m ;;
     +m)			MULTISELECT= ;;
     --postcmd-exit)	POSTCMDEXIT=1 ;;
@@ -1520,77 +1520,6 @@ sedmarkdown()
     tr \\r \\n
 )
 
-# Help text
-HELP_INTRO="# JJ-FZF (`pkgversion`)"'
-
-  **jj-fzf** is a text-based user interface for the `jj` version control system,
-  built on top of the fuzzy finder `fzf`. **jj-fzf** centers around the `jj log`
-  graph view, providing previews of `jj diff` or `jj evolog` for each revision.
-  Several key bindings are available for actions such as squashing, swapping,
-  rebasing, splitting, branching, committing, or abandoning revisions. A
-  separate view for the operations log, `jj op log`, allows fast previews of
-  diffs and commit histories of past operations and enabling undo of previous
-  actions. The available hotkeys are displayed on-screen for easy
-  discoverability. The commands and key bindings can also be displayed with
-  `jj-fzf --help` and are documented in the **jj-fzf** wiki.
-
-## JJ LOG VIEW
-
-  The `jj log` view in **jj-fzf** displays a list of revisions with commit
-  information on each line. Each line contains the following elements:
-
-  **Graph Characters**:
-    **@**: Marks the working copy
-    **○**: Indicates a mutable commit, a commit that has not been pushed to a
-       remote yet
-    **◆**: Indicates an immutable commit, that has been pushed to a remote or occurs
-       in the ancestry of a tag. In `jj`, the set of immutable commits can be
-       configured via the `revset-aliases."immutable_heads()"` config
-  **Change ID**: The (mostly unique) identifier to track this change across commits
-  **Username**:  The abbreviated username of the author
-  **Date**:      The day when the commit was authored
-  **Commit ID**: The unique hash for this commit and its meta data
-  **Refs**:      Any tags or bookmarks associated with the revisions
-  **Message**:   A brief description of the changes made in the revisions
-
-## PREVIEW WINDOW
-
-  The preview window on the right displays detailed information for the
-  currently selected revisions. The meaning of the preview items are as follows:
-
-  **First Line**: The `jj log -T builtin_log_oneline` output for the selected commit
-  **Change ID**:  The `jj` revision identifier for this revisions
-  **Commit ID**:  The unique identifier for the Git commit
-  **Refs**:       Tags and bookmarks (similar to branch names) for this revisions
-  **Immutable**:  A boolean indication for immutable revisions
-  **Parents**:    A list of parent revisions (more than one for merge commits)
-  **Author**:     The author of the revision, including name and email, timestamp
-  **Committer**:  The committer, including name and email, timestamp
-  **Message**:    Detailed message describing the changes made in the revision
-  **File List**:  A list of files modified by this revision
-  **Diff**:       A `jj diff` view of changes introduced by the revision
-
-## COMMAND EXECUTION
-
-  For all repository-modifying commands, **jj-fzf** prints the actual `jj` commands
-  executed to stderr. This output aids users in learning how to use `jj` directly
-  to achieve the desired effects, can be useful when debugging and helps users
-  determine which actions they might wish to undo. Most commands can also be run
-  via the command line, using: `jj-fzf <command> <revision>`
-
-## KEY BINDINGS
-
-  Most **jj-fzf** commands operate on the currently selected revision and
-  are made available via the following keyboard shortcuts:
-'
-HELP_OUTRO='
-## SEE ALSO
-
-  For screencasts, workflow suggestions or feature requests, visit the
-  **jj-fzf** project page at: https://github.com/tim-janik/jj-fzf
-  For revsets, see: https://martinvonz.github.io/jj/latest/revsets
-'
-
 # == MULTISELECT ==
 if test -n "$MULTISELECT" ; then
   KEYBINDINGS=$(declare -p MULTIKEYBINDINGS) && declare -A KEYBINDINGS="${KEYBINDINGS#*=}"	# copy MULTIKEYBINDINGS -> KEYBINDINGS
@@ -1602,7 +1531,7 @@ fi
 
 # == --help ==
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
-if test -n "$SHOWHELP" ; then
+if test -n "$HELPKEYBINDINGS" ; then
   # Key bdingins only shown in long form help
   HELPKEYS[Shift-↑]='preview-up'
   HELPKEYS[Ctrl-↑]='preview-up'
@@ -1620,20 +1549,18 @@ else
 fi
 DISPLAYKEYS="${!HELPKEYS[@]}"
 DISPLAYKEYS=$(sort <<<"${DISPLAYKEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
-if test -n "$SHOWHELP" ; then
+if test -n "$HELPKEYBINDINGS" ; then
   tty -s <&1 && COLOR=true || { COLOR=false; JJFZFPAGER=cat; }
   test -z "$COLORALWAYS" || COLOR=true
   ( :
-    echo -n "$HELP_INTRO"
     for k in $DISPLAYKEYS ; do
       NAME="${HELPKEYS[$k]}"
-      echo && echo "**$k:** _$NAME""_"
+      echo && echo "## $k: _$NAME""_"
       D="${DOC[$NAME]:-}"
       test -z "$D" ||
 	echo "$D" | fold -s -w78 | gsed 's/^/  /'
     done
-    echo "$HELP_OUTRO"
-  ) | sedmarkdown | $JJFZFPAGER
+  )
   exit 0
 fi
 
