@@ -45,6 +45,10 @@ install: doc/jj-fzf.1
 	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
 	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
 	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
+installcheck:
+	$(QGEN)
+	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start $(BINDIR)/jj-fzf" >&2; false; }
+	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 | grep -qF jj-fzf || { echo "$@: ERROR: failed to render $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1" >&2; false; }
 uninstall:
 	$(QGEN)
 	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
