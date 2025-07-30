@@ -1,5 +1,7 @@
 /BACKLOG.md
 /doc/jj-fzf.1
 /wiki/
+/ChangeLog
+/*.tar*
 *.tmp*
 .x*

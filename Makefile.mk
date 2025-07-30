@@ -15,6 +15,8 @@ CLEANFILES	:= *.tmp
 CLEANDIRS	:=
 Q		:= $(if $(findstring 1, $(V)),, @)
 QGEN		 = @echo '  GEN     ' $@
+QSKIP		:= $(if $(findstring s,$(MAKEFLAGS)),: )
+QECHO		 = @QECHO() { Q1="$$1"; shift; QR="$$*"; QOUT=$$(printf '  %-8s ' "$$Q1" ; echo "$$QR") && $(QSKIP) echo "$$QOUT"; }; QECHO
 
 # == Compare Versions ==
 # Shell command that is true if $1 <= $2 in version comparisons
@@ -93,6 +95,31 @@ installcheck:
 uninstall:
 	$(QGEN)
 	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
+
+# == distcheck ==
+distcheck:
+	@$(eval distversion != git describe --match='v[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//')
+	@$(eval distname := jj-fzf-$(distversion))
+	$(QECHO) MAKE $(distname).tar.zst
+	$Q test -n "$(distversion)" || { echo -e "#\n# $@: ERROR: no dist version, is git working?\n#" >&2; false; }
+	$Q git describe --dirty | grep -qve -dirty || echo -e "#\n# $@: WARNING: working tree is dirty\n#"
+	$Q # Generate ChangeLog with ^^-prefixed records. Tab-indent commit bodies, kill whitespaces and multi-newlines
+	$Q git log --abbrev=13 --date=short --first-parent HEAD	\
+		--pretty='^^%ad  %an 	# %h%n%n%B%n'		>  ChangeLog \
+	&& sed 's/^/	/; s/^	^^// ; s/[[:space:]]\+$$// '	-i ChangeLog \
+	&& sed '/^\s*$$/{ N; /^\s*\n\s*$$/D }'			-i ChangeLog
+	$Q git archive -o $(distname).tar --add-file ChangeLog --prefix=$(distname)/ HEAD
+	$Q rm -f $(distname).tar.zst && zstd --ultra -22 --rm $(distname).tar && ls -lh $(distname).tar.zst
+	$Q T=`mktemp -d` && cd $$T && tar xf $(abspath $(distname).tar.zst) \
+	&& cd jj-fzf-$(distversion) \
+	&& nice make all -j`nproc` \
+	&& make PREFIX=$$T/inst install \
+	&& make PREFIX=$$T/inst installcheck -j`nproc` \
+	&& (set -x && $$T/inst/bin/jj-fzf --version) \
+	&& make PREFIX=$$T/inst uninstall \
+	&& (set -x && $$PWD/jj-fzf --version) \
+	&& cd / && rm -r "$$T"
+	$Q echo "Archive ready: $(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 
 # == clean ==
 clean:
