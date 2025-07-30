@@ -1,7 +1,7 @@
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 
 all:
-SHELL		:= /bin/bash -o pipefail
+SHELL		:= /usr/bin/env bash -o pipefail
 version_full	!= ./version.sh
 version_bits    := $(subst _, , $(subst -, , $(subst ., , $(version_full))))
 PREFIX		?= /usr/local
