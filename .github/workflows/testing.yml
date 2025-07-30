@@ -24,6 +24,9 @@ jobs:
           tar zxvf - -C ~/.cargo/bin/ ./jj
         jj --version
     - run: |
+        cd /tmp && wget -q -c https://github.com/jgm/pandoc/releases/download/3.7.0.2/pandoc-3.7.0.2-1-amd64.deb
+        sudo apt install ./pandoc-3.7.0.2-1-amd64.deb && pandoc --version
+    - run: |
         make all
     - run: |
         make check
