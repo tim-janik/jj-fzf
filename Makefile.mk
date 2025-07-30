@@ -21,7 +21,9 @@ RM	:= rm -f
 # == doc/jj-fzf.1 ==
 doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
 	$(QGEN)
-	$Q ./jj-fzf --help-bindings > doc/keys.tmp
+	$Q TEMPD="`mktemp -d`" && cd "$$TEMPD" && jj git init 2>/dev/null \
+	&& $(abspath ./jj-fzf) --help-bindings > $(abspath doc/keys.tmp) \
+	&& cd / && rm -r -f "$$TEMPD" # jj-fzf needs a .jj repo to run
 	$Q sed -r $$'/```jj-fzf --help-bindings```/ { r doc/keys.tmp\n d ; }' $< > doc/jj-fzf.1.tmp.md
 	$Q pandoc $(man/markdown-flavour) -s -p \
 		-M date="$(word 2, $(version_full))" \
