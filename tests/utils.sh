@@ -3,7 +3,7 @@
 # == Check Dependencies ==
 jj --help >/dev/null
 PATH="$SCRIPTDIR/..:$PATH"	# ensure jj-fzf is in $PATH
-jj-fzf --help >/dev/null
+jj-fzf --version >/dev/null
 
 # == VARIABLE Setup ==
 export JJ_FZF_ERROR_DELAY=0 # instant errors for testing
