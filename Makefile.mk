@@ -15,8 +15,6 @@ CLEANFILES	:= *.tmp
 CLEANDIRS	:=
 Q		:= $(if $(findstring 1, $(V)),, @)
 QGEN		 = @echo '  GEN     ' $@
-INSTALL	:= install -c
-RM	:= rm -f
 
 # == Compare Versions ==
 # Shell command that is true if $1 <= $2 in version comparisons
@@ -54,24 +52,6 @@ man/markdown-flavour	:= -f markdown+hard_line_breaks+autolink_bare_uris+emoji+li
 CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
-# == install & uninstall ==
-install: all
-	$(QGEN)
-	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
-	install -c version.sh jj-fzf $(DESTDIR)$(PRJDIR)
-	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
-	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
-	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
-	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
-	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
-installcheck:
-	$(QGEN)
-	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start $(BINDIR)/jj-fzf" >&2; false; }
-	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 | grep -qF jj-fzf || { echo "$@: ERROR: failed to render $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1" >&2; false; }
-uninstall:
-	$(QGEN)
-	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
-
 # == tests ==
 tests-basics.sh:
 	$Q tests/basics.sh
@@ -95,6 +75,24 @@ check-help:
 	$(QGEN)
 	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
 check: check-deps check-gsed check-help shellcheck-error tests-basics.sh
+
+# == install & uninstall ==
+install: all
+	$(QGEN)
+	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
+	install -c version.sh jj-fzf $(DESTDIR)$(PRJDIR)
+	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
+	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
+	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
+	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
+	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
+installcheck:
+	$(QGEN)
+	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start $(BINDIR)/jj-fzf" >&2; false; }
+	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 | grep -qF jj-fzf || { echo "$@: ERROR: failed to render $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1" >&2; false; }
+uninstall:
+	$(QGEN)
+	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
 
 # == clean ==
 clean:
