@@ -8,6 +8,18 @@ ABSPATHSCRIPT=`readlink -f "$0"` && function die  { [ -n "$*" ] && echo "${ABSPA
 test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
 SELF="$0" # Allow to re-execute this script
 
+# == Early options, outside a jj repo ==
+COLORALWAYS=
+while test $# -ne 0 ; do
+  case "$1" in \
+    --version)		echo "${ABSPATHSCRIPT##*/} `${ABSPATHSCRIPT%/*}/version.sh`"; exit ;;
+    -h|--help)		exec man ${ABSPATHSCRIPT%/*}/doc/jj-fzf.1 ;;
+    --color=always)	COLORALWAYS=t ;;
+    *)         		break ;;
+  esac
+  shift
+done
+
 # == Subdirs may vanish during checkouts ==
 JJPWD="$PWD"
 JJROOT=$(jj --ignore-working-copy root) &&
@@ -112,9 +124,8 @@ versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
 command -v column >/dev/null || column() { cat; }
-pkgversion() ( ${ABSPATHSCRIPT%/*}/version.sh )
 
-# == Early Options ==
+# == General Options ==
 MULTISELECT= HELPKEYBINDINGS= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false POSTCMDEXIT=
 while test $# -ne 0 ; do
   case "$1" in \
@@ -123,7 +134,6 @@ while test $# -ne 0 ; do
     +m)			MULTISELECT= ;;
     --postcmd-exit)	POSTCMDEXIT=1 ;;
     --key-bindings)	SHOWKEYBINDINGS=t ;;
-    --version)		echo "${ABSPATHSCRIPT##*/} `pkgversion`"; exit ;;
     --oneshot)		ONESHOT=true ;; # auto-exit after first command
     --color=always)	COLORALWAYS=t ;;
     *)         		break ;;
