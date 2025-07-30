@@ -38,7 +38,8 @@ check-deps: jj-fzf
 	$Q ./jj-fzf --version
 	$Q ./jj-fzf --help >/dev/null # check-deps
 
-install: doc/jj-fzf.1
+# == install & uninstall ==
+install: all
 	$(QGEN)
 	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
 	install -c version.sh jj-fzf $(DESTDIR)$(PRJDIR)
@@ -55,6 +56,12 @@ uninstall:
 	$(QGEN)
 	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
 
+# == tests ==
+tests-basics.sh:
+	$Q tests/basics.sh
+.PHONY: tests-basics.sh
+
+# == shellcheck ==
 shellcheck-warning: jj-fzf
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
@@ -63,8 +70,6 @@ shellcheck-error:
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
 	shellcheck -W 3 -S error jj-fzf
-tests-basics.sh:
-	$Q tests/basics.sh
 check-gsed: jj-fzf
 	$(QGEN)
 	$Q ! grep --color=auto -nE '[^\\]\bsed ' jj-fzf /dev/null \
