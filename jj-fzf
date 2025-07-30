@@ -4,7 +4,7 @@ set -Eeuo pipefail #-x
 SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 
 # == Execution Trampoline ==
-# Hook to serve as a single-executable trampoline for JJ
+# Hook to serve as a single-executable trampoline for `jj show --tool $SELF`
 test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
 SELF="$0" # Allow to re-execute this script
 
