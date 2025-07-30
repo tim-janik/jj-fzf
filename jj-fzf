@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+ABSPATHSCRIPT=`readlink -f "$0"` && function die  { [ -n "$*" ] && echo "${ABSPATHSCRIPT##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 
 # == Execution Trampoline ==
 # Hook to serve as a single-executable trampoline for `jj show --tool $SELF`
@@ -102,7 +102,6 @@ case "${1:-}" in
 esac
 
 # == Check Deps ==
-VERSION=0.25.0
 gawk --version | grep -Fq 'GNU Awk' || die "failed to find 'gawk' in \$PATH (GNU Awk)"
 version0d() { gawk 'BEGIN{FPAT="[0-9]+"} {printf("%04d.%04d.%04d.%04d.%04d\n",$1,$2,$3,$4,$5);exit}' <<<" $* "; }
 versionge() { test "$(version0d "$2")a" '<' "$(version0d "$1")b"; }
@@ -113,6 +112,7 @@ versionge "$(fzf --version)" 0.43 || die "failed to find 'fzf' version 0.43.0 in
 sed --version 2>/dev/null | grep -Fq 'GNU sed' && gsed() { \sed "$@"; } && export -f gsed ||
     gsed --version | grep -Fq 'GNU sed' || die "failed to find 'gsed' in \$PATH (GNU sed)"
 command -v column >/dev/null || column() { cat; }
+pkgversion() ( ${ABSPATHSCRIPT%/*}/version.sh )
 
 # == Early Options ==
 MULTISELECT= SHOWHELP= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false POSTCMDEXIT=
@@ -123,7 +123,7 @@ while test $# -ne 0 ; do
     +m)			MULTISELECT= ;;
     --postcmd-exit)	POSTCMDEXIT=1 ;;
     --key-bindings)	SHOWKEYBINDINGS=t ;;
-    --version)		echo "$SCRIPTNAME $VERSION"; exit ;;
+    --version)		echo "${ABSPATHSCRIPT##*/} `pkgversion`"; exit ;;
     --oneshot)		ONESHOT=true ;; # auto-exit after first command
     --color=always)	COLORALWAYS=t ;;
     *)         		break ;;
@@ -1521,7 +1521,7 @@ sedmarkdown()
 )
 
 # Help text
-HELP_INTRO="# JJ-FZF ($VERSION)"'
+HELP_INTRO="# JJ-FZF (`pkgversion`)"'
 
   **jj-fzf** is a text-based user interface for the `jj` version control system,
   built on top of the fuzzy finder `fzf`. **jj-fzf** centers around the `jj log`
