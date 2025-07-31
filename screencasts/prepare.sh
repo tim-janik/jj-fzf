@@ -248,3 +248,22 @@ make_repo()
 
   ls -ald $R/*
 )
+
+# Clone JJ repo into reproducible state (from ~/.cache/jj.git)
+clone_jj_repo()
+(
+  DIR="$1"
+  # cd ~/.cache/ && git clone --bare git@github.com:jj-vcs/jj.git'
+  test -r /$HOME/.cache/jj.git/ ||
+    die 'missing ~/.cache/jj.git'
+  rm -rf "$DIR"
+  # set -x
+  git clone --shallow-since 2025-01-01 file://$HOME/.cache/jj.git "$DIR"
+  cd "$DIR"
+  rm -r .git/packed-refs .git/refs/tags/v0.3* .git/refs/tags/v0.28.2 .git/refs/tags/v0.29.0
+  echo 041c4fecb77434dd6720e7d7f1ce48d9575ac5f7 > .git/refs/remotes/origin/main
+  jj git init --colocate
+  jj new b9ebe2f0
+  jj abandon --ignore-immutable ' 3e51038d:: | sqywrslw::'
+  jj rebase --destination 3aac8d21 --source 8b949f7e
+)
