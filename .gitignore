@@ -4,3 +4,10 @@
 /artifacts/
 *.tmp*
 .x*
+*.ttf
+*.cast
+*.gif
+*.mp4
+*.webp
+/screencasts/*/
+/*Demo/
