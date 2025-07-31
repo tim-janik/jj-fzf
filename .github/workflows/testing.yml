@@ -3,50 +3,74 @@
 # Linting: xclip -sel c <.github/workflows/testing.yml # https://rhysd.github.io/actionlint/
 
 on:
-  pull_request:
   push:
-    branches: [ '**' ]
-    # tags:   [ 'v[0-9]+.[0-9]+.[0-9]+*' ]
+    branches: ['main', 'master', 'trunk', 'wip/**']
+    tags:     [ 'v[0-9]+.[0-9]+.[0-9]+*' ]
+  pull_request:
+    branches: ['trunk', 'wip/**']  # Only run PRs targeting these branches
 
 jobs:
 
-  MakeCheck:
+  MakeDistCheck:
     runs-on: ubuntu-24.04
     steps:
-    - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, submodules: recursive, github-server-url: 'https://github.com' } }
-    - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
+    - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
+    - run: git fetch -f --tags	# Fix actions/checkout#290
     - run: |
         curl -s -L https://github.com/junegunn/fzf/releases/download/v0.56.3/fzf-0.56.3-linux_amd64.tar.gz |
-          tar zxvf - -C ~/.cargo/bin/ fzf
+          sudo tar zxvf - -C /usr/local/bin/ fzf
         fzf --version
     - run: |
         curl -s -L https://github.com/martinvonz/jj/releases/download/v0.31.0/jj-v0.31.0-x86_64-unknown-linux-musl.tar.gz |
-          tar zxvf - -C ~/.cargo/bin/ ./jj
+          sudo tar zxvf - -C /usr/local/bin/ ./jj
         jj --version
+    - run: |
+        cd /tmp && wget -q -c https://github.com/jgm/pandoc/releases/download/3.7.0.2/pandoc-3.7.0.2-1-amd64.deb
+        sudo apt install ./pandoc-3.7.0.2-1-amd64.deb && pandoc --version
     - run: |
         make all
     - run: |
         make check
     - run: |
-        make install
+        sudo make install
     - run: |
         make installcheck
     - run: |
-        make uninstall
+        sudo make uninstall
     - run: |
         make clean
+    - run: |
+        make distcheck
+    - uses: actions/upload-artifact@v4
+      with: { name: jj-fzf-Tarball, path: artifacts/ }
+
+  CreateRelease:
+    runs-on: ubuntu-latest
+    needs: [ MakeDistCheck ]
+    if: github.ref_type == 'tag'	# https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+    # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
+    permissions: { contents: write }	# allow github.token to create a release
+    env: { GH_TOKEN: "${{ github.token }}" }
+    steps:
+    - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
+    - run: git fetch -f --tags	# Fix actions/checkout#290
+    - uses: actions/download-artifact@v4
+      with: { path: ./artifacts, merge-multiple: true }
+    - run: ls -alR artifacts/
+    - run: |
+        .github/workflows/gh-release.sh "Anklang"
 
   Ping-IRC:
     if: always()
-    needs: [MakeCheck]
+    needs: [MakeDistCheck]
     runs-on: ubuntu-24.04
     steps:
     - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
     - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
     - name: Check Jobs
       run: |
-        echo '${{ needs.MakeCheck.result }}'
-        [[ ${{ needs.MakeCheck.result }}    =~ success|skipped ]]
+        echo '${{ needs.MakeDistCheck.result }}'
+        [[ ${{ needs.MakeDistCheck.result }}    =~ success|skipped ]]
     - name: Ping IRC
       if: ${{ always() && !env.ACT }}
       run: |

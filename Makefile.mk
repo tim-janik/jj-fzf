@@ -15,8 +15,8 @@ CLEANFILES	:= *.tmp
 CLEANDIRS	:=
 Q		:= $(if $(findstring 1, $(V)),, @)
 QGEN		 = @echo '  GEN     ' $@
-INSTALL	:= install -c
-RM	:= rm -f
+QSKIP		:= $(if $(findstring s,$(MAKEFLAGS)),: )
+QECHO		 = @QECHO() { Q1="$$1"; shift; QR="$$*"; QOUT=$$(printf '  %-8s ' "$$Q1" ; echo "$$QR") && $(QSKIP) echo "$$QOUT"; }; QECHO
 
 # == Compare Versions ==
 # Shell command that is true if $1 <= $2 in version comparisons
@@ -54,24 +54,6 @@ man/markdown-flavour	:= -f markdown+hard_line_breaks+autolink_bare_uris+emoji+li
 CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
-# == install & uninstall ==
-install: all
-	$(QGEN)
-	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
-	install -c version.sh jj-fzf $(DESTDIR)$(PRJDIR)
-	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
-	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
-	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
-	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
-	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
-installcheck:
-	$(QGEN)
-	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start $(BINDIR)/jj-fzf" >&2; false; }
-	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 | grep -qF jj-fzf || { echo "$@: ERROR: failed to render $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1" >&2; false; }
-uninstall:
-	$(QGEN)
-	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
-
 # == tests ==
 tests-basics.sh:
 	$Q tests/basics.sh
@@ -95,6 +77,51 @@ check-help:
 	$(QGEN)
 	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
 check: check-deps check-gsed check-help shellcheck-error tests-basics.sh
+
+# == install & uninstall ==
+install: all
+	$(QGEN)
+	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
+	install -c version.sh jj-fzf $(DESTDIR)$(PRJDIR)
+	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
+	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
+	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
+	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
+	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
+installcheck:
+	$(QGEN)
+	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start $(BINDIR)/jj-fzf" >&2; false; }
+	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 | grep -qF jj-fzf || { echo "$@: ERROR: failed to render $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1" >&2; false; }
+uninstall:
+	$(QGEN)
+	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
+
+# == distcheck ==
+distcheck:
+	@$(eval distversion != git describe --match='v[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//')
+	@$(eval distname := jj-fzf-$(distversion))
+	$(QECHO) MAKE $(distname).tar.zst
+	$Q test -n "$(distversion)" || { echo -e "#\n# $@: ERROR: no dist version, is git working?\n#" >&2; false; }
+	$Q git describe --dirty | grep -qve -dirty || echo -e "#\n# $@: WARNING: working tree is dirty\n#"
+	$Q rm -r -f artifacts/ && mkdir -p artifacts/
+	$Q # Generate ChangeLog with ^^-prefixed records. Tab-indent commit bodies, kill whitespaces and multi-newlines
+	$Q git log --abbrev=13 --date=short --first-parent HEAD	\
+		--pretty='^^%ad  %an 	# %h%n%n%B%n'		>  artifacts/ChangeLog \
+	&& sed 's/^/	/; s/^	^^// ; s/[[:space:]]\+$$// '	-i artifacts/ChangeLog \
+	&& sed '/^\s*$$/{ N; /^\s*\n\s*$$/D }'			-i artifacts/ChangeLog
+	$Q # Generate and compress artifacts/jj-fzf-*.tar.zst
+	$Q git archive --prefix=$(distname)/ --add-file artifacts/ChangeLog -o artifacts/$(distname).tar HEAD
+	$Q rm -f artifacts/$(distname).tar.zst && zstd --ultra -22 --rm artifacts/$(distname).tar && ls -lh artifacts/$(distname).tar.zst
+	$Q T=`mktemp -d` && cd $$T && tar xf $(abspath artifacts/$(distname).tar.zst) \
+	&& cd jj-fzf-$(distversion) \
+	&& nice make all -j`nproc` \
+	&& make PREFIX=$$T/inst install \
+	&& make PREFIX=$$T/inst installcheck -j`nproc` \
+	&& (set -x && $$T/inst/bin/jj-fzf --version) \
+	&& make PREFIX=$$T/inst uninstall \
+	&& (set -x && $$PWD/jj-fzf --version) \
+	&& cd / && rm -r "$$T"
+	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 
 # == clean ==
 clean:
