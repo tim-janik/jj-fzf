@@ -8,6 +8,27 @@ export SCREENCASTSDIR="${SCREENCASTSDIR%/*}"
 # Add jj-fzf to $PATH
 PATH="$SCREENCASTSDIR/..:$PATH"
 
+# == Options ==
+SCREENCAST_WINDOW=false
+SCREENCAST_SPEED=normal
+SCREENCAST_HIDE=false
+for arg in "$@"; do
+  case "$arg" in
+    -x)		set -x ;;
+    --fast)	SCREENCAST_SPEED=fast ;;
+    --window)	SCREENCAST_WINDOW=true ;;
+    --hide)	SCREENCAST_HIDE=true ;;
+    --help)	cat <<-__EOF
+	Usage: ${0##*/} [OPTIONS...]
+	Options:
+	  --window	Run screencast in dedicated terminal window
+	  --hide	Hide screencast output during run
+	  --fast	Reduce replay timings, might cause race conditions
+__EOF
+		exit 0 ;;
+  esac
+done
+
 # == Config  ==
 test -n "${SCREENCAST_SESSION-}" || die "missing SCREENCAST_SESSION name"
 TEMPD=$(mktemp --tmpdir -d screencasts.XXXXXX) &&
@@ -44,13 +65,18 @@ fast_timings()
   w=0.004
   t=0.007
 }
+[[ "$SCREENCAST_SPEED" == fast ]] && fast_timings
 
 # == deps ==
 test -z "${TMUX-}" || die "this session must be started outside tmux"
-for cmd in nano tmux asciinema agg gif2webp gnome-terminal ffmpeg ; do
-  command -V $cmd || die "missing command: $cmd"
+SCREENCAST_DEPS=( nano tmux script asciinema pv )
+for cmd in "${SCREENCAST_DEPS[@]}" ; do
+  command -V $cmd >/dev/null ||
+    die "missing command: $cmd"
 done
-asciinema --version || die "failed: asciinema --version"
+asciinema --version >/dev/null ||
+  die "failed: asciinema --version"
+printf '  %-8s %s\n' OK Dependencies
 
 # == Screencast functions ==
 # rtrim, then count chars
@@ -82,9 +108,8 @@ K()
   while test $# -ge 1 ; do
     KEY="$1"; shift
     [[ "${1:-}" =~ ^[1-9][0-9]*$ ]] &&
-      { N="$1"; shift; } ||
-	N=1
-    for (( i=0 ; i<$N; i++ )); do
+      { REPEAT="$1"; shift; } || REPEAT=1
+    for (( i=0 ; i<$REPEAT; i++ )); do
       tmux send-keys -t $SCREENCAST_SESSION "$KEY"
       DK="${KEY/C-/Ctrl-}" && DK="${DK/M-/Alt-}"
       #	[[ "$DK" == "$KEY" ]] && [[ "$DK" != "Enter" ]] && sk=$k || sk=$(echo "2 * $k" | bc -l)
@@ -110,15 +135,16 @@ P()
 X()
 {
   echo "  $*" > $TEMPD/xmsg
-  local S=$p # $(echo "`crtrim "$*"` * $w + $p" | bc -l)
-  tmux display-popup -E -y$Py -h3 -w80 "$SCREENCASTSDIR/slowtype.sh $w $TEMPD/xmsg && tput civis && sleep $S && exit"
+  local pause=$p # $(echo "`crtrim "$*"` * $w + $p" | bc -l)
+  tmux display-popup -t $SCREENCAST_SESSION -E -y$Py -h3 -w80 \
+       "$SCREENCASTSDIR/slowtype.sh $w $TEMPD/xmsg && tput civis && sleep $pause && exit"
   rm $TEMPD/xmsg
   sleep $k
 }
 
 # kill-line + type-text + kill-line
 Q()
-{ K C-U; T "$*"; K C-U; S; }	# fzf-query + Ctrl+U
+{ K C-U; T "$*"; K C-U; sleep $sync; }	# fzf-query + Ctrl+U
 
 # Q without delays
 Q0()
@@ -128,14 +154,14 @@ Q0()
 # Find PID of asciinema for the current $SCREENCAST_SESSION
 find_asciinema_pid()
 {
-  ps --no-headers -ao pid,comm,args |
-    awk "/asci[i]nema rec.*\\<$SCREENCAST_SESSION\\>/{ print \$1 }"
+  ps --no-headers -ao pid,comm,args | awk "/asciinema.*\/python.*\/asci[i]nema rec.*\\<$SCREENCAST_SESSION\\>/{ print \$1 }"
 }
 
 # Start recording with asciinema in a dedicated terminal, using $W x $H, etc
-start_asciinema() # start_asciinema <shelldir> [send-keys..]
+start_screencast() # start_screencast <shelldir> [send-keys..]
 {
-  DIR="$(readlink -f "${1:-.}")" ; shift
+  printf '  %-8s %s\n' START $ASCIINEMA_SCREENCAST
+  local DIR="$(readlink -f "${1:-.}")" ; shift
   # Setup clean shell env
   echo "export HISTFILE=/dev/null"			       			>  $TEMPD/bashrc
   echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"					>> $TEMPD/bashrc
@@ -150,8 +176,9 @@ start_asciinema() # start_asciinema <shelldir> [send-keys..]
     # export JJ_CONFIG=/dev/null
     tmux new-session -s $SCREENCAST_SESSION -P -d -x $W -y $H
   ) >$TEMPD/session
-  echo "tmux-session: $SCREENCAST_SESSION"
+  printf '  %-8s %s\n' TMUX "$SCREENCAST_SESSION"
   tmux set-option -t $SCREENCAST_SESSION status off
+  tmux set-option -t $SCREENCAST_SESSION allow-rename off
   tmux send-keys -t $SCREENCAST_SESSION "source $TEMPD/bashrc"$'\n'
   while ! test -r $TEMPD/bash-i.pid ; do sleep 0.1 ; done
   tmux resize-window -t $SCREENCAST_SESSION -x $W -y $H ; sleep 0.1
@@ -160,22 +187,58 @@ start_asciinema() # start_asciinema <shelldir> [send-keys..]
     tmux send-keys -t $SCREENCAST_SESSION "$1"
     shift
   done
-  sleep 0.2
-  gnome-terminal --geometry $W"x"$H -t "$SCREENCAST_SESSION -- asciinema" --zoom $Z  -- \
-		 asciinema rec --overwrite "$ASCIINEMA_SCREENCAST.cast" -c "tmux attach-session -t $SCREENCAST_SESSION -f read-only"
-  while test -z "$(find_asciinema_pid)" ; do
-    sleep 0.1 # dont save PID, this might be an early pid still forking
-  done
+  sleep $sync
+  # start asciinema in bg, so this script continues
+  ASCIINEMA_REC_C="asciinema rec --overwrite $ASCIINEMA_SCREENCAST.cast --cols $W --rows $H -c "
+  TMUX_ATTACH_RO="tmux attach-session -t $SCREENCAST_SESSION -f read-only"
+  ( set -e
+    if $SCREENCAST_WINDOW ; then
+      gnome-terminal --geometry $W"x"$H -t "$SCREENCAST_SESSION -- asciinema" --zoom $Z -- \
+		     $ASCIINEMA_REC_C "$TMUX_ATTACH_RO"
+    elif $SCREENCAST_HIDE ; then
+      script -Enever -O $TEMPD/script.log -c \
+	     "stty rows $H cols $W && $ASCIINEMA_REC_C '$TMUX_ATTACH_RO' " |
+	pv -b -t -p -e -i 0.1 -w80 -N '  ASCIINEMA' >/dev/null
+    else
+      script -Enever -O $TEMPD/script.log -c \
+	     "stty rows $H cols $W && $ASCIINEMA_REC_C '$TMUX_ATTACH_RO' "
+    fi
+  ) &
+  echo "$!" > $TEMPD/script.pid
+  ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
+  sleep $sync
+  test -z "$(find_asciinema_pid)" && {
+    sleep $sync
+    sleep $sync
+  }
+  ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
+  test -n "$(find_asciinema_pid)" ||
+    die "failed to identify asciinema process for screencast session: $SCREENCAST_SESSION"
 }
 
 # Stop recording
-stop_asciinema()
-(
-  set -Eeuo pipefail -x
-  PID=$(find_asciinema_pid)	# PID=$(tmux list-panes -t $SCREENCAST_SESSION -F '#{pane_pid}')
-  kill -15 $PID	# hard abort asciinema, so last frame is preserved
+stop_screencast()
+{
+  set -Eeuo pipefail # -x
+  # hard abort asciinema, so last frame is preserved
+  kill -9 $(find_asciinema_pid) 	# PID=$(tmux list-panes -t $SCREENCAST_SESSION -F '#{pane_pid}')
   tmux kill-session -t $SCREENCAST_SESSION
-)
+  sleep $sync
+  ( wait -fn $(cat $TEMPD/script.pid) || true ) >/dev/null 2>&1
+  sleep $sync
+  echo  # leave PV line
+  printf '  %-8s %s\n' STOP $ASCIINEMA_SCREENCAST
+  if ! $SCREENCAST_WINDOW && ! $SCREENCAST_HIDE ; then
+    ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
+    # Reset terminal state from mouse/alt-screen/etc
+    stty sane
+    reset -I
+    # Swallow any buffered replies to Terminal Device Status Reports escape sequences
+    ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
+    echo -e '\x1bc'
+  fi
+  sleep $sync
+}
 
 # == repo commands ==
 # Usage: make_repo [-quitstage] [repo] [brancha] [branchb]
@@ -266,19 +329,21 @@ __EOF
 
 # Clone JJ repo into reproducible state (from ~/.cache/jj.git)
 clone_jj_repo()
-(
-  DIR="$1"
+{
+  local DIR="$1"
   # cd ~/.cache/ && git clone --bare git@github.com:jj-vcs/jj.git'
   test -r /$HOME/.cache/jj.git/ ||
     die 'missing ~/.cache/jj.git'
   rm -rf "$DIR"
-  # set -x
-  git clone --shallow-since 2025-01-01 file://$HOME/.cache/jj.git "$DIR"
-  cd "$DIR"
-  rm -r .git/packed-refs .git/refs/tags/v0.3* .git/refs/tags/v0.28.2 .git/refs/tags/v0.29.0
-  echo 041c4fecb77434dd6720e7d7f1ce48d9575ac5f7 > .git/refs/remotes/origin/main
-  jj git init --colocate
-  jj new b9ebe2f0
-  jj abandon --ignore-immutable ' 3e51038d:: | sqywrslw::'
-  jj rebase --destination 3aac8d21 --source 8b949f7e
-)
+  ( set -x
+    git clone --shallow-since 2025-01-01 file://$HOME/.cache/jj.git "$DIR"
+    cd "$DIR"
+    rm -r .git/packed-refs .git/refs/tags/v0.3* .git/refs/tags/v0.28.2 .git/refs/tags/v0.29.0
+    echo 041c4fecb77434dd6720e7d7f1ce48d9575ac5f7 > .git/refs/remotes/origin/main
+    jj git init --colocate
+    jj new b9ebe2f0
+    jj abandon --ignore-immutable ' lxuluxyq:: | sqywrslw::'
+    jj rebase --destination 3aac8d21 --source 8b949f7e
+  ) > $TEMPD/clone_jj_repo.log 2>&1 ||
+    { cat $TEMPD/clone_jj_repo.log >&2 ; exit -1 ; }
+}
