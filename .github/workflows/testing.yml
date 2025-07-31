@@ -10,11 +10,11 @@ on:
 
 jobs:
 
-  MakeCheck:
+  MakeDistCheck:
     runs-on: ubuntu-24.04
     steps:
-    - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, submodules: recursive, github-server-url: 'https://github.com' } }
-    - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
+    - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
+    - run: git fetch -f --tags	# Fix actions/checkout#290
     - run: |
         curl -s -L https://github.com/junegunn/fzf/releases/download/v0.56.3/fzf-0.56.3-linux_amd64.tar.gz |
           sudo tar zxvf - -C /usr/local/bin/ fzf
@@ -41,19 +41,35 @@ jobs:
     - run: |
         make distcheck
     - uses: actions/upload-artifact@v4
-      with: { name: jj-fzf-Tarball, path: "*.tar*" }
+      with: { name: jj-fzf-Tarball, path: artifacts/ }
+
+  CreateRelease:
+    runs-on: ubuntu-latest
+    needs: [ MakeDistCheck ]
+    if: github.ref_type == 'tag'	# https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+    # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
+    permissions: { contents: write }	# allow github.token to create a release
+    env: { GH_TOKEN: "${{ github.token }}" }
+    steps:
+    - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
+    - run: git fetch -f --tags	# Fix actions/checkout#290
+    - uses: actions/download-artifact@v4
+      with: { path: ./artifacts, merge-multiple: true }
+    - run: ls -alR artifacts/
+    - run: |
+        .github/workflows/gh-release.sh "Anklang"
 
   Ping-IRC:
     if: always()
-    needs: [MakeCheck]
+    needs: [MakeDistCheck]
     runs-on: ubuntu-24.04
     steps:
     - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
     - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
     - name: Check Jobs
       run: |
-        echo '${{ needs.MakeCheck.result }}'
-        [[ ${{ needs.MakeCheck.result }}    =~ success|skipped ]]
+        echo '${{ needs.MakeDistCheck.result }}'
+        [[ ${{ needs.MakeDistCheck.result }}    =~ success|skipped ]]
     - name: Ping IRC
       if: ${{ always() && !env.ACT }}
       run: |
