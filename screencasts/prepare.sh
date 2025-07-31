@@ -1,33 +1,33 @@
+#!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+die() { echo "${0##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 
-export JJ_CONFIG=/dev/null # ignore user config
-readonly SESSION="$1"
-readonly ASCIINEMA_SCREENCAST=$(readlink -f "./$SESSION")
-export SESSION ASCIINEMA_SCREENCAST
+[[ "${BASH_SOURCE[0]}" = "${BASH_SOURCE[0]#/}" ]] &&
+  SCREENCASTSDIR="$PWD/${BASH_SOURCE[0]}" || SCREENCASTSDIR="${BASH_SOURCE[0]}"
+export SCREENCASTSDIR="${SCREENCASTSDIR%/*}"
+# Add jj-fzf to $PATH
+PATH="$SCREENCASTSDIR/..:$PATH"
+
+# == Config  ==
+test -n "${SCREENCAST_SESSION-}" || die "missing SCREENCAST_SESSION name"
+TEMPD=$(mktemp --tmpdir -d screencasts.XXXXXX) &&
+  trap "rm -rf '$TEMPD'" 0 || die "mktemp failed"
+echo "$$" > $TEMPD/$SCREENCAST_SESSION.pid
+readonly ASCIINEMA_SCREENCAST=$(readlink -f "./$SCREENCAST_SESSION")
+export SCREENCAST_SESSION ASCIINEMA_SCREENCAST
+export JJ_EMAIL=jane.doe@example.com
+export JJ_USER="Jane Doe"
+export JJ_CONFIG=/dev/null	# per default, ignore user config
+
 
 # == deps ==
+test -z "${TMUX-}" || die "this session must be started outside tmux"
 for cmd in nano tmux asciinema agg gif2webp gnome-terminal ffmpeg ; do
   command -V $cmd || die "missing command: $cmd"
 done
-for font in \
-  /usr/share/fonts/truetype/firacode/FiraCode-Retina.ttf \
-    /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
-do
-  cp $font .
-done
+asciinema --version || die "failed: asciinema --version"
 
-# == Aux Funcs ==
-# Create temporary dir, assigns $TEMPD
-temp_dir()
-{
-  test -n "${TEMPD:-}" || {
-    TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
-    trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
-    echo "$$" > $TEMPD/jj-fzf.pid
-    echo "$$" > $TEMPD/$SCRIPTNAME.pid
-  }
-}
-
+# == Screencast functions ==
 # rtrim, then count chars
 crtrim()
 (
@@ -36,24 +36,6 @@ crtrim()
   echo "${#V}"
 )
 
-# == Config + Timings ==
-W=138 H=40 Z=0.9
-t=0.050		# typing delay
-k=0.2000150	# special key delay
-s=0.250		# synchronizing delay, dont shorten
-p=0.9990750	# user pause
-w=1.500025	# info pause
-
-# Use fast timings for debugging
-fast_timings()
-{
-  t=0.01
-  #k=0.015
-  p=$s
-  w=0.05
-}
-
-# == screencast commands ==
 # type text
 T()
 {
@@ -61,13 +43,14 @@ T()
   for (( i=0; i<${#txt}; i++ )); do
     chr="${txt:$i:1}"
     if test "$chr" == ';'; then
-      tmux send-keys -t $SESSION -H $(printf %x "'$chr'")
+      tmux send-keys -t $SCREENCAST_SESSION -H $(printf %x "'$chr'")
     else
-      tmux send-keys -t $SESSION -l "$chr"
+      tmux send-keys -t $SCREENCAST_SESSION -l "$chr"
     fi
     sleep $t
   done
 }
+
 # send key
 K()
 (
@@ -77,106 +60,96 @@ K()
       { N="$1"; shift; } ||
 	N=1
     for (( i=0 ; i<$N; i++ )); do
-      tmux send-keys -t $SESSION "$KEY"
-      sleep $k
+      tmux send-keys -t $SCREENCAST_SESSION "$KEY"
+      DK="${KEY/C-/Ctrl-}" && DK="${DK/M-/Alt-}"
+      #	[[ "$DK" == "$KEY" ]] && [[ "$DK" != "Enter" ]] && sk=$k || sk=$(echo "2 * $k" | bc -l)
+      field=20 && len=${#DK} && pad=$(printf '%*s' $(( (field - len) / 2 )) '')
+      tmux display-popup -t $SCREENCAST_SESSION -E -B -y$Py -h1 -w$field \
+	   "tput smso && printf '%-$field""s' '$pad$DK' | column && tput civis; sleep $k && exit"
+      sleep $blink
     done
   done
 )
-Enter() { K "Enter" ; P; }
+
+Enter() { K "Enter" ; }
+
 # synchronize (with other programs)
 S()
 { sleep $s ; }
+
 # pause (for user to observe)
 P()
 { sleep $p ; }
+
+# Display message with pause
+X()
+{
+  echo "  $*" > $TEMPD/xmsg
+  local S=$p # $(echo "`crtrim "$*"` * $w + $p" | bc -l)
+  tmux display-popup -E -y$Py -h3 -w80 "$SCREENCASTSDIR/slowtype.sh $w $TEMPD/xmsg && tput civis && sleep $S && exit"
+  rm $TEMPD/xmsg
+  sleep $k
+}
+
 # kill-line + type-text + kill-line
 Q()
 { K C-U; T "$*"; K C-U; S; }	# fzf-query + Ctrl+U
+
 # Q without delays
 Q0()
-{ tmux send-keys -t $SESSION C-U; tmux send-keys -t $SESSION -l "$*"; tmux send-keys -t $SESSION C-U; }
-# Ctrl-Alt-X type-text Ctrl-g
-X()
-{
-  K C-M-x ;
-  (export t=$(echo "$t / 2" | bc -l) ; T "$*        ")
-  sleep $(echo "`crtrim "$*"` * $w / 50" | bc -l)
-  P ; K C-g ; S
-}
+{ tmux send-keys -t $SCREENCAST_SESSION C-U; tmux send-keys -t $SCREENCAST_SESSION -l "$*"; tmux send-keys -t $SCREENCAST_SESSION C-U; }
 
-# Find PID of asciinema for the current $SESSION
+# == Recording ==
+# Find PID of asciinema for the current $SCREENCAST_SESSION
 find_asciinema_pid()
 {
   ps --no-headers -ao pid,comm,args |
-    awk "/asci[i]nema rec.*\\<$SESSION\\>/{ print \$1 }"
+    awk "/asci[i]nema rec.*\\<$SCREENCAST_SESSION\\>/{ print \$1 }"
 }
+
 # Start recording with asciinema in a dedicated terminal, using $W x $H, etc
-start_asciinema()
+start_asciinema() # start_asciinema <shelldir> [send-keys..]
 {
   DIR="$(readlink -f "${1:-.}")" ; shift
-  temp_dir
-  # Simplify nano exit to Ctrl+X without 'y' confirmation
-  echo -e "set saveonexit"							>  $TEMPD/nanorc
-  echo "unset HISTFILE"					       			>  $TEMPD/bashrc
+  # Setup clean shell env
+  echo "export HISTFILE=/dev/null"			       			>  $TEMPD/bashrc
   echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"					>> $TEMPD/bashrc
   echo "export EDITOR='/usr/bin/env nano --rcfile $TEMPD/nanorc'"		>> $TEMPD/bashrc
   echo "export JJFZF_SHELL='/usr/bin/env bash --rcfile $TEMPD/bashrc -i'"	>> $TEMPD/bashrc
+  echo 'echo "$$" ' ">$TEMPD/bash-i.pid"					>> $TEMPD/bashrc
+  # Simplify nano exit to Ctrl+X without 'y' confirmation
+  echo -e "set saveonexit"							>  $TEMPD/nanorc
   # stert new screencast session
-  tmux kill-session -t $SESSION 2>/dev/null || :
+  tmux kill-session -t $SCREENCAST_SESSION 2>/dev/null || :
   ( cd "$DIR"
-    export JJ_CONFIG=/dev/null
-    tmux new-session -P -d -x $W -y $H -s $SESSION
+    # export JJ_CONFIG=/dev/null
+    tmux new-session -s $SCREENCAST_SESSION -P -d -x $W -y $H
   ) >$TEMPD/session
-  echo "tmux-session: $SESSION"
-  tmux set-option -t $SESSION status off
-  tmux send-keys -t $SESSION "source $TEMPD/bashrc"$'\n' ; sleep 0.1
-  tmux resize-window -t $SESSION -x $W -y $H ; sleep 0.1
-  tmux send-keys -t $SESSION $'clear\n' ; sleep 0.1
+  echo "tmux-session: $SCREENCAST_SESSION"
+  tmux set-option -t $SCREENCAST_SESSION status off
+  tmux send-keys -t $SCREENCAST_SESSION "source $TEMPD/bashrc"$'\n'
+  while ! test -r $TEMPD/bash-i.pid ; do sleep 0.1 ; done
+  tmux resize-window -t $SCREENCAST_SESSION -x $W -y $H ; sleep 0.1
+  tmux send-keys -t $SCREENCAST_SESSION $'clear\n' ; sleep 0.1
   while [ $# -gt 0 ] ; do
-    tmux send-keys -t $SESSION "$1"
+    tmux send-keys -t $SCREENCAST_SESSION "$1"
     shift
   done
-  sleep 0.1
-  gnome-terminal --geometry $W"x"$H -t $SESSION --zoom $Z  -- \
-		 asciinema rec --overwrite "$ASCIINEMA_SCREENCAST.cast" -c "tmux attach-session -t $SESSION -f read-only"
+  sleep 0.2
+  gnome-terminal --geometry $W"x"$H -t "$SCREENCAST_SESSION -- asciinema" --zoom $Z  -- \
+		 asciinema rec --overwrite "$ASCIINEMA_SCREENCAST.cast" -c "tmux attach-session -t $SCREENCAST_SESSION -f read-only"
   while test -z "$(find_asciinema_pid)" ; do
-    sleep 0.2 # dont save PID, this might be an early pid still forking
+    sleep 0.1 # dont save PID, this might be an early pid still forking
   done
 }
+
 # Stop recording
 stop_asciinema()
 (
   set -Eeuo pipefail -x
-  PID=$(find_asciinema_pid)	# PID=$(tmux list-panes -t $SESSION -F '#{pane_pid}')
-  kill -9 $PID	# abort asciinema, so last frame is preserved
-  tmux kill-session -t $SESSION
-)
-# Stop recording and render screencast output files
-render_cast()
-(
-  set -Eeuo pipefail # -x
-  SCREENCAST="$1"
-  test -r "$SCREENCAST.cast" || die "missing file: $SCREENCAST.cast"
-  # sed '$,/"\[exited]/d' "$SCREENCAST.cast"
-  # --font-family "DejaVu Sans Mono" --idle-time-limit 1 --fps-cap 60 --renderer resvg
-  # asciinema-agg
-  agg \
-    --theme asciinema --speed 1 \
-    --font-family "Fira Code Retina" \
-    --font-dir $PWD --font-size 16 \
-    "$SCREENCAST.cast" "$SCREENCAST.gif"
-  ( set -x
-    # -preset slower -preset veryslow -x264opts opencl
-    time ffmpeg -hwaccel auto -i "$SCREENCAST.gif" \
-	 -c:v libx264 -crf 24 -tune animation -preset placebo \
-	 -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-         -y "$SCREENCAST.mp4" &
-    gif2webp "$SCREENCAST.gif" -min_size -metadata all -o "$SCREENCAST.webp" &
-    wait
-  )
-  ls -l "$SCREENCAST"*
-  command -V notify-send 2>/dev/null && notify-send -e -i system-run -t 5000 "Screencast ready: $SCREENCAST"
-  true
+  PID=$(find_asciinema_pid)	# PID=$(tmux list-panes -t $SCREENCAST_SESSION -F '#{pane_pid}')
+  kill -15 $PID	# hard abort asciinema, so last frame is preserved
+  tmux kill-session -t $SCREENCAST_SESSION
 )
 
 # == repo commands ==
