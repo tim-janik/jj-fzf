@@ -249,6 +249,23 @@ make_repo()
   ls -ald $R/*
 )
 
+# JJ_CONFIG suitable for screencasts with tight layout
+make_jj_config()
+(
+  LOG_TMPL="${1-builtin_log_oneline}"
+  cat > $TEMPD/jjfzfcast.toml <<__EOF
+[template-aliases]
+"commit_timestamp(commit)" = "commit.author().timestamp()"
+'format_timestamp(timestamp)' = 'timestamp.local().format("%Y-%m-%d")'
+'format_short_signature(signature)' = ' coalesce(signature.email().local(), email_placeholder) '
+[colors]
+"diff token" = { underline = false }
+[jj-fzf]
+# log_template = "$LOG_TMPL"
+__EOF
+  echo $TEMPD/jjfzfcast.toml
+)
+
 # Clone JJ repo into reproducible state (from ~/.cache/jj.git)
 clone_jj_repo()
 (
