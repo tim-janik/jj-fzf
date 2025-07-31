@@ -58,7 +58,7 @@ jobs:
       with: { path: ./artifacts, merge-multiple: true }
     - run: ls -alR artifacts/
     - run: |
-        .github/workflows/gh-release.sh "Anklang"
+        .github/workflows/gh-release.sh "JJ-FZF"
 
   Ping-IRC:
     if: always()
