@@ -19,6 +19,31 @@ export JJ_EMAIL=jane.doe@example.com
 export JJ_USER="Jane Doe"
 export JJ_CONFIG=/dev/null	# per default, ignore user config
 
+# == Timings ==
+W=120 H=30	# cols rows
+Py=26		# Y for 3 line text popup
+Z=0.9		# gnome-terminal zoom
+sync=0.250	# synchronizing delay, dont shorten
+blink=0.034	# minimum time for next frame
+slow_timings()
+{
+  k=0.7		# control key delay
+  p=3		# user pause for reading/study
+  s=0.9		# short pause (at max 1sec)
+  w=0.04	# info delay
+  t=0.07	# typing delay
+}
+slow_timings	# default
+
+# Use fast timings for debugging
+fast_timings()
+{
+  k=$sync
+  p=$sync
+  s=$sync	# use $sync as minimum
+  w=0.004
+  t=0.007
+}
 
 # == deps ==
 test -z "${TMUX-}" || die "this session must be started outside tmux"
