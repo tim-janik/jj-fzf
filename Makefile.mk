@@ -31,7 +31,7 @@ check-deps: jj-fzf
 	$Q command -v gsed 2>/dev/null 1>&2 || gsed() { \sed "$$@"; } \
 	&& gsed --version 2>/dev/null | grep -Fq 'GNU sed' || { echo "$@: failed to detect GNU sed as \`gsed\` or \`sed\`" >&2; false; }
 	$Q [[ "`awk 'BEGIN{print(123)}'`" =~ 123 ]] || { echo "$@: ERROR: a usable \`awk\` executable is required" >&2; false; }
-	$Q V="0.31.0" && T="`jj --version --ignore-working-copy`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: jj >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
+	$Q V="0.32.0" && T="`jj --version --ignore-working-copy`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: jj >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
 	$Q V="0.44.1" && T="`fzf --version`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: fzf >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
 	$Q [[ "`command -v column`" =~ column ]] || { echo "$@: ERROR: failed to find the \`column\` executable in \$$PATH" >&2; false; }
 	$Q ./jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
