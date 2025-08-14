@@ -1543,8 +1543,10 @@ if test -n "$HELPKEYBINDINGS" ; then
   HELPKEYS[Alt-H]='toggle-show-keys'
   DOC['toggle-show-keys']='Display or hide the list of avilable key bindings, persist the setting in `jj-fzf.show-keys` of the `jj` user config.'
 else
-  test -n "$MULTISELECT" &&
+  test -n "$MULTISELECT" && {
     HELPKEYS[Alt-M]='multi-select-exit'
+    HELPKEYS[TAB]='toggle-select'
+  }
 fi
 DISPLAYKEYS="${!HELPKEYS[@]}"
 DISPLAYKEYS=$(sort <<<"${DISPLAYKEYS// /$'\n'}" | grep -vF 'Ctrl-Alt-')
