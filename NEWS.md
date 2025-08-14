@@ -1,3 +1,41 @@
+## JJ-FZF 0.32.0 - 2025-08-14
+
+### Added:
+* Ctrl-W: Added way to toggle between various diff formats
+* Alt+M: New multi-select mode, use TAB to select multiple commits
+* Added multi-mode support for abandon, backout, duplicate, squash, rebase
+* Added `make distcheck`, always check in CI
+* Added check for jj-fzf --help
+* Added installcheck rule
+* Added separate manual page
+* Added file summary to oplog history
+* Added scripts to automate releases
+* Added contirb/suspend-with-shell.el to run jj-fzf from emacs, see:
+  https://testbit.eu/2025/jj-fzf-in-emacs
+
+### Breaking:
+* Depend on jj-0.32.0
+* Changed Alt-N to run new-after with --no-edit
+* Preserve PWD in subshells if possible (present)
+* Remove unused 'merging' command
+
+### Changed:
+* To install, run `make all install`
+* To run all checks, run `make all check install installcheck`
+* Builds require GNU Make
+* Moved version checks for all tool dependencies into Makefile
+* Use /usr/bin/env to find bash
+* Undeprecate Alt-S: restore-file from selected revision
+* Build man page, use a man page browser for `jj-fzf --help`
+* Fetch version information from Git
+* Automatically run CI for PRs and tags
+* Introduced pandoc dependency for man builds
+
+### Fixed:
+* Fixed installations not working in non-jj repos
+* Fixed --version not working outside a jj repo
+
+
 ## JJ-FZF 0.25.0 - 2025-01-23
 
 ### Added:
@@ -52,6 +90,7 @@ Thanks to everyone who made this release happen!
 
 * Tim Janik (@tim-janik)
 * Douglas Stephen (@dljsjr)
+
 
 ## JJ-FZF 0.24.0 - 2024-12-12
 
