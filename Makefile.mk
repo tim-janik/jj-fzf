@@ -122,6 +122,7 @@ distcheck:
 	&& (set -x && $$PWD/jj-fzf --version) \
 	&& cd / && rm -r "$$T"
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
+CLEANDIRS += artifacts
 
 # == clean ==
 clean:
