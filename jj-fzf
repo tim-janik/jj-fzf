@@ -693,11 +693,18 @@ delete-refs()
 	printf "%-32s [tag] %s\n" "$MARK" "$rest"
       done
     ) )
+  # abandon-unreachable=true can be dangerous: https://github.com/jj-vcs/jj/discussions/7248#discussioncomment-14135120
+  ABANDON_UNREACHABLE_FALSE=--config=git.abandon-unreachable-commits=false
   # delete given bookmark/tag line
   read MARK WHAT rest <<<"$DELETELINE"
   case "$WHAT" in
-    "[bookmark]")	( set -x && jj bookmark delete exact:"$MARK" ) || ERROR ;;
-    "[tag]")		( set -x && git tag -d "$MARK" ) || ERROR ;;
+    "[bookmark]")	( set -x
+			  jj $ABANDON_UNREACHABLE_FALSE bookmark delete exact:"$MARK"
+			) || ERROR ;;
+    "[tag]")		( set -x
+			  git tag -d "$MARK"
+			  jj $ABANDON_UNREACHABLE_FALSE --no-pager status
+			) || ERROR ;;
   esac
 )
 KEYBINDINGS["Alt-D"]="delete-refs"
