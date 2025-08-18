@@ -41,8 +41,10 @@ jobs:
         make clean
     - run: |
         make distcheck
+    - run: |
+        make artifacts/jj-fzf.sfx
     - uses: actions/upload-artifact@v4
-      with: { name: jj-fzf-Tarball, path: artifacts/ }
+      with: { name: jj-fzf-Artifacts, path: artifacts/ }
 
   CreateRelease:
     runs-on: ubuntu-latest

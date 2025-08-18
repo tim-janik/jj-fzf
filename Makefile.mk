@@ -122,6 +122,16 @@ distcheck:
 	&& (set -x && $$PWD/jj-fzf --version) \
 	&& cd / && rm -r "$$T"
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
+CLEANDIRS += artifacts
+
+# == artifacts/jj-fzf.sfx ==
+artifacts/jj-fzf.sfx: all
+	$(QGEN)
+	$Q rm -rf xinst/
+	$Q $(MAKE) install DESTDIR=xinst/
+	$Q cd xinst/ && $(abspath sfx.sh) --sfxsh-pack /usr/local/bin/jj-fzf $(abspath $@) *
+	$Q rm -rf xinst/
+	$Q echo "SFX archive ready: $@" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 
 # == clean ==
 clean:
