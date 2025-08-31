@@ -1087,8 +1087,9 @@ KEYBINDINGS["Alt-F"]="split-files"
 DOC['push-remote']='Use `jj git fetch` and `jj git push --tracked --deleted` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
 push-remote()
 (
+  ABANDON_UNREACHABLE_FALSE=--config=git.abandon-unreachable-commits=false
   ( set -x
-    jj git fetch
+    jj $ABANDON_UNREACHABLE_FALSE git fetch
     jj git push --tracked --deleted --dry-run
   ) || ERROR
   read -p 'Try to push to remote? ' YN
