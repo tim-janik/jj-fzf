@@ -103,15 +103,15 @@ These scripts are aimed at developers and provide useful utilities for working w
 ## License
 
 This application is licensed under
-[MPL-2.0](https://github.com/tim-janik/anklang/blob/master/LICENSE).
+[MPL-2.0](https://github.com/tim-janik/jj-fzf/blob/master/LICENSE).
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [irc-badge]: https://img.shields.io/badge/Live%20Chat-Libera%20IRC-blueviolet?style=for-the-badge
 [irc-url]: https://web.libera.chat/#Anklang
-[issues-badge]: https://img.shields.io/github/issues-raw/tim-janik/tools.svg?style=for-the-badge
-[issues-url]: https://github.com/tim-janik/tools/issues
+[issues-badge]: https://img.shields.io/github/issues-raw/tim-janik/jj-fzf.svg?style=for-the-badge
+[issues-url]: https://github.com/tim-janik/jj-fzf/issues
 [mpl2-badge]: https://img.shields.io/static/v1?label=License&message=MPL-2&color=9c0&style=for-the-badge
-[mpl2-url]: https://github.com/tim-janik/tools/blob/master/LICENSE
+[mpl2-url]: https://github.com/tim-janik/jj-fzf/blob/master/LICENSE
 <!-- https://github.com/othneildrew/Best-README-Template -->
