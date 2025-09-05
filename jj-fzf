@@ -693,11 +693,18 @@ delete-refs()
 	printf "%-32s [tag] %s\n" "$MARK" "$rest"
       done
     ) )
+  # abandon-unreachable=true can be dangerous: https://github.com/jj-vcs/jj/discussions/7248#discussioncomment-14135120
+  ABANDON_UNREACHABLE_FALSE=--config=git.abandon-unreachable-commits=false
   # delete given bookmark/tag line
   read MARK WHAT rest <<<"$DELETELINE"
   case "$WHAT" in
-    "[bookmark]")	( set -x && jj bookmark delete exact:"$MARK" ) || ERROR ;;
-    "[tag]")		( set -x && git tag -d "$MARK" ) || ERROR ;;
+    "[bookmark]")	( set -x
+			  jj $ABANDON_UNREACHABLE_FALSE bookmark delete exact:"$MARK"
+			) || ERROR ;;
+    "[tag]")		( set -x
+			  git tag -d "$MARK"
+			  jj $ABANDON_UNREACHABLE_FALSE --no-pager status
+			) || ERROR ;;
   esac
 )
 KEYBINDINGS["Alt-D"]="delete-refs"
@@ -1077,18 +1084,19 @@ split-files()
 KEYBINDINGS["Alt-F"]="split-files"
 
 # Fetch and push to remote Git repositories
-DOC['push-remote']='Use `jj git fetch` and `jj git push --tracked` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
+DOC['push-remote']='Use `jj git fetch` and `jj git push --tracked --deleted` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
 push-remote()
 (
+  ABANDON_UNREACHABLE_FALSE=--config=git.abandon-unreachable-commits=false
   ( set -x
-    jj git fetch
-    jj git push --tracked --dry-run
+    jj $ABANDON_UNREACHABLE_FALSE git fetch
+    jj git push --tracked --deleted --dry-run
   ) || ERROR
   read -p 'Try to push to remote? ' YN
   [[ "${YN:0:1}" =~ [yY] ]] ||
     exit
   ( set -x
-    jj git push --tracked
+    jj git push --tracked --deleted
   ) || ERROR
 )
 KEYBINDINGS["Ctrl-P"]="push-remote"
