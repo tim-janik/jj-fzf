@@ -546,6 +546,7 @@ read_completing()
 # == Functions ==
 declare -A KEYBINDINGS
 declare -A MULTIKEYBINDINGS
+declare -A POSTCMDS
 FIRSTS=""
 NEXTS=""
 SILENTREFRESH=""
@@ -1651,6 +1652,7 @@ for k in "${!KEYBINDINGS[@]}" ; do
   fun="${KEYBINDINGS[$k]}"
   postcmd=""
   [[ " $FIRSTS " == *" $fun "* ]] && postcmd="+first"
+  [[ -v POSTCMDS["$fun"] ]] && postcmd="$postcmd${POSTCMDS[$fun]}"
   [[ " $SILENTREFRESH " == *" $fun "* ]] && EXECUTE=execute-silent || EXECUTE=execute
   [[ " $NEXTS " == *" $fun "* ]] && postcmd="+down"
   [[ " $SILENTREFRESH " == *" $fun "* ]] && REPAINT=refresh-preview || REPAINT="$RELOAD"
