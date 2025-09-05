@@ -1474,7 +1474,7 @@ swap-commits()
     jj rebase -r "$R" --insert-before "$R-"
   ) || ERROR
 )
-KEYBINDINGS["Alt-X"]="swap-commits"
+KEYBINDINGS["Alt-X"]="swap-commits"		POSTCMDS["swap-commits"]="+down"
 
 # Redo last JJ op
 DOC['redo']='Use `jj redo` to redo the last undo operation performed by `jj undo`.'
