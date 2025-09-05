@@ -6,9 +6,8 @@ die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; 
 show_help()
 {
   cat <<-__EOF__
-	Usage: "${BASH_SOURCE[0]##*/} [OPTIONS...] <revset> [--] <command>..
+	Usage: ${BASH_SOURCE[0]##*/} [OPTIONS...] <revset> [--] <command>...
 
-	Apply <command> to each of <revset> without changing descendants.
 	Run shell <command> for each commit in <revset>.
 	Use \`--restore-descendants\` to run commands without affecting descendants.
 
