@@ -8,9 +8,8 @@ ABSPATHSCRIPT=$(readlink -f "$0")	# Resolve symlinks to find installdir
 source "${ABSPATHSCRIPT%/*}"/preflight.sh
 
 # == Execution Trampoline ==
-# Hook to serve as a single-executable trampoline for `jj show --tool $SELF`
+# Hook to serve as a single-executable trampoline for `jj show --tool $ABSPATHSCRIPT`
 test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
-SELF="$0" # Allow to re-execute this script
 
 # == Early options, outside a jj repo ==
 COLORALWAYS=
@@ -61,9 +60,9 @@ jj_show_diff()
   # Use git-diff (for --git and --word-diff) which has better heuristics for informative hunk headers than jj (0.31.0)
   case "$(jj --no-pager --ignore-working-copy config get jj-fzf.diff-mode 2>/dev/null || true)" in
     diff-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$SELF" ;;
+		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
     word-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b --word-diff '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$SELF" ;;
+		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
     *)		jj show --no-pager --ignore-working-copy "$@" ;;
   esac
 }
@@ -628,10 +627,8 @@ bookmark()
   B="${B%% *}" && B="${B##* }" && test -z "$B" && return
   # See https://git-scm.com/docs/git-check-ref-format
   INVALIDPAT='(//|\.\.|/\.|[ :^~?*]|\[|^/|/$|\.$|^@$|@\{|\\|'$'[\x01-\x1f])'
-  [[ "$B" =~ $INVALIDPAT ]] && {
-    echo "$SELF: bookmark contains invalid characters: $B" >&2
-    false || ERROR
-  }
+  [[ "$B" =~ $INVALIDPAT ]] &&
+    ERROR "bookmark contains invalid characters: $B"
   ( set -x
     jj bookmark set -r "$R" --allow-backwards "$B"
   ) || ERROR
@@ -782,7 +779,7 @@ KEYBINDINGS["Ctrl-F"]="file-editor"
 DOC['help']='Show the *jj-fzf* help and key binding commands.'
 help()
 (
-  $SELF --help "$@"
+  $ABSPATHSCRIPT --help "$@"
 )
 KEYBINDINGS["Ctrl-H"]="help"
 
@@ -868,7 +865,7 @@ fi
 DOC["multi-select"]='Select multiple revisions to operate on.'
 multi-select()
 (
-  $SELF -m --postcmd-exit || :
+  $ABSPATHSCRIPT -m --postcmd-exit || :
 )
 KEYBINDINGS["Alt-M"]="multi-select"
 
@@ -970,7 +967,7 @@ op-log()
   H="$H"$'Alt-Y: Redo the last undo operation (marked `⋯`)\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
-  export FZF_DEFAULT_COMMAND="$SELF op_log_oneline" TEMPD SELF
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT op_log_oneline" TEMPD ABSPATHSCRIPT
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
     --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
@@ -980,14 +977,14 @@ op-log()
     --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oppatch/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-s:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-j:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-r:execute( $SELF op-restore {} )+abort" \
-    --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-y:execute( $SELF redo )+$RELOAD" \
-    --bind "alt-z:execute( $SELF undo )+$RELOAD" \
-    --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $SELF logrev "$COMMIT" )' \
+    --bind "alt-j:execute( $ABSPATHSCRIPT restore-commit {} )+abort" \
+    --bind "alt-r:execute( $ABSPATHSCRIPT op-restore {} )+abort" \
+    --bind "alt-w:execute( $ABSPATHSCRIPT restore-commit {} )+abort" \
+    --bind "alt-y:execute( $ABSPATHSCRIPT redo )+$RELOAD" \
+    --bind "alt-z:execute( $ABSPATHSCRIPT undo )+$RELOAD" \
+    --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $ABSPATHSCRIPT logrev "$COMMIT" )' \
     --preview-window 'nowrap,right,border-left' \
-    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && $SELF $VIEW {}' \
+    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && $ABSPATHSCRIPT $VIEW {}' \
     --no-tac --no-sort +m
   # TODO: remove alt-w in jj-fzf-0.26
 )
@@ -997,7 +994,7 @@ restore-commit()
 (
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   COMMIT="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
-  echo "# $SELF: insert working copy commit (${COMMIT:0:12}) from operation ${OP:0:12} before @"
+  echo "# $ABSPATHSCRIPT: insert working copy commit (${COMMIT:0:12}) from operation ${OP:0:12} before @"
   ( set -x
     jj new --no-edit --insert-before @
     jj restore --from "$COMMIT" --to @- --restore-descendants
@@ -1060,16 +1057,16 @@ evolog()
   H="$H"$'Enter: Browse evolog with diff\n'
   H="$H"$'\n'
   H="$H"$'Alt-J: Inject evolog entry as historic commit before the revision without changing it.\n'
-  export FZF_DEFAULT_COMMAND="$SELF evolog_oneline $R"
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT evolog_oneline $R"
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
     --border-label "-[ EVOLOG $R ]-" --color=border:yellow,label:bright-yellow \
     --prompt "Evolog > " \
     --header "$H" --header-first \
-    --bind "enter:execute( $SELF evolog_pager {} )" \
-    --bind "alt-j:execute( $SELF evolog-inject $R {} )+abort" \
+    --bind "enter:execute( $ABSPATHSCRIPT evolog_pager {} )" \
+    --bind "alt-j:execute( $ABSPATHSCRIPT evolog-inject $R {} )+abort" \
     --preview-window 'nowrap,right,border-left' \
-    --preview "$SELF preview_evolog {}" \
+    --preview "$ABSPATHSCRIPT preview_evolog {}" \
     --no-tac --no-sort +m
 }
 KEYBINDINGS["Ctrl-T"]="evolog"
@@ -1222,7 +1219,7 @@ reparenting()
   H="$H""Alt-A: ADD    - Add currently selected revisions as new parents"$'\n'
   H="$H""Alt-D: DEL    - Delete selected revisions from current list of parents"$'\n'
   H="$H""Alt-P: SIMPLIFY-PARENTS - Use simplify-parents after reparenting"$'\n'
-  export FZF_DEFAULT_COMMAND="$SELF fzflog"
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT fzflog"
   # FZF select parents
   "${FZFPOPUP[@]}" \
       --border-label '-[ CHANGE PARENTS ]-' --color=border:cyan,label:cyan \
@@ -1293,7 +1290,7 @@ rebase()
   H="$H""Ctrl-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Ctrl-B: BEFORE      - The revision to insert before"$'\n'
   H="$H""Ctrl-D: DESTINATION - The revision to rebase onto"$'\n'
-  export FZF_DEFAULT_COMMAND="$SELF fzflog"
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT fzflog"
   TARGET=$("${FZFPOPUP[@]}" \
 	     --border-label '-[ REBASE ]-' --color=border:green,label:green \
 	     --preview "[[ {} =~ $REVPAT ]] || exit; export TARGET=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
@@ -1412,7 +1409,7 @@ vivifydivergent()
       die 'no divergent revision'
   # leave working copy alone, unless it is $1
   test "$COMMIT" == "$WCOPY" && NOEDIT= || NOEDIT=--no-edit
-  echo "# $SELF vivifydivergent $COMMIT" >&2
+  echo "# ${ABSPATHSCRIPT##*/} vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
   export JJ_EDITOR='true' # Override ui.editor to implement --squash-with-no-description
   ( set -x
@@ -1662,11 +1659,11 @@ for k in "${!KEYBINDINGS[@]}" ; do
   [[ " $SILENTREFRESH " == *" $fun "* ]] && REPAINT=refresh-preview || REPAINT="$RELOAD"
   [[ -v MULTIKEYBINDINGS["$k"] ]] && FUNARGS='{+}' || FUNARGS='{} {q}'
   [[ -n "$POSTCMDEXIT" ]] && postcmd=+abort
-  BIND+=( --bind "${k,,}:$EXECUTE( $SELF $MULTISELECT $fun $FUNARGS )$EXECKILLME+$REPAINT$postcmd" )
+  BIND+=( --bind "${k,,}:$EXECUTE( $ABSPATHSCRIPT $MULTISELECT $fun $FUNARGS )$EXECKILLME+$REPAINT$postcmd" )
 done
 
 # == FZF ==
-export FZF_DEFAULT_COMMAND="$SELF fzflog"
+export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT fzflog"
 fzflog 2>&1 |
   fzf \
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
@@ -1674,12 +1671,12 @@ fzflog 2>&1 |
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
   --bind "alt-m:abort" \
   --bind "f5:$RELOAD" \
-  --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
+  --bind "enter:execute( $ABSPATHSCRIPT logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
-  --bind "ctrl-r:transform-query( $SELF revset-filter {q} )+become( exec $SELF )" \
-  --preview " exec $SELF preview {} {q} " \
+  --bind "ctrl-r:transform-query( $ABSPATHSCRIPT revset-filter {q} )+become( exec $ABSPATHSCRIPT )" \
+  --preview " exec $ABSPATHSCRIPT preview {} {q} " \
   --header "$(list_key_bindings)" --header-first \
-  --bind "alt-h:transform-header:$SELF $MULTISELECT --key-bindings --key-toggle" \
+  --bind "alt-h:transform-header:$ABSPATHSCRIPT $MULTISELECT --key-bindings --key-toggle" \
   --prompt "  $(fzflog --revsetname) ${MULTISELECT/-m/(MULTI)}> " \
   --sync \
   --no-tac --no-sort +m $MULTISELECT
@@ -1688,4 +1685,4 @@ fzflog 2>&1 |
 # * Do not use 'exec' as last command, otherwise trap-handlers are skipped.
 # * Ctrl-R: This must be rebound to run transform-query, ideally we would just transform-query+transform-prompt+reload
 #   but that crashes fzf-0.44.1 when the cursor position is after the new revset length, so we use become().
-# * Avoid needless $($SELF...) invocations, these cause significant slowdowns during startup
+# * Avoid needless $($ABSPATHSCRIPT...) invocations, these cause significant slowdowns during startup
