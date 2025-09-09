@@ -25,6 +25,10 @@ fi
 __preflightish_die() { echo "$0: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 __preflightish_fixenv="$__preflightish_fixenv"$' unset -f __preflightish_die \n'
 
+# == Python ==
+python3 -c 'import sys; sys.exit ((3,9) >= sys.version_info)' ||
+  __preflightish_die "Failed to find 'python3' >= 3.9 in \$PATH"
+
 # == Bash ==
 # bash 5.1 introduced $SRANDOM
 bash -c '[[ -n ${SRANDOM+set} ]]' ||
