@@ -29,6 +29,23 @@ __preflightish_fixenv="$__preflightish_fixenv"$' unset -f __preflightish_die \n'
 # bash 5.1 introduced $SRANDOM
 bash -c '[[ -n ${SRANDOM+set} ]]' ||
   __preflightish_die "Failed to detect 'bash' >= 5.1 in \$PATH"
+[[ "`bash -c 'set -o'`" =~ emacs ]] ||
+  __preflightish_die "The 'bash' executable lacks interactive readline support"
+
+# == sed ==
+if ! declare -F sed >/dev/null; then	# ignore existing sed() compat func
+  if ! sed --version 2>/dev/null | grep -Fq 'GNU sed' ; then
+    # sed is not GNU
+    if gsed --version 2>/dev/null | grep -Fq 'GNU sed' ; then
+      # use gsed instead of sed
+      sed() { gsed "$@"; }
+      export -f sed
+    else
+      __preflightish_die "Failed to find GNU sed as 'sed' or 'gsed'"
+    fi
+  fi
+fi
+
 
 # == Success ==
 [[ "${BASH_SOURCE[0]}" == "$0" ]] &&
