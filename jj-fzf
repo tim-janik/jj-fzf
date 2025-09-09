@@ -917,15 +917,31 @@ label(if(current_operation, "current_operation"),
 )'
 OP_LOG_FIRSTLINE='self.id() ++ ": " ++ self.description().first_line() ++ "\n"'
 
+# operation_id_resolve [id] - resolve operations by following undo/redo
+operation_id_resolve()
+(
+  op_id="${1-@}"
+  while :; do
+    next=$(
+      jj --no-pager --ignore-working-copy op show --no-graph --no-op-diff -T "self.id() ++ ' ' ++ self.description().first_line()" "$op_id" |
+	# Detect "restore to operation" indirection
+	sed -rn 's/.*\brestore to operation ([0-9a-f]{32,}).*/\1/p'
+	)
+    [ -z "$next" ] && break	# Followed all indirections
+    op_id="$next"
+  done
+  echo "$op_id"
+)
+
 # Show `jj op log` but mark undone operations with '⋯'
 op_log_oneline()
 (
   temp_dir
   # Determine range of undo operations
-  if LAST_OPID=$(jj --no-pager --ignore-working-copy config get jj-fzf.last-undo 2>/dev/null) &&
-      jj --no-pager --ignore-working-copy op log -n1 --no-graph -T "$OP_LOG_FIRSTLINE" | grep -qF ": undo operation $LAST_OPID" ; then
+  LAST_OPID=$(operation_id_resolve @)
+  if test "$LAST_OPID" != @ ; then
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16" |
-      gsed -r "1,/${LAST_OPID:0:16}\b/s/([@○])/⋯/" # ⮌ ⋯ ⤺↶
+      gsed -r "1,/${LAST_OPID:0:16}\b/{ /${LAST_OPID:0:16}\b/! s/([@○])/⋯/ }" # ⮌ ⋯ ⤺↶
   else
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16"
   fi
@@ -946,7 +962,7 @@ op-log()
   H="$H"$'\n'
   H="$H"$'Alt-J: Inject working copy of the selected operation as historic commit before @\n'
   H="$H"$'Alt-R: Restore repository to the selected operation via `jj op restore`\n'
-  H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
+  H="$H"$'Alt-Y: Redo the last undo operation (marked `⋯`)\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
   export FZF_DEFAULT_COMMAND="$SELF op_log_oneline" TEMPD SELF
@@ -962,7 +978,7 @@ op-log()
     --bind "alt-j:execute( $SELF restore-commit {} )+abort" \
     --bind "alt-r:execute( $SELF op-restore {} )+abort" \
     --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
+    --bind "alt-y:execute( $SELF redo )+$RELOAD" \
     --bind "alt-z:execute( $SELF undo )+$RELOAD" \
     --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $SELF logrev "$COMMIT" )' \
     --preview-window 'nowrap,right,border-left' \
@@ -971,15 +987,6 @@ op-log()
   # TODO: remove alt-w in jj-fzf-0.26
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
-
-undo-op()
-(
-  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
-  ( set -x
-    jj op undo $OP
-  ) || ERROR
-)
-FUNCTIONS+=( 'undo-op' )
 
 restore-commit()
 (
@@ -1468,25 +1475,23 @@ swap-commits()
 )
 KEYBINDINGS["Alt-X"]="swap-commits"
 
+# Redo last JJ op
+DOC['redo']='Use `jj redo` to redo the last undo operation performed by `jj undo`.'
+redo()
+(
+  ( set -x
+    jj redo
+  ) || ERROR
+)
+MULTIKEYBINDINGS["Alt-Y"]="redo"
+
 # Undo last JJ op
-DOC['undo']='Use `jj op undo` to undo the last operation performed by `jj` that was not previously undone.'
+DOC['undo']='Use `jj undo` to undo the last operation performed by `jj` that was not previously undone.'
 undo()
 (
-  TSELFID='self.id() ++ "\n"'
-  if LAST_OPID=$(jj --no-pager --ignore-working-copy config get jj-fzf.last-undo 2>/dev/null) &&
-      jj --no-pager --ignore-working-copy op log -n1 --no-graph -T "$OP_LOG_FIRSTLINE" | grep -qF ": undo operation $LAST_OPID" ; then
-    # last operation in op log was undo of operation $LAST_OPID
-    NEXT_OP="$LAST_OPID-"
-  else
-    LAST_OPID="<none>"
-    NEXT_OP="@"
-  fi
-  NEXT_OP_ID="$(jj --no-pager --ignore-working-copy op log --at-operation="$NEXT_OP" -n1 --no-graph -T "$TSELFID")"
-  echo "# $SELF: jj-fzf.last-undo=${LAST_OPID:0:20} next-undo=${NEXT_OP_ID:0:20}"
   ( set -x
-    jj op undo "$NEXT_OP_ID"
+    jj undo
   ) || ERROR
-  jj --no-pager --ignore-working-copy config set --repo jj-fzf.last-undo "$NEXT_OP_ID"
   # Known cases where the above multi-step undo logic breaks:
   # * Undo of an operation like "reconcile divergent operations" just gives "Error: Cannot undo a merge operation"
 )
