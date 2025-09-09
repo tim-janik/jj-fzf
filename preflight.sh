@@ -80,6 +80,9 @@ command -v "awk" > /dev/null 2>&1 &&
   test $(awk 'BEGIN{print(123)}') == 123 ||
     __preflightish_die "Failed to find usable 'awk' executable in \$PATH"
 
+# == Jujutsu ==
+__preflightish_require "0.33" jj --version --ignore-working-copy
+
 # == fzf ==
 __preflightish_require "0.44.1" fzf --version
 
