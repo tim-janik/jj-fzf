@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-ABSPATHSCRIPT=`readlink -f "$0"` && function die  { [ -n "$*" ] && echo "${ABSPATHSCRIPT##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+ABSPATHSCRIPT=$(readlink -f "$0")	# Resolve symlinks to find installdir
+
+# == Dependency checks ==
+source "${ABSPATHSCRIPT%/*}"/preflight.sh
 
 # == Execution Trampoline ==
 # Hook to serve as a single-executable trampoline for `jj show --tool $SELF`
