@@ -18,23 +18,12 @@ QGEN		 = @echo '  GEN     ' $@
 QSKIP		:= $(if $(findstring s,$(MAKEFLAGS)),: )
 QECHO		 = @QECHO() { Q1="$$1"; shift; QR="$$*"; QOUT=$$(printf '  %-8s ' "$$Q1" ; echo "$$QR") && $(QSKIP) echo "$$QOUT"; }; QECHO
 
-# == Compare Versions ==
-# Shell command that is true if $1 <= $2 in version comparisons
-VERSION_LE := python3 -c 'import sys, re; v1 = list (map (int, sys.argv[1].split ("."))); v2 = list (map (int, re.search (r"\b[0-9]+\.[0-9]+\.[0-9]+", sys.argv[2]).group().split ("."))); sys.exit (v1 > v2)'
-
 # == Check presence of dependencies ==
-check-deps: jj-fzf
+check-deps: preflight.sh jj-fzf
 	$(QGEN)
-	$Q python3 -c "import sys; sys.exit ((3,9) >= sys.version_info);" || { echo "$@: ERROR: python3 >= 3.9 is required" >&2; false; }
-	$Q V="5.1.16" && T="`bash --version`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: \`bash\` >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
-	$Q [[ "`bash -c 'set -o'`" =~ emacs ]] || { echo "$@: ERROR: the \`bash\` executable lacks interactive readline support" >&2; false; }
-	$Q command -v gsed 2>/dev/null 1>&2 || gsed() { \sed "$$@"; } \
-	&& gsed --version 2>/dev/null | grep -Fq 'GNU sed' || { echo "$@: failed to detect GNU sed as \`gsed\` or \`sed\`" >&2; false; }
-	$Q [[ "`awk 'BEGIN{print(123)}'`" =~ 123 ]] || { echo "$@: ERROR: a usable \`awk\` executable is required" >&2; false; }
-	$Q V="0.32.0" && T="`jj --version --ignore-working-copy`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: jj >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
-	$Q V="0.44.1" && T="`fzf --version`" && $(VERSION_LE) "$$V" "$$T" || { echo "$@: ERROR: fzf >= $$V is required, found: $${T%%$$'\n'*}" >&2; false; }
-	$Q [[ "`command -v column`" =~ column ]] || { echo "$@: ERROR: failed to find the \`column\` executable in \$$PATH" >&2; false; }
+	$Q ./preflight.sh
 	$Q ./jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
+	$Q ./jj-fzf --help >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
 .PHONY: check-deps
 all check: check-deps
 
