@@ -945,7 +945,6 @@ op-log()
   H="$H"$'Ctrl-S: Preview "@" at a specific operation via `jj show @`\n'
   H="$H"$'\n'
   H="$H"$'Alt-J: Inject working copy of the selected operation as historic commit before @\n'
-  H="$H"$'Alt-K: Kill undo memory (marked `⋯`), to restart undo at the top\n'
   H="$H"$'Alt-R: Restore repository to the selected operation via `jj op restore`\n'
   H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
@@ -961,7 +960,6 @@ op-log()
     --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oppatch/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-s:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-j:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-k:execute( $SELF undo-reset {} )+$RELOAD" \
     --bind "alt-r:execute( $SELF op-restore {} )+abort" \
     --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
     --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
@@ -1493,13 +1491,6 @@ undo()
   # * Undo of an operation like "reconcile divergent operations" just gives "Error: Cannot undo a merge operation"
 )
 MULTIKEYBINDINGS["Alt-Z"]="undo"
-
-# Reset undo memory
-undo-reset()
-(
-  jj --no-pager --ignore-working-copy config unset --repo jj-fzf.last-undo
-)
-FUNCTIONS+=( 'undo-reset' )
 
 # Minimal Markdown transformations for the terminal
 sedmarkdown()
