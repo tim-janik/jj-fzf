@@ -312,13 +312,13 @@ rev_edpstate()
 # List parents of a revision
 rev_parents()
 (
-  jj --no-pager --ignore-working-copy log --no-graph -r "all: $1-" -T 'change_id++"\n"'
+  jj --no-pager --ignore-working-copy log --no-graph -r "$1-" -T 'change_id++"\n"'
 )
 
 # List commits of a revset
 list_revset()
 (
-  jj --no-pager --ignore-working-copy log --no-graph -r "all: $* " -T 'commit_id++"\n"'
+  jj --no-pager --ignore-working-copy log --no-graph -r "$* " -T 'commit_id++"\n"'
 )
 
 # join_args <joiner> [args...]
@@ -365,7 +365,7 @@ backward_chronologic()
 (
   test $# -ge 1 || return
   ORREVS=$(join_args '|' "$@")
-  jj --no-pager --ignore-working-copy log --no-graph -r all:"$ORREVS" -T 'change_id ++ "\n"'
+  jj --no-pager --ignore-working-copy log --no-graph -r "$ORREVS" -T 'change_id ++ "\n"'
 )
 
 # forward_chronologic [REVISIONS] - produce revisions in chronological order
@@ -373,7 +373,7 @@ forward_chronologic()
 (
   test $# -ge 1 || return
   ORREVS=$(join_args '|' "$@")
-  jj --no-pager --ignore-working-copy log --no-graph -r all:"$ORREVS" -T 'change_id ++ "\n"' --reversed
+  jj --no-pager --ignore-working-copy log --no-graph -r "$ORREVS" -T 'change_id ++ "\n"' --reversed
 )
 
 # Require .git directory and set GIT_DIR
@@ -438,7 +438,7 @@ echo_commit_msg()
       return
     }
     # list parents
-    PARENTS=( $(jj --no-pager --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r all:"$R-" --reversed) )
+    PARENTS=( $(jj --no-pager --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r "$R-" --reversed) )
   else # --merge
     shift
     PARENTS=( $(forward_chronologic "$@") )
@@ -1170,7 +1170,7 @@ reparenting()
   IMMU=$($JJFZFSHOW -r "$SRC" -T 'if(immutable, "true")')
   test "$IMMU" != true || exit 0
   temp_dir
-  jj --no-pager --ignore-working-copy log --no-graph -T 'change_id ++ "\n"' -r all:"$SRC-" > $TEMPD/reparenting.lst
+  jj --no-pager --ignore-working-copy log --no-graph -T 'change_id ++ "\n"' -r "$SRC-" > $TEMPD/reparenting.lst
   echo 'OP="|"'		>  $TEMPD/reparenting.env
   echo 'SIMPLIFY=false'	>> $TEMPD/reparenting.env
   export SRC TEMPD
@@ -1197,11 +1197,11 @@ reparenting()
     echo "CHANGE PARENTS:"
     mapfile -t NEWPARENTS < $TEMPD/newparents.lst && NEWPARENTS="$(join_args ' | ' "${NEWPARENTS[@]}")"
     echo "jj rebase --source \"$SRC\" --destination \\"
-    echo "  \"all: $NEWPARENTS\""
+    echo "  \"$NEWPARENTS\""
     $SIMPLIFY && echo "jj simplify-parents --revisions \"$SRC\\"
     echo
     echo "SOURCE REVISION:"
-    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r all:"$SRC | $SRC-"
+    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "$SRC | $SRC-"
     echo
     test "$OP" == '|' && deladd='ADD' || deladd='REMOVE'
     echo "$deladd PARENTS:"
@@ -1237,7 +1237,7 @@ reparenting()
       exit # Reparenting cancelled
   # Re-parent revisions
   ( set -x
-    # Ordering is not preserved with 'all:(.|.|.)', only with -d. -d. -d.
+    # Ordering is not preserved with '(.|.|.)', only with -d. -d. -d.
     jj rebase --source "$SRC" "${NEWPARENTS[@]/#/-d}"
   ) || ERROR
   # simplify-parents
@@ -1318,7 +1318,7 @@ rebase()
     ) || ERROR
   else # rebase revisions
     ( set -x
-      jj rebase $II $FR all:"$CREVS" $TO "$TARGET"
+      jj rebase $II $FR "$CREVS" $TO "$TARGET"
     ) || ERROR
   fi
   # simplify-parents
