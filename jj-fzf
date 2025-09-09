@@ -312,13 +312,13 @@ rev_edpstate()
 # List parents of a revision
 rev_parents()
 (
-  jj --no-pager --ignore-working-copy log --no-graph -r "all: $1-" -T 'change_id++"\n"'
+  jj --no-pager --ignore-working-copy log --no-graph -r "$1-" -T 'change_id++"\n"'
 )
 
 # List commits of a revset
 list_revset()
 (
-  jj --no-pager --ignore-working-copy log --no-graph -r "all: $* " -T 'commit_id++"\n"'
+  jj --no-pager --ignore-working-copy log --no-graph -r "$* " -T 'commit_id++"\n"'
 )
 
 # join_args <joiner> [args...]
@@ -365,7 +365,7 @@ backward_chronologic()
 (
   test $# -ge 1 || return
   ORREVS=$(join_args '|' "$@")
-  jj --no-pager --ignore-working-copy log --no-graph -r all:"$ORREVS" -T 'change_id ++ "\n"'
+  jj --no-pager --ignore-working-copy log --no-graph -r "$ORREVS" -T 'change_id ++ "\n"'
 )
 
 # forward_chronologic [REVISIONS] - produce revisions in chronological order
@@ -373,7 +373,7 @@ forward_chronologic()
 (
   test $# -ge 1 || return
   ORREVS=$(join_args '|' "$@")
-  jj --no-pager --ignore-working-copy log --no-graph -r all:"$ORREVS" -T 'change_id ++ "\n"' --reversed
+  jj --no-pager --ignore-working-copy log --no-graph -r "$ORREVS" -T 'change_id ++ "\n"' --reversed
 )
 
 # Require .git directory and set GIT_DIR
@@ -438,7 +438,7 @@ echo_commit_msg()
       return
     }
     # list parents
-    PARENTS=( $(jj --no-pager --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r all:"$R-" --reversed) )
+    PARENTS=( $(jj --no-pager --ignore-working-copy log --no-graph -T 'commit_id ++ "\n"' -r "$R-" --reversed) )
   else # --merge
     shift
     PARENTS=( $(forward_chronologic "$@") )
@@ -550,15 +550,16 @@ FIRSTS=""
 NEXTS=""
 SILENTREFRESH=""
 
-# fzflog revset aliases
-revsets_toml()
-(
-  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 0)"
-  echo "revset-aliases.fzflog = ''' jjlog | ancestors(bookmarks() | remote_bookmarks(), $FZFLOG_DEPTH) ''' "
-  echo "revset-aliases.jjlog = ''' $(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..) '''"
-  echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(8)'"
-  echo "template-aliases.'format_short_commit_id(id)' = 'id.shortest(8)'"
-)
+# get_REVSETCONFIG - setup array with config CLI args for the fzflog revset
+get_REVSETCONFIG()
+{
+  local -n __l_array=$1	# nameref to an array
+  local FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 0)"
+  __l_array+=( --config "revset-aliases.fzflog=''' jjlog | ancestors(bookmarks() | remote_bookmarks(), $FZFLOG_DEPTH) '''")
+  __l_array+=( --config "revset-aliases.jjlog=''' $(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..) '''")
+  __l_array+=( --config "template-aliases.'format_short_change_id(id)'='id.shortest(8)'")
+  __l_array+=( --config "template-aliases.'format_short_commit_id(id)'='id.shortest(8)'")
+}
 
 # fzflog [--revsetname] [rev] - revision log for fzf
 fzflog()
@@ -572,9 +573,9 @@ fzflog()
   if $REVSETNAME ; then
     echo "$REVSETS_LOG"
   else
-    jj --no-pager --ignore-working-copy \
-       --config-toml "$(revsets_toml)" \
-       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG" 2>/dev/null
+    REVSETCONFIG=() && get_REVSETCONFIG REVSETCONFIG
+    jj --no-pager --ignore-working-copy "${REVSETCONFIG[@]}" \
+       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG"
   fi
 )
 FUNCTIONS+=( 'fzflog' )
@@ -584,7 +585,9 @@ DOC['revset-filter']='Restart `jj-fzf` using the current query string as new rev
 revset-filter()
 (
   REVSET="$1"
-  jj --config-toml "$(revsets_toml)" --no-pager --ignore-working-copy log --no-graph -T '' -r "$REVSET" >/dev/null 2>&1 ||
+  REVSETCONFIG=() && get_REVSETCONFIG REVSETCONFIG
+  jj --no-pager --ignore-working-copy "${REVSETCONFIG[@]}" \
+     log --no-graph -T '' -r "$REVSET" >/dev/null 2>&1 ||
     REVSET=fzflog
   ( set -x
     jj --ignore-working-copy config set --repo 'jj-fzf.revsets.log' "$REVSET"
@@ -914,15 +917,31 @@ label(if(current_operation, "current_operation"),
 )'
 OP_LOG_FIRSTLINE='self.id() ++ ": " ++ self.description().first_line() ++ "\n"'
 
+# operation_id_resolve [id] - resolve operations by following undo/redo
+operation_id_resolve()
+(
+  op_id="${1-@}"
+  while :; do
+    next=$(
+      jj --no-pager --ignore-working-copy op show --no-graph --no-op-diff -T "self.id() ++ ' ' ++ self.description().first_line()" "$op_id" |
+	# Detect "restore to operation" indirection
+	sed -rn 's/.*\brestore to operation ([0-9a-f]{32,}).*/\1/p'
+	)
+    [ -z "$next" ] && break	# Followed all indirections
+    op_id="$next"
+  done
+  echo "$op_id"
+)
+
 # Show `jj op log` but mark undone operations with '⋯'
 op_log_oneline()
 (
   temp_dir
   # Determine range of undo operations
-  if LAST_OPID=$(jj --no-pager --ignore-working-copy config get jj-fzf.last-undo 2>/dev/null) &&
-      jj --no-pager --ignore-working-copy op log -n1 --no-graph -T "$OP_LOG_FIRSTLINE" | grep -qF ": undo operation $LAST_OPID" ; then
+  LAST_OPID=$(operation_id_resolve @)
+  if test "$LAST_OPID" != @ ; then
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16" |
-      gsed -r "1,/${LAST_OPID:0:16}\b/s/([@○])/⋯/" # ⮌ ⋯ ⤺↶
+      gsed -r "1,/${LAST_OPID:0:16}\b/{ /${LAST_OPID:0:16}\b/! s/([@○])/⋯/ }" # ⮌ ⋯ ⤺↶
   else
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16"
   fi
@@ -942,9 +961,8 @@ op-log()
   H="$H"$'Ctrl-S: Preview "@" at a specific operation via `jj show @`\n'
   H="$H"$'\n'
   H="$H"$'Alt-J: Inject working copy of the selected operation as historic commit before @\n'
-  H="$H"$'Alt-K: Kill undo memory (marked `⋯`), to restart undo at the top\n'
   H="$H"$'Alt-R: Restore repository to the selected operation via `jj op restore`\n'
-  H="$H"$'Alt-Y: Undo/redo the selected operation entry\n'
+  H="$H"$'Alt-Y: Redo the last undo operation (marked `⋯`)\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
   export FZF_DEFAULT_COMMAND="$SELF op_log_oneline" TEMPD SELF
@@ -958,10 +976,9 @@ op-log()
     --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oppatch/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "ctrl-s:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
     --bind "alt-j:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-k:execute( $SELF undo-reset {} )+$RELOAD" \
     --bind "alt-r:execute( $SELF op-restore {} )+abort" \
     --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-y:execute( $SELF undo-op {} )+$RELOAD" \
+    --bind "alt-y:execute( $SELF redo )+$RELOAD" \
     --bind "alt-z:execute( $SELF undo )+$RELOAD" \
     --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $SELF logrev "$COMMIT" )' \
     --preview-window 'nowrap,right,border-left' \
@@ -970,15 +987,6 @@ op-log()
   # TODO: remove alt-w in jj-fzf-0.26
 )
 KEYBINDINGS["Ctrl-O"]="op-log"
-
-undo-op()
-(
-  [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
-  ( set -x
-    jj op undo $OP
-  ) || ERROR
-)
-FUNCTIONS+=( 'undo-op' )
 
 restore-commit()
 (
@@ -1162,7 +1170,7 @@ reparenting()
   IMMU=$($JJFZFSHOW -r "$SRC" -T 'if(immutable, "true")')
   test "$IMMU" != true || exit 0
   temp_dir
-  jj --no-pager --ignore-working-copy log --no-graph -T 'change_id ++ "\n"' -r all:"$SRC-" > $TEMPD/reparenting.lst
+  jj --no-pager --ignore-working-copy log --no-graph -T 'change_id ++ "\n"' -r "$SRC-" > $TEMPD/reparenting.lst
   echo 'OP="|"'		>  $TEMPD/reparenting.env
   echo 'SIMPLIFY=false'	>> $TEMPD/reparenting.env
   export SRC TEMPD
@@ -1189,11 +1197,11 @@ reparenting()
     echo "CHANGE PARENTS:"
     mapfile -t NEWPARENTS < $TEMPD/newparents.lst && NEWPARENTS="$(join_args ' | ' "${NEWPARENTS[@]}")"
     echo "jj rebase --source \"$SRC\" --destination \\"
-    echo "  \"all: $NEWPARENTS\""
+    echo "  \"$NEWPARENTS\""
     $SIMPLIFY && echo "jj simplify-parents --revisions \"$SRC\\"
     echo
     echo "SOURCE REVISION:"
-    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r all:"$SRC | $SRC-"
+    jj --no-pager --ignore-working-copy log --color=always -T builtin_log_oneline -r "$SRC | $SRC-"
     echo
     test "$OP" == '|' && deladd='ADD' || deladd='REMOVE'
     echo "$deladd PARENTS:"
@@ -1229,7 +1237,7 @@ reparenting()
       exit # Reparenting cancelled
   # Re-parent revisions
   ( set -x
-    # Ordering is not preserved with 'all:(.|.|.)', only with -d. -d. -d.
+    # Ordering is not preserved with '(.|.|.)', only with -d. -d. -d.
     jj rebase --source "$SRC" "${NEWPARENTS[@]/#/-d}"
   ) || ERROR
   # simplify-parents
@@ -1310,7 +1318,7 @@ rebase()
     ) || ERROR
   else # rebase revisions
     ( set -x
-      jj rebase $II $FR all:"$CREVS" $TO "$TARGET"
+      jj rebase $II $FR "$CREVS" $TO "$TARGET"
     ) || ERROR
   fi
   # simplify-parents
@@ -1467,36 +1475,27 @@ swap-commits()
 )
 KEYBINDINGS["Alt-X"]="swap-commits"
 
+# Redo last JJ op
+DOC['redo']='Use `jj redo` to redo the last undo operation performed by `jj undo`.'
+redo()
+(
+  ( set -x
+    jj redo
+  ) || ERROR
+)
+MULTIKEYBINDINGS["Alt-Y"]="redo"
+
 # Undo last JJ op
-DOC['undo']='Use `jj op undo` to undo the last operation performed by `jj` that was not previously undone.'
+DOC['undo']='Use `jj undo` to undo the last operation performed by `jj` that was not previously undone.'
 undo()
 (
-  TSELFID='self.id() ++ "\n"'
-  if LAST_OPID=$(jj --no-pager --ignore-working-copy config get jj-fzf.last-undo 2>/dev/null) &&
-      jj --no-pager --ignore-working-copy op log -n1 --no-graph -T "$OP_LOG_FIRSTLINE" | grep -qF ": undo operation $LAST_OPID" ; then
-    # last operation in op log was undo of operation $LAST_OPID
-    NEXT_OP="$LAST_OPID-"
-  else
-    LAST_OPID="<none>"
-    NEXT_OP="@"
-  fi
-  NEXT_OP_ID="$(jj --no-pager --ignore-working-copy op log --at-operation="$NEXT_OP" -n1 --no-graph -T "$TSELFID")"
-  echo "# $SELF: jj-fzf.last-undo=${LAST_OPID:0:20} next-undo=${NEXT_OP_ID:0:20}"
   ( set -x
-    jj op undo "$NEXT_OP_ID"
+    jj undo
   ) || ERROR
-  jj --no-pager --ignore-working-copy config set --repo jj-fzf.last-undo "$NEXT_OP_ID"
   # Known cases where the above multi-step undo logic breaks:
   # * Undo of an operation like "reconcile divergent operations" just gives "Error: Cannot undo a merge operation"
 )
 MULTIKEYBINDINGS["Alt-Z"]="undo"
-
-# Reset undo memory
-undo-reset()
-(
-  jj --no-pager --ignore-working-copy config unset --repo jj-fzf.last-undo
-)
-FUNCTIONS+=( 'undo-reset' )
 
 # Minimal Markdown transformations for the terminal
 sedmarkdown()
@@ -1676,6 +1675,7 @@ fzflog 2>&1 |
   --header "$(list_key_bindings)" --header-first \
   --bind "alt-h:transform-header:$SELF $MULTISELECT --key-bindings --key-toggle" \
   --prompt "  $(fzflog --revsetname) ${MULTISELECT/-m/(MULTI)}> " \
+  --sync \
   --no-tac --no-sort +m $MULTISELECT
 
 # Notes:
