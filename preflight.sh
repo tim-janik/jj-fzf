@@ -29,6 +29,31 @@ __preflightish_fixenv="$__preflightish_fixenv"$' unset -f __preflightish_die \n'
 python3 -c 'import sys; sys.exit ((3,9) >= sys.version_info)' ||
   __preflightish_die "Failed to find 'python3' >= 3.9 in \$PATH"
 
+# == __preflightish_le ==
+__preflightish_le()
+{ # compare V1.M1.P1 <= V2.M2.P2 for each segment
+  python3 -c '
+import sys
+a = list (map (int, sys.argv[1].split (".")))
+b = list (map (int, sys.argv[2].split (".")))
+n = max (len (a), len (b))
+a += [0] * (n - len (a))
+b += [0] * (n - len (b))
+sys.exit (a > b)
+  ' \
+	  "$1" "$2"
+}
+
+# == __preflightish_require ==
+__preflightish_require() # VERSION COMMAND [ARGS...]
+{
+  local VV REQ="$1" && shift
+  command -v "$1" > /dev/null 2>&1 &&
+    VV=$("$@" | sed 's/^[^0-9]*//; s|\([0-9.]*\).*|\1|') &&
+    __preflightish_le "$REQ" "$VV" ||
+      __preflightish_die "Failed to find '$1' >= $REQ in \$PATH"
+}
+
 # == Bash ==
 # bash 5.1 introduced $SRANDOM
 bash -c '[[ -n ${SRANDOM+set} ]]' ||
@@ -54,6 +79,9 @@ fi
 command -v "awk" > /dev/null 2>&1 &&
   test $(awk 'BEGIN{print(123)}') == 123 ||
     __preflightish_die "Failed to find usable 'awk' executable in \$PATH"
+
+# == fzf ==
+__preflightish_require "0.44.1" fzf --version
 
 # == column ==
 command -v "column" > /dev/null 2>&1 ||
