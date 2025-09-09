@@ -21,7 +21,7 @@ else						# sourced script
   set -o pipefail	# Return value of a pipeline is 0 only if all commands in the pipeline exit 0
 fi
 
-# == Helpers ==
+# == __preflightish_die ==
 __preflightish_die() { echo "$0: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 __preflightish_fixenv="$__preflightish_fixenv"$' unset -f __preflightish_die \n'
 
@@ -50,6 +50,14 @@ if ! declare -F sed >/dev/null; then	# ignore existing sed() compat func
   fi
 fi
 
+# == awk ==
+command -v "awk" > /dev/null 2>&1 &&
+  test $(awk 'BEGIN{print(123)}') == 123 ||
+    __preflightish_die "Failed to find usable 'awk' executable in \$PATH"
+
+# == column ==
+command -v "column" > /dev/null 2>&1 ||
+  __preflightish_die "Failed to find the 'column' executable in \$PATH"
 
 # == Success ==
 [[ "${BASH_SOURCE[0]}" == "$0" ]] &&
