@@ -550,15 +550,16 @@ FIRSTS=""
 NEXTS=""
 SILENTREFRESH=""
 
-# fzflog revset aliases
-revsets_toml()
-(
-  FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 0)"
-  echo "revset-aliases.fzflog = ''' jjlog | ancestors(bookmarks() | remote_bookmarks(), $FZFLOG_DEPTH) ''' "
-  echo "revset-aliases.jjlog = ''' $(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..) '''"
-  echo "template-aliases.'format_short_change_id(id)' = 'id.shortest(8)'"
-  echo "template-aliases.'format_short_commit_id(id)' = 'id.shortest(8)'"
-)
+# get_REVSETCONFIG - setup array with config CLI args for the fzflog revset
+get_REVSETCONFIG()
+{
+  local -n __l_array=$1	# nameref to an array
+  local FZFLOG_DEPTH="$(jj --ignore-working-copy config get jj-fzf.fzflog-depth 2>/dev/null || echo 0)"
+  __l_array+=( --config "revset-aliases.fzflog=''' jjlog | ancestors(bookmarks() | remote_bookmarks(), $FZFLOG_DEPTH) '''")
+  __l_array+=( --config "revset-aliases.jjlog=''' $(jj --ignore-working-copy config get revsets.log 2>/dev/null || echo ..) '''")
+  __l_array+=( --config "template-aliases.'format_short_change_id(id)'='id.shortest(8)'")
+  __l_array+=( --config "template-aliases.'format_short_commit_id(id)'='id.shortest(8)'")
+}
 
 # fzflog [--revsetname] [rev] - revision log for fzf
 fzflog()
@@ -572,9 +573,9 @@ fzflog()
   if $REVSETNAME ; then
     echo "$REVSETS_LOG"
   else
-    jj --no-pager --ignore-working-copy \
-       --config-toml "$(revsets_toml)" \
-       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG" 2>/dev/null
+    REVSETCONFIG=() && get_REVSETCONFIG REVSETCONFIG
+    jj --no-pager --ignore-working-copy "${REVSETCONFIG[@]}" \
+       log --color=always -T "$JJ_FZF_ONELINE" -r "$REVSETS_LOG"
   fi
 )
 FUNCTIONS+=( 'fzflog' )
@@ -584,7 +585,9 @@ DOC['revset-filter']='Restart `jj-fzf` using the current query string as new rev
 revset-filter()
 (
   REVSET="$1"
-  jj --config-toml "$(revsets_toml)" --no-pager --ignore-working-copy log --no-graph -T '' -r "$REVSET" >/dev/null 2>&1 ||
+  REVSETCONFIG=() && get_REVSETCONFIG REVSETCONFIG
+  jj --no-pager --ignore-working-copy "${REVSETCONFIG[@]}" \
+     log --no-graph -T '' -r "$REVSET" >/dev/null 2>&1 ||
     REVSET=fzflog
   ( set -x
     jj --ignore-working-copy config set --repo 'jj-fzf.revsets.log' "$REVSET"
@@ -1676,6 +1679,7 @@ fzflog 2>&1 |
   --header "$(list_key_bindings)" --header-first \
   --bind "alt-h:transform-header:$SELF $MULTISELECT --key-bindings --key-toggle" \
   --prompt "  $(fzflog --revsetname) ${MULTISELECT/-m/(MULTI)}> " \
+  --sync \
   --no-tac --no-sort +m $MULTISELECT
 
 # Notes:
