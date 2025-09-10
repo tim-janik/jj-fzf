@@ -43,6 +43,8 @@ jobs:
         make distcheck
     - run: |
         make artifacts/jj-fzf.sfx
+    - run: |
+        make artifacts/jj-fzf.1.gz
     - uses: actions/upload-artifact@v4
       with: { name: jj-fzf-Artifacts, path: artifacts/ }
 

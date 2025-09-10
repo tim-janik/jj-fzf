@@ -123,6 +123,13 @@ artifacts/jj-fzf.sfx: all
 	$Q rm -rf xinst/
 	$Q echo "SFX archive ready: $@" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 
+# == artifacts/jj-fzf.1.gz ==
+artifacts/jj-fzf.1.gz: doc/jj-fzf.1
+	$(QGEN)
+	$Q cp doc/jj-fzf.1 artifacts/jj-fzf.1
+	$Q gzip -9 artifacts/jj-fzf.1
+	$Q echo "Man page ready: $@" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
+
 # == clean ==
 clean:
 	rm -f $(CLEANFILES)
