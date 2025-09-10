@@ -840,7 +840,7 @@ operation_id_resolve()
 )
 
 # Show `jj op log` but mark undone operations with '⋯'
-op_log_oneline()
+oplog()
 (
   temp_dir
   # Determine range of undo operations
@@ -852,11 +852,11 @@ op_log_oneline()
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16"
   fi
 )
-FUNCTIONS+=( 'op_log_oneline' )
+FUNCTIONS+=( 'oplog' )
 
 # Oplog
-DOC['op-log']='Use `jj op log` to browse the recent operations log. Use hotkeys to change the preview between diff, history and oplog entry mode. Undo the selected operation or restore its working copy into a new commit.'
-op-log()
+DOC['oplog-browser']='Use `jj op log` to browse the recent operations log. Use hotkeys to change the preview between diff, history and oplog entry mode. Undo the selected operation or restore its working copy into a new commit.'
+oplog-browser()
 (
   temp_dir
   echo > $TEMPD/oplog.env
@@ -871,10 +871,10 @@ op-log()
   H="$H"$'Alt-Y: Redo the last undo operation (marked `⋯`)\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
-  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT op_log_oneline" TEMPD ABSPATHSCRIPT
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT oplog" TEMPD ABSPATHSCRIPT
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
-    --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
+    --border-label '-[ OPLOG-BROWSER ]-' --color=border:bright-yellow,label:bright-yellow \
     --prompt "Operation > " \
     --header "$H" --header-first \
     --bind "ctrl-d:execute-silent( sed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
@@ -892,7 +892,7 @@ op-log()
     --no-tac --no-sort +m
   # TODO: remove alt-w in jj-fzf-0.26
 )
-KEYBINDINGS["Ctrl-O"]="op-log"
+KEYBINDINGS["Ctrl-O"]="oplog-browser"
 
 restore-commit()
 (
