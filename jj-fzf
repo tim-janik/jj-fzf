@@ -4,12 +4,10 @@ set -Eeuo pipefail #-x
 die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 ABSPATHSCRIPT=$(readlink -f "$0")	# Resolve symlinks to find installdir
 
-# == Dependency checks ==
+# == Dependencis & Imports ==
 source "${ABSPATHSCRIPT%/*}"/preflight.sh
-
-# == Execution Trampoline ==
-# Hook to serve as a single-executable trampoline for `jj show --tool $ABSPATHSCRIPT`
-test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
+# Import jj_show_diff and helpers
+source "${ABSPATHSCRIPT%/*}"/lib/common.sh
 
 # == Early options, outside a jj repo ==
 COLORALWAYS=
@@ -30,91 +28,10 @@ JJROOT=$(jj --ignore-working-copy root) &&
     die "$PWD: not a JJ repository"
 
 # == PREVIEW fast path ==
-JJFZF_PRIVATE="$(jj config get --ignore-working-copy --no-pager git.private-commits 2>/dev/null)" &&
-  [[ "$JJFZF_PRIVATE" =~ ^[.a-z_()-]+$ ]] || JJFZF_PRIVATE=''	# only supported unquoted revset names
-JJ_FZF_SHOWDETAILS='
-concat(
-  builtin_log_oneline,
-  "Change ID: " ++ self.change_id() ++ "\n",
-  "Commit ID: " ++ commit_id ++ "\n",
-  "Flags:     ", separate(" ",
-    if(immutable, label("node immutable", "immutable")),
-    if(hidden, label("hidden", "hidden")),
-    if(divergent, label("divergent", "divergent")),
-    if(conflict, label("conflict", "conflict")),
-    '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', 'private')), }"'
-  ) ++ "\n",
-  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
-  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
-  "Author:    " ++ format_detailed_signature(author) ++ "\n",
-  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
-  indent("    ",
-    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
-  "\n",
-)' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-# Show commit diff according to jj-fzf.diff-mode
-jj_show_diff()
-{
-  local COLOR && [[ " $* " =~ --color=always ]] && COLOR=--color=always || COLOR=--color=never
-  # Use git-diff (for --git and --word-diff) which has better heuristics for informative hunk headers than jj (0.31.0)
-  case "$(jj --no-pager --ignore-working-copy config get jj-fzf.diff-mode 2>/dev/null || true)" in
-    diff-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
-    word-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b --word-diff '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
-    *)		jj show --no-pager --ignore-working-copy "$@" ;;
-  esac
-}
 # handle 'preview' early on to avoid slow previews due to parsing the entire script
 export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
-if test "${1:-}" == preview					# preview command, nested invocation
-then
-  if [[ "${2:-} " =~ $REVPAT ]]					# match beginning of jj log line
-  then
-    REVISION="${BASH_REMATCH[1]}"
-    if [[ "${BASH_REMATCH[2]}" == '??' ]]			# divergent change_id
-    then
-      # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
-      jj --no-pager --ignore-working-copy show -T builtin_log_oneline -r "${BASH_REMATCH[1]}" 2>&1 || :
-      echo && echo
-    fi
-    REVISION=$(echo " $2 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') || exit 0	# find likely commit id
-    { jj --no-pager --ignore-working-copy log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-      jj_show_diff --color=always -T '"\n"' -r "$REVISION"
-    } 2>&1 | head -n 4000
-  else								# no valid revision
-    true
-  fi
-  exit 0
-fi
 export OPRPAT='^[^a-z0-9]*([0-9a-f]{9,})[?]*\ '	# line start, ignore --graph, parse hex letters, space separator
 export HEX7PAT='\ ([0-9a-f]{7,})\ ' # space enclosed hexadecimal pattern
-case "${1:-}" in
-  preview_oplog)
-    [[ " ${2:-} " =~ $OPRPAT ]] && {
-	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
-	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log -s -r .. # -T builtin_log_oneline
-      } ; exit ;;
-  preview_opshow)
-    [[ " ${2:-} " =~ $OPRPAT ]] && {
-	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always op log --no-graph -n 1 -T builtin_op_log_comfortable
-	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always log --no-graph -s -r "@"
-	jj --no-pager --ignore-working-copy --at-op "${BASH_REMATCH[1]}" --color=always show -T ' "\n" ' -r "@"
-      } ; exit ;;
-  preview_oppatch)
-    [[ " ${2:-} " =~ $OPRPAT ]] && {
-	jj --no-pager --ignore-working-copy --color=always op show -p "${BASH_REMATCH[1]}"
-      } | head -n 4000 ; exit ;;
-  preview_opdiff)
-    [[ " ${2:-} " =~ $OPRPAT ]] && {
-	jj --no-pager --ignore-working-copy --color=always op diff -f "${BASH_REMATCH[1]}" -t @
-      } ; exit ;;
-  preview_evolog)
-    [[ " ${2:-} " =~ $HEX7PAT ]] && {
-      jj --no-pager --ignore-working-copy evolog --color=always -n1 -p -T "$JJ_FZF_SHOWDETAILS" -r "${BASH_REMATCH[1]}" |
-	head -n 4000
-    } ; exit ;;
-esac
 
 # == General Options ==
 MULTISELECT= HELPKEYBINDINGS= SHOWKEYBINDINGS= COLORALWAYS= ONESHOT=false POSTCMDEXIT=
@@ -180,31 +97,6 @@ if(root,
         if(conflict, label("conflict", "conflict")),
         if(empty, label("empty", "(empty)")),
         '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', '🌟')), }"'
-        if(description,
-          description.first_line(),
-          label(if(empty, "empty"), description_placeholder),
-        ),
-      ) ++ "\n",
-    ),
-  )
-)'
-# builtin_log_oneline with commit_id *before* other tags/bookmarks/etc and force committer().timestamp
-EVOLOG_ONELINE='
-if(root,
-  format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
-    concat(
-      separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(self),
-        if(author.email(), author.email().local(), email_placeholder),
-        format_timestamp(self.committer().timestamp()),
-        format_short_commit_id(commit_id),
-        bookmarks,
-        tags,
-        working_copies,
-        if(git_head, label("git_head", "git_head()")),
-        if(conflict, label("conflict", "conflict")),
-        if(empty, label("empty", "(empty)")),
         if(description,
           description.first_line(),
           label(if(empty, "empty"), description_placeholder),
@@ -983,7 +875,7 @@ op-log()
     --bind "alt-z:execute( $ABSPATHSCRIPT undo )+$RELOAD" \
     --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $ABSPATHSCRIPT logrev "$COMMIT" )' \
     --preview-window 'nowrap,right,border-left' \
-    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && $ABSPATHSCRIPT $VIEW {}' \
+    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && ${ABSPATHSCRIPT%/*}/lib/preview.sh $VIEW {}' \
     --no-tac --no-sort +m
   # TODO: remove alt-w in jj-fzf-0.26
 )
@@ -1015,8 +907,8 @@ FUNCTIONS+=( 'op-restore' )
 # Show `jj evolog`
 evolog_oneline()
 (
-  R="$1"
-  jj evolog --no-pager --ignore-working-copy --color=always -T "$EVOLOG_ONELINE" -r "$R"
+  R="$1"	# TODO: use jj default with operations in multi-line parsing
+  jj evolog --no-pager --ignore-working-copy --color=always -r "$R" -T "$ONELINE_COMMIT_BIGHEX"
 )
 FUNCTIONS+=( 'evolog_oneline' )
 
@@ -1038,9 +930,9 @@ FUNCTIONS+=( 'evolog-inject' )
 # Show `jj evolog`
 evolog_pager()
 (
-  [[ " $* " =~ $HEX7PAT ]] && {
+  [[ " $* " =~ ' '$BIGHEXPAT' ' ]] && {
     # builtin_log_detailed
-    jj --no-pager --ignore-working-copy evolog --color=always -p -r "${BASH_REMATCH[1]}" -T "$JJ_FZF_SHOWDETAILS" 2>&1 |
+    jj --no-pager --ignore-working-copy evolog --color=always -p -r "${BASH_REMATCH[1]}" -T "builtin_log_compact_full_description(commit)" 2>&1 |
       $JJFZFPAGER
   }
 )
@@ -1065,7 +957,7 @@ evolog()
     --bind "enter:execute( $ABSPATHSCRIPT evolog_pager {} )" \
     --bind "alt-j:execute( $ABSPATHSCRIPT evolog-inject $R {} )+abort" \
     --preview-window 'nowrap,right,border-left' \
-    --preview "$ABSPATHSCRIPT preview_evolog {}" \
+    --preview "exec ${ABSPATHSCRIPT%/*}/lib/preview.sh preview_evolog {}" \
     --no-tac --no-sort +m
 }
 KEYBINDINGS["Ctrl-T"]="evolog"
@@ -1673,7 +1565,7 @@ fzflog 2>&1 |
   --bind "enter:execute( $ABSPATHSCRIPT logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
   --bind "ctrl-r:transform-query( $ABSPATHSCRIPT revset-filter {q} )+become( exec $ABSPATHSCRIPT )" \
-  --preview " exec $ABSPATHSCRIPT preview {} {q} " \
+  --preview " exec ${ABSPATHSCRIPT%/*}/lib/preview.sh preview_revision {} {q} " \
   --header "$(list_key_bindings)" --header-first \
   --bind "alt-h:transform-header:$ABSPATHSCRIPT $MULTISELECT --key-bindings --key-toggle" \
   --prompt "  $(fzflog --revsetname) ${MULTISELECT/-m/(MULTI)}> " \

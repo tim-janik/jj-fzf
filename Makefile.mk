@@ -23,7 +23,6 @@ check-deps: preflight.sh jj-fzf
 	$(QGEN)
 	$Q ./preflight.sh
 	$Q ./jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
-	$Q ./jj-fzf --help >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
 .PHONY: check-deps
 all check: check-deps
 
@@ -43,21 +42,24 @@ man/markdown-flavour	:= -f markdown+hard_line_breaks+autolink_bare_uris+emoji+li
 CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
+# == SCRIPTS ==
+LIBSCRIPTS   := lib/common.sh lib/exectool.sh lib/preview.sh
+SHELLSCRIPTS := jj-fzf preflight.sh version.sh sfx.sh
+
 # == tests ==
 tests-basics.sh:
 	$Q tests/basics.sh
 .PHONY: tests-basics.sh
 
 # == shellcheck ==
-SHELLSCRIPTS := jj-fzf sfx.sh version.sh
-shellcheck-warning: $(SHELLSCRIPTS)
+shellcheck-warning: $(SHELLSCRIPTS) $(LIBSCRIPTS)
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
-	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 $(SHELLSCRIPTS)
+	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 $(SHELLSCRIPTS) $(LIBSCRIPTS)
 shellcheck-error:
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
-	shellcheck -W 3 -S error $(SHELLSCRIPTS)
+	shellcheck -W 3 -S error $(SHELLSCRIPTS) $(LIBSCRIPTS)
 check-help:
 	$(QGEN)
 	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
@@ -66,8 +68,9 @@ check: check-deps check-help shellcheck-error tests-basics.sh
 # == install & uninstall ==
 install: all
 	$(QGEN)
-	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
-	install -c version.sh jj-fzf $(DESTDIR)$(PRJDIR)
+	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(PRJDIR)/lib $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
+	install -c $(SHELLSCRIPTS) $(DESTDIR)$(PRJDIR)
+	install -c $(LIBSCRIPTS) $(DESTDIR)$(PRJDIR)/lib
 	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
 	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
 	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
