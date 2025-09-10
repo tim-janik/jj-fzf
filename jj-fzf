@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-ABSPATHSCRIPT=`readlink -f "$0"` && function die  { [ -n "$*" ] && echo "${ABSPATHSCRIPT##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+ABSPATHSCRIPT=$(readlink -f "$0")	# Resolve symlinks to find installdir
+
+# == Dependency checks ==
+source "${ABSPATHSCRIPT%/*}"/preflight.sh
 
 # == Execution Trampoline ==
-# Hook to serve as a single-executable trampoline for `jj show --tool $SELF`
+# Hook to serve as a single-executable trampoline for `jj show --tool $ABSPATHSCRIPT`
 test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
-SELF="$0" # Allow to re-execute this script
 
 # == Early options, outside a jj repo ==
 COLORALWAYS=
@@ -19,7 +22,6 @@ while test $# -ne 0 ; do
   esac
   shift
 done
-command -v gsed 2>/dev/null 1>&2 || { gsed() { \sed "$@"; } && export -f gsed; }
 
 # == Subdirs may vanish during checkouts ==
 JJPWD="$PWD"
@@ -57,9 +59,9 @@ jj_show_diff()
   # Use git-diff (for --git and --word-diff) which has better heuristics for informative hunk headers than jj (0.31.0)
   case "$(jj --no-pager --ignore-working-copy config get jj-fzf.diff-mode 2>/dev/null || true)" in
     diff-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$SELF" ;;
+		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
     word-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b --word-diff '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$SELF" ;;
+		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
     *)		jj show --no-pager --ignore-working-copy "$@" ;;
   esac
 }
@@ -423,7 +425,7 @@ echo_signoff()
   if test "${JJFZF_SIGNOFF:-true}" == true ; then
     echo # separating newline before signoff section
     $JJFZFSHOW -T 'format_detailed_signature(author) ++ "\n"' -r @ |
-      gsed -e 's/>.*/>/ ; s/^/Signed-off-by: /'
+      sed -e 's/>.*/>/ ; s/^/Signed-off-by: /'
   fi
 )
 # Echo current or default message
@@ -461,18 +463,18 @@ echo_commit_msg()
 	echo -e "\n* Branch commit log:" || # "$c ^$MERGE_BASE"
 	  echo -e "\n* Branch '`rev_bookmark1 $c`' commit log:"
       git log --pretty=$'\f%s%+b' $c ^$MERGE_BASE |
-	gsed '/^\([A-Z][a-z0-9-]*-by\|Cc\):/d' | # strip Signed-off-by:
-	gsed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /'
+	sed '/^\([A-Z][a-z0-9-]*-by\|Cc\):/d' | # strip Signed-off-by:
+	sed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /'
     done
     echo_signoff
   else # Commit message based on files
     # start with file name prefixes
     FILES=()
-    readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | gsed 's/^\w //')
+    readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
     test ${#FILES[@]} -gt 0 &&
       printf "%s: \n" "${FILES[@]}" ||
 	echo ""
-    { jj config --no-pager get 'ui.default-description' 2>/dev/null || : ; } | gsed '1{/^$/d}'
+    { jj config --no-pager get 'ui.default-description' 2>/dev/null || : ; } | sed '1{/^$/d}'
     test ${#FILES[@]} -le 0 ||
       echo_signoff
   fi
@@ -505,7 +507,7 @@ user_editor_on_var()
   $JJ_EDITOR "$TEMPFILE" &&
     N="$(cat "$TEMPFILE")" && {
       test "$_ueovMSG" != "$N" &&
-	_ueovMSG="$(gsed -r '/^# -+ >8 -+ >8 -+ 8< -+ 8< -+/Q' < "$TEMPFILE")"
+	_ueovMSG="$(sed -r '/^# -+ >8 -+ >8 -+ 8< -+ 8< -+/Q' < "$TEMPFILE")"
       rm -f "$TEMPFILE"
       return 0
     }
@@ -614,7 +616,7 @@ bookmark()
   R="$(xrev_or_commit "${1:-@}")"
   #echo "# Existing Bookmarks:" && jj --no-pager --ignore-working-copy bookmark list
   readarray -t BOOKMARKS < <(jj --no-pager --ignore-working-copy bookmark list -T 'self.name()++"\n"' | sort | uniq)
-  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "::$R|$R+" -T 'bookmarks++"\n"' | gsed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "::$R|$R+" -T 'bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
   [[ ${#NEAREST[@]} -ge 1 ]] && INIT="${NEAREST[0]}" || INIT=""
   PROMPT='Bookmark Name: '
   echo "# Assign Bookmark to:"
@@ -624,10 +626,8 @@ bookmark()
   B="${B%% *}" && B="${B##* }" && test -z "$B" && return
   # See https://git-scm.com/docs/git-check-ref-format
   INVALIDPAT='(//|\.\.|/\.|[ :^~?*]|\[|^/|/$|\.$|^@$|@\{|\\|'$'[\x01-\x1f])'
-  [[ "$B" =~ $INVALIDPAT ]] && {
-    echo "$SELF: bookmark contains invalid characters: $B" >&2
-    false || ERROR
-  }
+  [[ "$B" =~ $INVALIDPAT ]] &&
+    ERROR "bookmark contains invalid characters: $B"
   ( set -x
     jj bookmark set -r "$R" --allow-backwards "$B"
   ) || ERROR
@@ -673,7 +673,7 @@ delete-refs()
 (
   R="$(xrev_or_commit "${1:-@}")"
   # find first local bookmark in $R, use as query arg
-  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++"\n"' | gsed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
+  readarray -t NEAREST < <(jj --no-pager --ignore-working-copy log --no-graph -r "$R" -T 'local_bookmarks++"\n"' | sed -r 's/\b \b/\n/g; s/\*$//; s/\b@.*//; /^$/d')
   [[ ${#NEAREST[@]} -ge 1 ]] && B=(-q "${NEAREST[0]}") || B=()
   require_git_dir # exports GIT_DIR
   # select bookmark or tag
@@ -686,8 +686,8 @@ delete-refs()
       "${B[@]}" \
       < <(
       # list local bookmarks
-      jj --ignore-working-copy bookmark list | # gsed reorders conflicted
-	gsed -r ':0; /^\s/!s/ \(conflicted\):/: (conflicted)/; N; $!b0; s/\n\s+/ /g' |
+      jj --ignore-working-copy bookmark list | # sed reorders conflicted
+	sed -r ':0; /^\s/!s/ \(conflicted\):/: (conflicted)/; N; $!b0; s/\n\s+/ /g' |
 	while read MARK rest ; do
 	  printf "%-32s [bookmark] %s\n" "${MARK%:}" "$rest"
 	done
@@ -760,7 +760,7 @@ file-editor()
   R="$(xrev "${1:-@}")"
   W="$(xrev "@")"
   # read files edited by revision
-  readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | gsed 's/^\w //')
+  readarray -t FILES < <(jj --ignore-working-copy log --no-graph -r "$R" -T '' -s | sed 's/^\w //')
   # make sure to edit revision
   test "$W" == "$R" || (
     IMMU=$($JJFZFSHOW -r "$R" -T 'if(immutable, "true")')
@@ -778,7 +778,7 @@ KEYBINDINGS["Ctrl-F"]="file-editor"
 DOC['help']='Show the *jj-fzf* help and key binding commands.'
 help()
 (
-  $SELF --help "$@"
+  $ABSPATHSCRIPT --help "$@"
 )
 KEYBINDINGS["Ctrl-H"]="help"
 
@@ -794,7 +794,7 @@ split-interactive()
 	set -Eeuo pipefail #-x
 	TRUNCATE=n
 	test $TRUNCATE == y && echo -n > "$1" || :
-	gsed 's/TRUNCATE=./TRUNCATE=y/' -i "$0"
+	sed 's/TRUNCATE=./TRUNCATE=y/' -i "$0"
 	__EOF__
   chmod +x $TEMPD/noeditor
   export JJ_EDITOR="$TEMPD/noeditor" # Override ui.editor to implement --split-with-no-description
@@ -814,7 +814,7 @@ diff()
   test "${#REVS[@]}" -ge 2 || REVS+=( "${REVS[0]}" )
   (
     # set -x
-    jj --color=always log -r "${REVS[0]} | ${REVS[1]}" -T builtin_log_oneline # | gsed -r '/[k-xyz]/!d; s/ +/  /'
+    jj --color=always log -r "${REVS[0]} | ${REVS[1]}" -T builtin_log_oneline # | sed -r '/[k-xyz]/!d; s/ +/  /'
     echo
     jj diff --ignore-working-copy --color=always --from "${REVS[0]}" --to "${REVS[1]}" --stat
     echo
@@ -850,7 +850,7 @@ if [[ $# == 2 ]] && [[ "${1:0:1}" == + ]] ; then
     grep -s -n '' "$file" /dev/null |
     "${FZFPOPUP[@]}" \
       --border-label '-[ LINE HISTORY (EXPERIMENTAL) ]-' --color=border:yellow,label:yellow \
-      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%B' -L{2}:{1} --color $COMMIT | gsed -nre '/($EMPTY|$SIGBY)/!p; /$EMPTY/{ p; :NEXT n; /($EMPTY|$SIGBY)/b NEXT; p; }' " \
+      --preview " git log --graph --no-patch -M -C --find-copies-harder --pretty='%C(blue)%h %C(yellow)%aL %C(reset)%B' -L{2}:{1} --color $COMMIT | sed -nre '/($EMPTY|$SIGBY)/!p; /$EMPTY/{ p; :NEXT n; /($EMPTY|$SIGBY)/b NEXT; p; }' " \
       --bind "enter:execute( git log -M -C --find-copies-harder -L{2},+7:{1} --color $COMMIT | $JJFZFPAGER)" \
       --header "File Line History" \
       --no-tac --no-sort +m -d: \
@@ -864,7 +864,7 @@ fi
 DOC["multi-select"]='Select multiple revisions to operate on.'
 multi-select()
 (
-  $SELF -m --postcmd-exit || :
+  $ABSPATHSCRIPT -m --postcmd-exit || :
 )
 KEYBINDINGS["Alt-M"]="multi-select"
 
@@ -942,7 +942,7 @@ op_log_oneline()
   LAST_OPID=$(operation_id_resolve @)
   if test "$LAST_OPID" != @ ; then
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16" |
-      gsed -r "1,/${LAST_OPID:0:16}\b/{ /${LAST_OPID:0:16}\b/! s/([@○])/⋯/ }" # ⮌ ⋯ ⤺↶
+      sed -r "1,/${LAST_OPID:0:16}\b/{ /${LAST_OPID:0:16}\b/! s/([@○])/⋯/ }" # ⮌ ⋯ ⤺↶
   else
     jj --no-pager --ignore-working-copy op log --color=always -T "$JJ_FZF_OP_LOG_ONELINE16"
   fi
@@ -966,24 +966,24 @@ op-log()
   H="$H"$'Alt-Y: Redo the last undo operation (marked `⋯`)\n'
   H="$H"$'Alt-Z: Undo the next operation (not already marked `⋯`)\n'
   echo 'VIEW=preview_oppatch'		>> $TEMPD/oplog.env
-  export FZF_DEFAULT_COMMAND="$SELF op_log_oneline" TEMPD SELF
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT op_log_oneline" TEMPD ABSPATHSCRIPT
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
     --border-label '-[ OP-LOG ]-' --color=border:bright-yellow,label:bright-yellow \
     --prompt "Operation > " \
     --header "$H" --header-first \
-    --bind "ctrl-d:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-l:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-p:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_oppatch/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "ctrl-s:execute-silent( gsed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
-    --bind "alt-j:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-r:execute( $SELF op-restore {} )+abort" \
-    --bind "alt-w:execute( $SELF restore-commit {} )+abort" \
-    --bind "alt-y:execute( $SELF redo )+$RELOAD" \
-    --bind "alt-z:execute( $SELF undo )+$RELOAD" \
-    --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $SELF logrev "$COMMIT" )' \
+    --bind "ctrl-d:execute-silent( sed 's/^VIEW=.*/VIEW=preview_opdiff/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-l:execute-silent( sed 's/^VIEW=.*/VIEW=preview_oplog/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-p:execute-silent( sed 's/^VIEW=.*/VIEW=preview_oppatch/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "ctrl-s:execute-silent( sed 's/^VIEW=.*/VIEW=preview_opshow/' -i $TEMPD/oplog.env )+refresh-preview" \
+    --bind "alt-j:execute( $ABSPATHSCRIPT restore-commit {} )+abort" \
+    --bind "alt-r:execute( $ABSPATHSCRIPT op-restore {} )+abort" \
+    --bind "alt-w:execute( $ABSPATHSCRIPT restore-commit {} )+abort" \
+    --bind "alt-y:execute( $ABSPATHSCRIPT redo )+$RELOAD" \
+    --bind "alt-z:execute( $ABSPATHSCRIPT undo )+$RELOAD" \
+    --bind 'enter:execute( [[ {} =~ $OPPAT ]] || exit && COMMIT=$(jj log --no-pager --no-graph -T commit_id -r @ --at-operation "${BASH_REMATCH[1]}") && $ABSPATHSCRIPT logrev "$COMMIT" )' \
     --preview-window 'nowrap,right,border-left' \
-    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && $SELF $VIEW {}' \
+    --preview '[[ {} =~ $OPPAT ]] || exit; . $TEMPD/oplog.env && $ABSPATHSCRIPT $VIEW {}' \
     --no-tac --no-sort +m
   # TODO: remove alt-w in jj-fzf-0.26
 )
@@ -993,7 +993,7 @@ restore-commit()
 (
   [[ "$*" =~ $OPPAT ]] && OP="${BASH_REMATCH[1]}" || return
   COMMIT="$(jj --no-pager --ignore-working-copy --at-op $OP show --tool true -T commit_id -r @)"
-  echo "# $SELF: insert working copy commit (${COMMIT:0:12}) from operation ${OP:0:12} before @"
+  echo "# $ABSPATHSCRIPT: insert working copy commit (${COMMIT:0:12}) from operation ${OP:0:12} before @"
   ( set -x
     jj new --no-edit --insert-before @
     jj restore --from "$COMMIT" --to @- --restore-descendants
@@ -1056,16 +1056,16 @@ evolog()
   H="$H"$'Enter: Browse evolog with diff\n'
   H="$H"$'\n'
   H="$H"$'Alt-J: Inject evolog entry as historic commit before the revision without changing it.\n'
-  export FZF_DEFAULT_COMMAND="$SELF evolog_oneline $R"
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT evolog_oneline $R"
   RELOAD='reload(eval "$FZF_DEFAULT_COMMAND")'
   "${FZFPOPUP[@]}" \
     --border-label "-[ EVOLOG $R ]-" --color=border:yellow,label:bright-yellow \
     --prompt "Evolog > " \
     --header "$H" --header-first \
-    --bind "enter:execute( $SELF evolog_pager {} )" \
-    --bind "alt-j:execute( $SELF evolog-inject $R {} )+abort" \
+    --bind "enter:execute( $ABSPATHSCRIPT evolog_pager {} )" \
+    --bind "alt-j:execute( $ABSPATHSCRIPT evolog-inject $R {} )+abort" \
     --preview-window 'nowrap,right,border-left' \
-    --preview "$SELF preview_evolog {}" \
+    --preview "$ABSPATHSCRIPT preview_evolog {}" \
     --no-tac --no-sort +m
 }
 KEYBINDINGS["Ctrl-T"]="evolog"
@@ -1218,16 +1218,16 @@ reparenting()
   H="$H""Alt-A: ADD    - Add currently selected revisions as new parents"$'\n'
   H="$H""Alt-D: DEL    - Delete selected revisions from current list of parents"$'\n'
   H="$H""Alt-P: SIMPLIFY-PARENTS - Use simplify-parents after reparenting"$'\n'
-  export FZF_DEFAULT_COMMAND="$SELF fzflog"
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT fzflog"
   # FZF select parents
   "${FZFPOPUP[@]}" \
       --border-label '-[ CHANGE PARENTS ]-' --color=border:cyan,label:cyan \
       --preview ". $TEMPD/reparenting.env && reparenting_revs {+} && reparenting_cmd" \
       --prompt "Parents > " \
       --header "$H" --header-first \
-      --bind "alt-a:execute-silent( gsed 's/^OP=.*/OP=\"|\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
-      --bind "alt-d:execute-silent( gsed 's/^OP=.*/OP=\"~\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
-      --bind "alt-p:execute-silent( gsed 's/^SIMPLIFY=false/SIMPLIFY_=/; s/^SIMPLIFY=true/SIMPLIFY=false/; s/^SIMPLIFY_=/SIMPLIFY=true/' -i $TEMPD/reparenting.env )+refresh-preview" \
+      --bind "alt-a:execute-silent( sed 's/^OP=.*/OP=\"|\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
+      --bind "alt-d:execute-silent( sed 's/^OP=.*/OP=\"~\"/' -i $TEMPD/reparenting.env )+refresh-preview" \
+      --bind "alt-p:execute-silent( sed 's/^SIMPLIFY=false/SIMPLIFY_=/; s/^SIMPLIFY=true/SIMPLIFY=false/; s/^SIMPLIFY_=/SIMPLIFY=true/' -i $TEMPD/reparenting.env )+refresh-preview" \
       -m --color=pointer:grey \
       --no-tac --no-sort > $TEMPD/selections.txt &&
     mapfile -t selections < $TEMPD/selections.txt &&
@@ -1289,22 +1289,22 @@ rebase()
   H="$H""Ctrl-A: AFTER       - The revision to insert after"$'\n'
   H="$H""Ctrl-B: BEFORE      - The revision to insert before"$'\n'
   H="$H""Ctrl-D: DESTINATION - The revision to rebase onto"$'\n'
-  export FZF_DEFAULT_COMMAND="$SELF fzflog"
+  export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT fzflog"
   TARGET=$("${FZFPOPUP[@]}" \
 	     --border-label '-[ REBASE ]-' --color=border:green,label:green \
 	     --preview "[[ {} =~ $REVPAT ]] || exit; export TARGET=\"\${BASH_REMATCH[1]}\"; $PREVIEW " \
 	     --prompt "Rebase > " \
 	     --header "$H" --header-first \
-	     --bind "alt-d:execute-silent( gsed 's/^CH=.*/CH=/;   s/^DP=.*/DP=1/; s/^FR=.*/FR=--revisions/' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "alt-c:execute-silent( gsed 's/^CH=.*/CH=::/; s/^DP=.*/DP=1/; s/^FR=.*/FR=--source/   ' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "alt-b:execute-silent( gsed 's/^CH=.*/CH=/;   s/^DP=.*/DP=/;  s/^FR=.*/FR=--branch/   ' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "alt-s:execute-silent( gsed 's/^CH=.*/CH=/;   s/^DP=.*/DP=/;  s/^FR=.*/FR=--source/   ' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "alt-r:execute-silent( gsed 's/^CH=.*/CH=/;   s/^DP=.*/DP=/;  s/^FR=.*/FR=--revisions/' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "alt-p:execute-silent( gsed 's/^SP=false/SP=x/; s/^SP=true/SP=false/; s/^SP=x/SP=true/' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "alt-i:execute-silent( gsed 's/^II=-.*/II=x/; s/^II=$/II=--ignore-immutable/; s/^II=x.*/II=/' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "ctrl-d:execute-silent( gsed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "ctrl-a:execute-silent( gsed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebase.env )+refresh-preview" \
-	     --bind "ctrl-b:execute-silent( gsed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "alt-d:execute-silent( sed 's/^CH=.*/CH=/;   s/^DP=.*/DP=1/; s/^FR=.*/FR=--revisions/' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "alt-c:execute-silent( sed 's/^CH=.*/CH=::/; s/^DP=.*/DP=1/; s/^FR=.*/FR=--source/   ' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "alt-b:execute-silent( sed 's/^CH=.*/CH=/;   s/^DP=.*/DP=/;  s/^FR=.*/FR=--branch/   ' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "alt-s:execute-silent( sed 's/^CH=.*/CH=/;   s/^DP=.*/DP=/;  s/^FR=.*/FR=--source/   ' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "alt-r:execute-silent( sed 's/^CH=.*/CH=/;   s/^DP=.*/DP=/;  s/^FR=.*/FR=--revisions/' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "alt-p:execute-silent( sed 's/^SP=false/SP=x/; s/^SP=true/SP=false/; s/^SP=x/SP=true/' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "alt-i:execute-silent( sed 's/^II=-.*/II=x/; s/^II=$/II=--ignore-immutable/; s/^II=x.*/II=/' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "ctrl-d:execute-silent( sed 's/^TO=.*/TO=--destination/' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "ctrl-a:execute-silent( sed 's/^TO=.*/TO=--insert-after/' -i $TEMPD/rebase.env )+refresh-preview" \
+	     --bind "ctrl-b:execute-silent( sed 's/^TO=.*/TO=--insert-before/' -i $TEMPD/rebase.env )+refresh-preview" \
 	     --no-tac --no-sort +m )
   [[ "$TARGET" =~ $REVPAT ]] &&
     TARGET="${BASH_REMATCH[1]}" ||
@@ -1408,7 +1408,7 @@ vivifydivergent()
       die 'no divergent revision'
   # leave working copy alone, unless it is $1
   test "$COMMIT" == "$WCOPY" && NOEDIT= || NOEDIT=--no-edit
-  echo "# $SELF vivifydivergent $COMMIT" >&2
+  echo "# ${ABSPATHSCRIPT##*/} vivifydivergent $COMMIT" >&2
   jj --no-pager log --no-graph -T builtin_log_oneline -r "$COMMIT" # --ignore-working-copy
   export JJ_EDITOR='true' # Override ui.editor to implement --squash-with-no-description
   ( set -x
@@ -1523,7 +1523,7 @@ sedmarkdown()
     s,(\bhttps?://[^ ()\r]+),$U\1$Z,g                           # Link
   "
   tr \\n \\r |
-    { $COLOR && gsed -re "$SEDSCRIPT" || cat ; } |
+    { $COLOR && sed -re "$SEDSCRIPT" || cat ; } |
     tr \\r \\n
 )
 
@@ -1567,7 +1567,7 @@ if test -n "$HELPKEYBINDINGS" ; then
       echo && echo "## $k: _$NAME""_"
       D="${DOC[$NAME]:-}"
       test -z "$D" ||
-	echo "$D" | fold -s -w78 | gsed 's/^/  /'
+	echo "$D" | fold -s -w78 | sed 's/^/  /'
     done
   )
   exit 0
@@ -1586,7 +1586,7 @@ list_key_bindings()
   }
   SHOW_KEYS="$(jj --ignore-working-copy config get 'jj-fzf.show-keys' 2>/dev/null || echo true)"
   [[ "$*" =~ --key-toggle ]] && {
-    SHOW_KEYS="$(echo "$SHOW_KEYS" | gsed 's/^false/x/; s/^true/false/; s/^x/true/')"
+    SHOW_KEYS="$(echo "$SHOW_KEYS" | sed 's/^false/x/; s/^true/false/; s/^x/true/')"
     jj --ignore-working-copy config set --user 'jj-fzf.show-keys' "$SHOW_KEYS"
   }
   $SHOW_KEYS || {
@@ -1658,11 +1658,11 @@ for k in "${!KEYBINDINGS[@]}" ; do
   [[ " $SILENTREFRESH " == *" $fun "* ]] && REPAINT=refresh-preview || REPAINT="$RELOAD"
   [[ -v MULTIKEYBINDINGS["$k"] ]] && FUNARGS='{+}' || FUNARGS='{} {q}'
   [[ -n "$POSTCMDEXIT" ]] && postcmd=+abort
-  BIND+=( --bind "${k,,}:$EXECUTE( $SELF $MULTISELECT $fun $FUNARGS )$EXECKILLME+$REPAINT$postcmd" )
+  BIND+=( --bind "${k,,}:$EXECUTE( $ABSPATHSCRIPT $MULTISELECT $fun $FUNARGS )$EXECKILLME+$REPAINT$postcmd" )
 done
 
 # == FZF ==
-export FZF_DEFAULT_COMMAND="$SELF fzflog"
+export FZF_DEFAULT_COMMAND="$ABSPATHSCRIPT fzflog"
 fzflog 2>&1 |
   fzf \
   "${FZFSETTINGS[@]}" "${FZFEXTRAS[@]}" \
@@ -1670,12 +1670,12 @@ fzflog 2>&1 |
   --bind "ctrl-z:execute( $JJSUBSHELL )+execute-silent( jj --no-pager status )+$RELOAD" \
   --bind "alt-m:abort" \
   --bind "f5:$RELOAD" \
-  --bind "enter:execute( $SELF logrev {} {q} )$EXECKILLME+$RELOAD" \
+  --bind "enter:execute( $ABSPATHSCRIPT logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
-  --bind "ctrl-r:transform-query( $SELF revset-filter {q} )+become( exec $SELF )" \
-  --preview " exec $SELF preview {} {q} " \
+  --bind "ctrl-r:transform-query( $ABSPATHSCRIPT revset-filter {q} )+become( exec $ABSPATHSCRIPT )" \
+  --preview " exec $ABSPATHSCRIPT preview {} {q} " \
   --header "$(list_key_bindings)" --header-first \
-  --bind "alt-h:transform-header:$SELF $MULTISELECT --key-bindings --key-toggle" \
+  --bind "alt-h:transform-header:$ABSPATHSCRIPT $MULTISELECT --key-bindings --key-toggle" \
   --prompt "  $(fzflog --revsetname) ${MULTISELECT/-m/(MULTI)}> " \
   --sync \
   --no-tac --no-sort +m $MULTISELECT
@@ -1684,4 +1684,4 @@ fzflog 2>&1 |
 # * Do not use 'exec' as last command, otherwise trap-handlers are skipped.
 # * Ctrl-R: This must be rebound to run transform-query, ideally we would just transform-query+transform-prompt+reload
 #   but that crashes fzf-0.44.1 when the cursor position is after the new revset length, so we use become().
-# * Avoid needless $($SELF...) invocations, these cause significant slowdowns during startup
+# * Avoid needless $($ABSPATHSCRIPT...) invocations, these cause significant slowdowns during startup
