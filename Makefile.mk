@@ -60,14 +60,15 @@ tests-basics.sh:
 .PHONY: tests-basics.sh
 
 # == shellcheck ==
-shellcheck-warning: jj-fzf
+SHELLSCRIPTS := jj-fzf sfx.sh version.sh
+shellcheck-warning: $(SHELLSCRIPTS)
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
-	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 jj-fzf
+	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 $(SHELLSCRIPTS)
 shellcheck-error:
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
-	shellcheck -W 3 -S error jj-fzf
+	shellcheck -W 3 -S error $(SHELLSCRIPTS)
 check-gsed: jj-fzf
 	$(QGEN)
 	$Q ! grep --color=auto -nE '[^\\]\bsed ' jj-fzf /dev/null \
