@@ -1432,6 +1432,10 @@ fi
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 if test -n "$HELPKEYBINDINGS" ; then
   # Key bdingins only shown in long form help
+  HELPKEYS[F11]='toggle-layout'
+  DOC['toggle-layout']='Change between horizontal or vertical layout.'
+  HELPKEYS[F5]='reload'
+  DOC['reload']='Force a reload of the log view.'
   HELPKEYS[Shift-↑]='preview-up'
   HELPKEYS[Ctrl-↑]='preview-up'
   DOC['preview-up']='Scroll the preview window.'
