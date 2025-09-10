@@ -1,0 +1,36 @@
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+
+# Linting: xclip -sel c < .github/workflows/inactive.yml # https://rhysd.github.io/actionlint/
+name: Inactive Issue Handling
+
+on:
+  schedule:
+    - cron: "7 0 * * *"
+
+jobs:
+  inactive-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v10
+        with:
+          stale-issue-label: "inactive"
+          stale-issue-message: >
+            This issue is considered stale,
+            because it has been open for several weeks with no activity.
+          close-issue-message: >
+            Thank you for your contribution. This issue is being closed,
+            because it has been open for several weeks with no activity.
+            Feel free to reopen this issue when more information or
+            updates are available.
+          days-before-issue-stale: 31
+          days-before-issue-close: 21
+          stale-pr-label: "inactive"
+          stale-pr-message: >
+            This PR is considered stale,
+            because it has been open for several weeks with no activity.
+          days-before-pr-stale: 91
+          days-before-pr-close: -1
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
