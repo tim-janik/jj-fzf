@@ -23,7 +23,6 @@ check-deps: preflight.sh jj-fzf
 	$(QGEN)
 	$Q ./preflight.sh
 	$Q ./jj-fzf --version >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
-	$Q ./jj-fzf --help >/dev/null || { echo "$@: ERROR: failed to start ./jj-fzf as \`bash\` script" >&2; false; }
 .PHONY: check-deps
 all check: check-deps
 
