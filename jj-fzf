@@ -4,12 +4,10 @@ set -Eeuo pipefail #-x
 die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 ABSPATHSCRIPT=$(readlink -f "$0")	# Resolve symlinks to find installdir
 
-# == Dependency checks ==
+# == Dependencis & Imports ==
 source "${ABSPATHSCRIPT%/*}"/preflight.sh
-
-# == Execution Trampoline ==
-# Hook to serve as a single-executable trampoline for `jj show --tool $ABSPATHSCRIPT`
-test -z "${JJFZF_EXEC_WITH0_AS_:-}" || { $JJFZF_EXEC_WITH0_AS_ "$@" || : ; exec true ; } # force exit_status=0
+# Import jj_show_diff and helpers
+source "${ABSPATHSCRIPT%/*}"/lib/common.sh
 
 # == Early options, outside a jj repo ==
 COLORALWAYS=
@@ -30,63 +28,8 @@ JJROOT=$(jj --ignore-working-copy root) &&
     die "$PWD: not a JJ repository"
 
 # == PREVIEW fast path ==
-JJFZF_PRIVATE="$(jj config get --ignore-working-copy --no-pager git.private-commits 2>/dev/null)" &&
-  [[ "$JJFZF_PRIVATE" =~ ^[.a-z_()-]+$ ]] || JJFZF_PRIVATE=''	# only supported unquoted revset names
-JJ_FZF_SHOWDETAILS='
-concat(
-  builtin_log_oneline,
-  "Change ID: " ++ self.change_id() ++ "\n",
-  "Commit ID: " ++ commit_id ++ "\n",
-  "Flags:     ", separate(" ",
-    if(immutable, label("node immutable", "immutable")),
-    if(hidden, label("hidden", "hidden")),
-    if(divergent, label("divergent", "divergent")),
-    if(conflict, label("conflict", "conflict")),
-    '"${JJFZF_PRIVATE:+ if(self.contained_in('$JJFZF_PRIVATE') && !immutable, label('committer', 'private')), }"'
-  ) ++ "\n",
-  surround("Refs:      ", "\n", separate(" ", local_bookmarks, remote_bookmarks, tags)),
-  "Parents:  " ++ self.parents().map(|c| " " ++ c.change_id()) ++ "\n",
-  "Author:    " ++ format_detailed_signature(author) ++ "\n",
-  "Committer: " ++ format_detailed_signature(committer)  ++ "\n\n",
-  indent("    ",
-    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
-  "\n",
-)' # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
-# Show commit diff according to jj-fzf.diff-mode
-jj_show_diff()
-{
-  local COLOR && [[ " $* " =~ --color=always ]] && COLOR=--color=always || COLOR=--color=never
-  # Use git-diff (for --git and --word-diff) which has better heuristics for informative hunk headers than jj (0.31.0)
-  case "$(jj --no-pager --ignore-working-copy config get jj-fzf.diff-mode 2>/dev/null || true)" in
-    diff-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
-    word-b)	export JJFZF_EXEC_WITH0_AS_='git -P diff --no-index --diff-algorithm=histogram -b --word-diff '"$COLOR"
-		jj show --no-pager --ignore-working-copy "$@" --tool "$ABSPATHSCRIPT" ;;
-    *)		jj show --no-pager --ignore-working-copy "$@" ;;
-  esac
-}
 # handle 'preview' early on to avoid slow previews due to parsing the entire script
 export REVPAT='^[^a-z()0-9]*([k-xyz]{7,})([?]*)\ '		# line start, ignore --graph, parse revision letters, catch '??'-postfix
-if test "${1:-}" == preview					# preview command, nested invocation
-then
-  if [[ "${2:-} " =~ $REVPAT ]]					# match beginning of jj log line
-  then
-    REVISION="${BASH_REMATCH[1]}"
-    if [[ "${BASH_REMATCH[2]}" == '??' ]]			# divergent change_id
-    then
-      # https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
-      jj --no-pager --ignore-working-copy show -T builtin_log_oneline -r "${BASH_REMATCH[1]}" 2>&1 || :
-      echo && echo
-    fi
-    REVISION=$(echo " $2 " | grep -Po '(?<= )[a-f0-9]{8,}(?= )') || exit 0	# find likely commit id
-    { jj --no-pager --ignore-working-copy log --color=always --no-graph -T "$JJ_FZF_SHOWDETAILS" -s -r "$REVISION"
-      jj_show_diff --color=always -T '"\n"' -r "$REVISION"
-    } 2>&1 | head -n 4000
-  else								# no valid revision
-    true
-  fi
-  exit 0
-fi
 export OPRPAT='^[^a-z0-9]*([0-9a-f]{9,})[?]*\ '	# line start, ignore --graph, parse hex letters, space separator
 export HEX7PAT='\ ([0-9a-f]{7,})\ ' # space enclosed hexadecimal pattern
 case "${1:-}" in
@@ -1673,7 +1616,7 @@ fzflog 2>&1 |
   --bind "enter:execute( $ABSPATHSCRIPT logrev {} {q} )$EXECKILLME+$RELOAD" \
   "${BIND[@]}" \
   --bind "ctrl-r:transform-query( $ABSPATHSCRIPT revset-filter {q} )+become( exec $ABSPATHSCRIPT )" \
-  --preview " exec $ABSPATHSCRIPT preview {} {q} " \
+  --preview " exec ${ABSPATHSCRIPT%/*}/lib/preview.sh preview_revision {} {q} " \
   --header "$(list_key_bindings)" --header-first \
   --bind "alt-h:transform-header:$ABSPATHSCRIPT $MULTISELECT --key-bindings --key-toggle" \
   --prompt "  $(fzflog --revsetname) ${MULTISELECT/-m/(MULTI)}> " \
