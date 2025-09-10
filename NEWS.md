@@ -1,3 +1,45 @@
+## JJ-FZF 0.33.0 - 2025-09-11
+
+### Added:
+* New preflight.sh script dedicated to dependency handling
+* Added version.sh to support Github "Source code" archives
+* Added self extracting jj-fzf.sfx script to release artifacts
+* Added manual page jj-fzf.1.gz to release artifacts
+* Added contrib/jj-foreach.sh to run shell command for each commit in a revset
+* Added option to contrib/jj-foreach.sh to not affecting descendants
+* Alt-J: inject selected revision as historic commit before @
+* Documented F5 and F11 keybindings
+
+### Breaking:
+* This release requires jj-0.33.0
+* This release is the last one to support fzf 0.44.1, future release
+  will depend on more recent fzf versions
+* Upon start, fzf will now wait for `jj log` to finish before display; if this
+  turns out too slow for some repos, please file an issue and request --async
+* Instead of enforcing gsed use, preflight.sh now defines an `sed()` function
+  that proxies `gsed` if needed. Please file an issue if sed problems remain
+
+### Changed:
+* Pushing to a remote will now also push deleted bookmarks
+* Preserve history when deleting tags or bookmarks
+  (enforces git.abandon-unreachable-commits=false during deletion)
+* Added cursor down to swap-commits to follow swapped commit
+* Moved preview and helper into library files (speeds up previews)
+* Undo/redo operations in jj-fzf now use jj's built-in commands
+* Use `jj-fzf oplog` to display the undo stack with ⋯ undo step markers
+* Renamed oplog and oplog-browser commands
+
+### Fixed:
+* Fixed evolog preview and evolog paging (was broken since jj-0.30)
+* Fixed outdated uses of `jj --config-toml`
+* Fixed broken Github jj-fzf links
+* Fixed lacking DESTDIR for make (un)install
+
+### Removed:
+* Removed unnecessary `all:` prefix in jj revset expressions
+* Removed unsed command / key binding for undo marker reset
+
+
 ## JJ-FZF 0.32.0 - 2025-08-14
 
 ### Added:
