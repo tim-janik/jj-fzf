@@ -715,6 +715,19 @@ diff()
 )
 KEYBINDINGS["Ctrl-I"]="diff"
 
+# inject-commit
+DOC['inject-commit']='Inject the currently selected revision (or divergent commit) as historic commit before @.'
+inject-commit()
+(
+  R="$(xrev_or_commit "${1:-@}")"
+  echo "# $ABSPATHSCRIPT: insert commit ($R) before @"
+  ( set -x
+    jj new --no-edit --insert-before @
+    jj restore --from "$R" --to @- --restore-descendants
+  ) || ERROR
+)
+KEYBINDINGS["Alt-J"]="inject-commit"
+
 # Backout Commit
 DOC['backout']='Use `jj backout` to create new commits that undo the changes made by the currently selected revisions and apply the changes on top of the working-copy.'
 backout()
@@ -1432,6 +1445,10 @@ fi
 HELPKEYS=$(declare -p KEYBINDINGS) && declare -A HELPKEYS="${HELPKEYS#*=}"	# copy KEYBINDINGS -> HELPKEYS
 if test -n "$HELPKEYBINDINGS" ; then
   # Key bdingins only shown in long form help
+  HELPKEYS[F11]='toggle-layout'
+  DOC['toggle-layout']='Change between horizontal or vertical layout.'
+  HELPKEYS[F5]='reload'
+  DOC['reload']='Force a reload of the log view.'
   HELPKEYS[Shift-↑]='preview-up'
   HELPKEYS[Ctrl-↑]='preview-up'
   DOC['preview-up']='Scroll the preview window.'
