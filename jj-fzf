@@ -1,0 +1,324 @@
+#!/usr/bin/env bash
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+set -Eeuo pipefail #-x
+die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find installdir
+
+# == Setup & Options ==
+source "${ABSPATHSCRIPT%/*}"/lib/setup.sh	# preflight.sh common.sh
+jjfzf_tempd					# assigns $JJFZF_TEMPD
+while test $# -ne 0 ; do
+  case "$1" in \
+    --version)		echo "${ABSPATHSCRIPT##*/} `$JJFZF_ABSPATHLIB/../version.sh`"; exit ;;
+    -h|--help)		echo "Usage: ${ABSPATHSCRIPT##*/} [--man] [--version] [OPTIONS...]"; exit ;;
+    --man|--help)	exec man $JJFZF_ABSPATHLIB/../doc/jj-fzf.1 ;;
+    -x)			set -x ;;
+    *)         		break ;;
+  esac
+  shift
+done
+
+# == Config ==
+# Always ensure root relative paths
+JJROOT="$(jj --ignore-working-copy --no-pager root 2>/dev/null)" &&
+  cd "$JJROOT" ||
+    die "$PWD: not a JJ repository"
+JJ="jj --no-pager --ignore-working-copy"
+export JJFZFT="$JJ log --no-graph -T"
+RELOAD="reload-sync(cat $JJFZF_TEMPD/jjfzf_list)"	# see jjfzf_load
+
+# == jjfzf_full_commit ==
+# Show commit(s) with diff and full info
+jjfzf_full_commit()
+(
+  set -Eeuo pipefail
+  test -z "${1-}" &&	# may be revset
+    exit 0
+  jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR --no-graph -r "$1" -p \
+	      -T '"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n" )'
+)
+export -f jjfzf_full_commit
+jjfzf_log_detailed	# for preview, assigns $JJFZF_LOG_DETAILED_CONFIG
+
+# == jjfzf_full_history ==
+jjfzf_full_history()
+(
+  set -Eeuo pipefail
+  REVSET="${1-@}"
+  jjfzf_full_commit "$REVSET" |
+    sed '1{/^$/d}' |
+    $JJFZF_PAGER
+)
+export -f jjfzf_full_history
+
+# == Key Bindings ==
+BINDINGS=() HELPDOCS=()
+declare -A POST
+declare -A KEY
+declare -A RUN
+declare -A DOC
+
+# Abandon
+KEY[abandon]="Alt-A"
+RUN[abandon]="jjfzf_run jj --no-pager abandon {+2}"
+DOC[abandon]='Use `jj abandon` to abandon the currently selected revisions.'
+
+# Commit
+KEY[commit]="Alt-C"	POST[commit]="+first"
+RUN[commit]="JJFZF_EDITOR=\"${JJ_EDITOR-}\" JJ_EDITOR=\"$JJFZF_ABSPATHLIB/editor.sh\" jjfzf_run +e jj commit -i"
+DOC[commit]='Use `jj commit` to describe the currently selected revision and create a new child revision as working-copy.'
+
+# Diffedit interactively
+KEY[diffedit]="Alt-E"
+RUN[diffedit]="jjfzf_run +e jj --no-pager diffedit -r {2}"
+DOC[diffedit]='Use `jj diffedit` to interactively select content diff hunks to be kept in the currently selected revision, the rest is discarded.'
+
+# Split files --without-description
+jjfzf_filesplit()
+(
+  set -Eeuo pipefail
+  COMMIT="$1"
+  # read files affected by $COMMIT
+  mapfile -t MAPFILE < <(jj --no-pager diff --name-only -r "$COMMIT")
+  [[ ${#MAPFILE[@]} -gt 1 ]] ||
+    return
+  # create n-1 new commits from n files
+  while [[ ${#MAPFILE[@]} -gt 1 ]] ; do
+    unset 'MAPFILE[-1]' # unset 'MAPFILE[${#MAPFILE[@]}-1]'
+    export JJ_EDITOR='true' # Override ui.editor to implement --without-description
+    jjfzf_run +n jj split -m= -r "$COMMIT" -- "${MAPFILE[@]}"
+  done
+  jjfzf_run
+)
+export -f jjfzf_filesplit
+KEY[filesplit]="Alt-F"
+RUN[filesplit]="jjfzf_filesplit {2}"
+DOC[filesplit]='Use `jj split` in a loop to split each file modified by the currently selected revision into its own commit.'
+
+# Showkeys
+# KEY[showkeys]="Alt-H"	# TODO: add for --help
+BINDINGS+=( --header-label ' Alt-H: Toggle Key Display ⫶ Ctrl-H: help ' )
+BINDINGS+=( --bind "alt-h:execute-silent( jjfzf_config toggle jj-fzf.show-keys )" )	# see also transform-header
+DOC[showkeys]='Display or hide the list of avilable key bindings, persist the setting in `jj-fzf.show-keys` of the `jj` user config.'
+
+# Help
+# KEY[help]="Ctrl-H"	# TODO: add for --help
+BINDINGS+=( --bind "ctrl-h:execute( '$ABSPATHSCRIPT' --man )" )
+DOC[help]='Show jj-fzf manual page.'
+
+# Split interactively
+KEY[split]="Alt-I"
+RUN[split]="jjfzf_split_i {2}"
+DOC[split]='Use `jj split` to interactively select content diff hunks to be split into a new commit with an empty description.'
+jjfzf_split_i()
+(
+  set -Eeuo pipefail
+  # Split without message editing, instead keep only the first (original) description
+  touch "$JJFZF_TEMPD/skip1"
+  export POPFILE_LIST= KEEPFILE_LIST="$JJFZF_TEMPD/skip1"
+  export JJ_EDITOR="$JJFZF_ABSPATHLIB/popfile.sh" # Override ui.editor and implement --without-description
+  jjfzf_run +e jj split -m= --interactive -r "$1"
+)
+export -f jjfzf_split_i
+
+# Inject commit
+KEY[inject]="Alt-J"
+RUN[inject]="jjfzf_inject {+2} ; jjfzf_load_and_status"
+DOC[inject]='Inject the currently selected revision(s) as historic commit(s) before @.'
+
+# New-A
+KEY[new-a]="Alt-N"
+RUN[new-a]="jjfzf_run jj --no-pager new --no-edit --insert-after {2}"
+DOC[new-a]='Use `jj new --no-edit --insert-after` to create and insert a new revision after the currently selected revision. Add `Ctrl` to use `--insert-before` instead.'
+BINDINGS+=( --bind "ctrl-alt-n:execute( jjfzf_run jj --no-pager new --no-edit -B {2} )+$RELOAD+down" )
+
+# Absorb a content diff into mutable ancestors
+KEY[absorb]="Alt-O"
+RUN[absorb]="jjfzf_run jj --no-pager absorb --from {2}"
+DOC[absorb]='Use `jj absorb` to split the content diff of the current revision and squash pieces into related mutable ancestors.'
+
+# Squash
+KEY[squash]="Alt-Q"
+RUN[squash]="jjfzf_squash {2} {+2}"
+DOC[squash]='Use `jj squash` to move the changes from all selected revisions into the revision under the cursor.'
+jjfzf_squash()
+(
+  set -Eeuo pipefail
+  TARGET="${1-}"; shift
+  ALL="$(jjfzf_ccrevs "$@")"
+  if test -n "$TARGET" ; then
+    test "$TARGET" == "$ALL" && TARGET="$TARGET-"
+    if test -n "$($JJFZFT 'true' -r "~$TARGET & ($ALL)")"; then
+      if [[ true == $($JJFZFT 'true' -r "@ & ($ALL)") ]]; then
+	# The working copy @ is to be squashed. Squashing without --keep-emptied would start a new branch at @- which
+	# is undesired if @+ exists. But using --keep-emptied does not squash the message. As a workaround, create a
+	# new @+, so we never squash directly from @. This new working copy will receive any children from the
+	# original squashed working copy.
+	jjfzf_run +n jj --no-pager new --insert-after @
+      fi
+      jjfzf_run jj --no-pager squash --from "$ALL" --into "$TARGET"
+      return
+    fi
+  fi
+  jjfzf_load_and_status
+)
+export -f jjfzf_squash
+
+# Revert Commits
+KEY[revert]="Alt-V"	POST[revert]="+first"
+RUN[revert]="jjfzf_run jj --no-pager revert -d @ -r \$(jjfzf_ccrevs {+2})"
+DOC[revert]='Use `jj revert` to create new commits that undo the changes made by the currently selected revisions and apply the changes on top of the working-copy.'
+
+# Swap
+KEY[swap]="Alt-X"	POST[swap]="+down"
+RUN[swap]="jjfzf_run jj --no-pager rebase --insert-before {2}- -r {2}"
+DOC[swap]='Use `jj rebase --insert-before` to quickly swap the currenly selected revision with the revision immediately before it. Add `Ctrl` to use `--insert-after` instead.'
+BINDINGS+=( --bind "ctrl-alt-x:execute( jjfzf_run jj --no-pager rebase --insert-after {2}+ -r {2} )+$RELOAD+up" )
+
+# Redo
+KEY[redo]="Alt-Y"
+RUN[redo]="jjfzf_run jj --no-pager redo"
+DOC[redo]='Use `jj redo` to redo the last undo operation performed by `jj undo`.'
+
+# Undo
+KEY[undo]="Alt-Z"
+RUN[undo]="jjfzf_run jj --no-pager undo"
+DOC[undo]='Use `jj undo` to undo the last operation performed by `jj` that was not previously undone.'
+
+# Describe
+KEY[describe]="Ctrl-D"
+RUN[describe]="JJFZF_EDITOR=\"${JJ_EDITOR-}\" JJ_EDITOR=\"$JJFZF_ABSPATHLIB/editor.sh\" jjfzf_run +e jj describe --edit {2}"
+DOC[describe]='Use `jj describe` to describe the currently selected revision.'
+
+# Edit
+KEY[edit]="Ctrl-E"
+RUN[edit]="jjfzf_run jj --no-pager \$($JJFZFT \"if(immutable,'new','edit')\" -r {2}) {2}"
+DOC[edit]='Use `jj {edit|new}` to set the currently selected revision (or divergent commit) as the working-copy revision. Will create a new empty commit if the selected revision is immutable.'
+
+# Enter - commit info
+BINDINGS+=( --bind 'enter:execute( jjfzf_full_history {2} )' )
+
+# Log history
+KEY[log]="Ctrl-L"
+BINDINGS+=( --bind 'ctrl-l:execute( jjfzf_selected_history {+2} )' )
+DOC[log]='Use `jj log` to browse the history including patches, for the selected revisions, or the ancestry of a single revision.'
+jjfzf_selected_history()
+(
+  set -Eeuo pipefail
+  if test -n "${2-}" ; then
+    ALL="$(jjfzf_ccrevs "$@")"
+  else
+    ALL="..${1-@}"
+  fi
+  jjfzf_full_history "$ALL"
+)
+export -f jjfzf_selected_history
+
+# New
+KEY[new]="Ctrl-N"	POST[new]="+first"
+RUN[new]='jjfzf_run jj --no-pager new $(jjfzf_chronological_change_ids {+2})'
+DOC[new]='Use `jj new` to create a new revision on top of the currently selected revision(s).'
+
+# Subshell
+KEY[shell]="Ctrl-Z"
+BINDINGS+=( --bind "ctrl-z:execute( jjfzf_exec_usershell )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
+DOC[shell]='Start interactive subshell.'
+# This needs to run execute() twice, because of the exec in jjfzf_exec_usershell
+
+# Reload
+KEY[reload]="F5"
+BINDINGS+=( --bind "f5:execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
+DOC[reload]='Reload the revset.'
+
+# Interactive Revset
+BINDINGS+=( --disabled --prompt 'Revset > ' )
+BINDINGS+=( --bind 'change:reload: jjfzf_revset_log {q} ' )
+jjfzf_revset_log()
+(
+  Q="${1-}"
+  if test "${Q:0:1}" != " " &&
+      jj --no-pager --ignore-working-copy log --no-graph -T '' -r "@&($Q)" >/dev/null 2>&1 ; then
+    echo "$Q" > $JJFZF_TEMPD/log_revset
+  else
+    rm -f $JJFZF_TEMPD/log_revset
+  fi
+  jjfzf_load --stdout
+)
+export -f jjfzf_revset_log
+
+# Persist Revset
+BINDINGS+=( --input-label=' Alt-Enter: toggle revset ' )
+BINDINGS+=( --bind 'alt-enter:execute-silent( jjfzf_set_revset {q} )+reload( jjfzf_load --stdout )+clear-query' )
+BINDINGS+=( --info-command='echo -e " \x1b[33;1m$FZF_POS\x1b[m/$FZF_INFO ⫶ all: $(jjfzf_revset)"' )
+#KEY[revset]="Alt-Enter" # TODO: for --help only
+#DOC[revset]='Persist current revset in repo configuration.'
+jjfzf_set_revset()
+(
+  if test -z "${1-}" ; then			# reset
+    if test "$(jj --no-pager --ignore-working-copy config get jj-fzf.log_revset 2>/dev/null)" == "" ; then
+      # toggle default revset
+      jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset \
+	 '((@|trunk()|parents(heads(immutable()),3))::)'
+    else
+      jj --no-pager --ignore-working-copy config unset --repo jj-fzf.log_revset
+    fi
+  elif test -r $JJFZF_TEMPD/log_revset ; then	# assign new if validated
+    jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset "$(cat $JJFZF_TEMPD/log_revset)"
+  fi
+  true
+)
+export -f jjfzf_set_revset
+
+# == Process Bindings ==
+declare -a CMDS # Sort commands by key binding string (KEY[$cmd])
+while IFS= read -r line; do
+  CMDS+=("${line#* }")
+done < <(for cmd in "${!KEY[@]}"; do echo "${KEY[$cmd]} $cmd"; done | sort)
+for cmd in "${CMDS[@]}"; do
+  key="${KEY[$cmd],,}"
+  post="$RELOAD${POST[$cmd]-}"
+  KEYDOCS+=( "${KEY[$cmd]}:$cmd" )
+  test -n "${DOC[$cmd]-}" &&
+    HELPDOCS+=( "**${KEY[$cmd]} $cmd**$'\n'${DOC[$cmd]}" )
+  test -n "${RUN[$cmd]-}" &&
+    BINDINGS+=( --bind "$key:execute( ${RUN[$cmd]} )+$post" )
+done
+
+# == jjfzf_showkeys ==
+declare -p KEYDOCS > $JJFZF_TEMPD/jjfzf_KEYDOCS
+jjfzf_showkeys()
+(
+  set +u
+  HEADER_LINES="${LINES-$FZF_LINES}"
+  test -n "$FZF_PREVIEW_LEFT" && test "$FZF_PREVIEW_LEFT" -gt $((FZF_COLUMNS / 10)) &&
+    HEADER_COLUMNS="$FZF_PREVIEW_LEFT" || HEADER_COLUMNS="$FZF_COLUMNS"
+  if test "$(jjfzf_config get jj-fzf.show-keys)" == 0 -o "$HEADER_LINES" -lt 20 -o "$HEADER_COLUMNS" -lt 20 ; then
+    : # echo "Ctrl-H:help Alt-H:showkeys"
+  else
+    source $JJFZF_TEMPD/jjfzf_KEYDOCS
+    jjfzf_wrap_args "$((HEADER_COLUMNS - 8))" "${KEYDOCS[@]}"
+  fi
+)
+export -f jjfzf_showkeys
+BINDINGS+=( --bind "start,resize,alt-h,f11:+transform-header: jjfzf_showkeys 2>&1 " )
+
+# == fzf ==
+V=$($JJFZF_ABSPATHLIB/../version.sh | sed 's/-.*//')
+FZF_ARGS+=(
+  --marker=' '
+  --border-label "-[ JJ-FZF ($V) ]-" --color=border:cyan,label:cyan
+  --preview-label " Revision Info "
+)
+jjfzf_status
+export JJFZF_LOAD_LIST=jjfzf_log0
+unset FZF_DEFAULT_OPTS FZF_DEFAULT_COMMAND
+jjfzf_load --stdout |
+  fzf -m "${FZF_ARGS[@]}" "${BINDINGS[@]}" \
+      --read0 '-d¸' --accept-nth=2 --with-nth '{1} {4..}' \
+      --preview "jjfzf_full_commit {2} | sed '1{/^$/d}; 3001q' " \
+      --header-first
+# Notes:
+# - Initial listing is read async to quickly popup the fzf log view
+# - Commands are executed, then the new log is cached in $JJFZF_TEMPD/jjfzf_list and synchronously read by fzf
+#   This allows fzf to track the current cursor position
+#     --bind 'start,resize:transform-header(env | fgrep FZF)' \
