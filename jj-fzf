@@ -164,6 +164,11 @@ jjfzf_squash()
 )
 export -f jjfzf_squash
 
+# Rebase Commits
+KEY[rebase]="Alt-R"
+BINDINGS+=( --bind "alt-r:execute( '$JJFZF_ABSPATHLIB'/rebase.sh {+2} ; jjfzf_load_and_status )+$RELOAD" )
+DOC[rebase]='Use `jj rebase` or `jj duplicate` to move or copy a set of revisions (possibly with descendants), onto, before or after another revision. Also supports `jj simplify-parents` afterwards.'
+
 # Revert Commits
 KEY[revert]="Alt-V"	POST[revert]="+first"
 RUN[revert]="jjfzf_run jj --no-pager revert -d @ -r \$(jjfzf_ccrevs {+2})"
