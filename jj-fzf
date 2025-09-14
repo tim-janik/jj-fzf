@@ -234,8 +234,22 @@ DOC[undo]='Use `jj undo` to undo the last operation performed by `jj` that was n
 
 # Describe
 KEY[describe]="Ctrl-D"
-RUN[describe]="JJFZF_EDITOR=\"${JJ_EDITOR-}\" JJ_EDITOR=\"$JJFZF_ABSPATHLIB/editor.sh\" jjfzf_run +e jj describe --edit {2}"
+RUN[describe]="jjfzf_describe_commit {2}"
 DOC[describe]='Use `jj describe` to describe the currently selected revision.'
+jjfzf_describe_commit()
+(
+  REV="${1-@}"
+  CONFIG=()
+  if test true == $(jj --no-pager --ignore-working-copy log --no-graph \
+		       -r "$REV" -T 'self.parents().len() > 1') ; then
+    QMSG=$($JJFZF_ABSPATHLIB/draft.sh "$REV" | jjfzf_config_quote)
+    CONFIG+=(--config="template-aliases.default_commit_description=$QMSG")
+  fi
+  export JJFZF_EDITOR="${JJ_EDITOR-}"			# preserve user setting
+  export JJ_EDITOR="$JJFZF_ABSPATHLIB/editor.sh"	# wrapper that rejects non-edits
+  jjfzf_run +e jj describe --edit "${CONFIG[@]}" "$REV"
+)
+export -f jjfzf_describe_commit
 
 # Edit
 KEY[edit]="Ctrl-E"
