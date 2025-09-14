@@ -45,6 +45,8 @@
 * Ctrl-L will now either show the history up to a single selected revision,
   or for the selected (multiple) revisions only.
 
+* Ctrl-V is the new key binding for the evolution log browser.
+
 * An LLM can be used to generate commit messages with the Ctrl-S key binding.
   The generated message is provided to `jj describe` as a config value in
   `template-aliases.default_commit_description`.
