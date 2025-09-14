@@ -9,6 +9,8 @@
 
 * Inject will now copy the author, timestamp and message into the new commit.
 
+* The oplog now combines the operation show, diff and historic log views.
+
 * The default set of revisions for the jj-fzf log list is now
   `jj-fzf.log_revset` with a fallback of `revsets.log` (the standard jj log
   revset). To use a different revset with jj-fzf, type the revset into the

@@ -224,6 +224,11 @@ KEY[new]="Ctrl-N"	POST[new]="+first"
 RUN[new]='jjfzf_run jj --no-pager new $(jjfzf_chronological_change_ids {+2})'
 DOC[new]='Use `jj new` to create a new revision on top of the currently selected revision(s).'
 
+# Oplog Commits
+KEY[oplog]="Ctrl-O"
+BINDINGS+=( --bind "ctrl-o:execute( '$JJFZF_ABSPATHLIB'/oplog.sh ; jjfzf_load_and_status )+$RELOAD" )
+DOC[oplog]='Use `jj operation log` to browse the recent operations log. Use hotkeys to view operation diffs and history. Undo operations or restore its working copy into a new commit.'
+
 # Subshell
 KEY[shell]="Ctrl-Z"
 BINDINGS+=( --bind "ctrl-z:execute( jjfzf_exec_usershell )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
