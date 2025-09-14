@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S python3 -B
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 import sys, os, re, argparse, json, subprocess
 import urllib.request, urllib.parse
@@ -33,6 +33,8 @@ def stream_text (chat_url, api_key, model, prompt):
   data = {
     'model': model,
     'messages': [{'role': 'user', 'content': prompt}],
+    'reasoning_format': 'none',
+    'chat_template_kwargs': { 'enable_thinking': False },
     'stream': True
   }
   json_data = json.dumps (data).encode ('utf-8')
