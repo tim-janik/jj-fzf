@@ -137,6 +137,11 @@ KEY[absorb]="Alt-O"
 RUN[absorb]="jjfzf_run jj --no-pager absorb --from {2}"
 DOC[absorb]='Use `jj absorb` to split the content diff of the current revision and squash pieces into related mutable ancestors.'
 
+# Reparent Commits
+KEY[reparent]="Alt-P"
+BINDINGS+=( --bind "alt-p:execute( '$JJFZF_ABSPATHLIB'/reparent.sh {+2} ; jjfzf_load_and_status )+$RELOAD" )
+DOC[reparent]='Change parent(s) of the current revision by adding a new or removing an existing parent, and optionally simplify the parent list.'
+
 # Squash
 KEY[squash]="Alt-Q"
 RUN[squash]="jjfzf_squash {2} {+2}"
