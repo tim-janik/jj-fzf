@@ -7,34 +7,65 @@
 JJ-FZF
 ======
 
-![JJ-FZF Intro](https://github.com/user-attachments/assets/a4e248d1-15ef-4967-bc8a-35783da45eaa)
-**JJ-FZF Introduction:** [Asciicast](https://asciinema.org/a/684019) [MP4](https://github.com/user-attachments/assets/1dcaceb0-d7f0-437e-9d84-25d5b799fa53)
-
 <!-- ABOUT -->
 ## About jj-fzf
 
-`JJ-FZF` is a text UI for [jj](https://martinvonz.github.io/jj/latest/) based on [fzf](https://junegunn.github.io/fzf/), implemented as a bash shell script.
-The main view centers around `jj log`, providing previews for the `jj diff` or `jj obslog` of every revision.
-Several key bindings are available to quickly perform actions such as squashing, swapping, rebasing, splitting, branching, committing, abandoning revisions and more.
-A separate view for the operations log `jj op log` enables fast previews of old commit histories or diffs between operations, making it easy to `jj undo` any previous operation.
-The available hotkeys are displayed onscreen for simple discoverability.
+`JJ-FZF` is a text UI for the [Jujutsu VCS](https://jj-vcs.github.io/jj/latest/) `jj` based on [fzf](https://junegunn.github.io/fzf/).
+All modification commands are printed on stderr to help users in learning the [jj CLI](https://jj-vcs.github.io/jj/latest/cli-reference/).
+
+### Feature Set
+
+* Edit the current [revset](https://jj-vcs.github.io/jj/latest/revsets/) (list of commits) in the fzf input field with live reload of the `jj log`.
+* Complex [rebase](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#rebasing-commits) commands just need `Alt-R` and cursor keys.
+* Use `Alt-P` for a dialog to edit or simplify the parents in a [merge](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#merging-commits) commit.
+* [Splitting](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#splitting-commits) commits needs a single key press. `Alt-F` splits commits by file, `Alt-I` uses the [`jj split`](https://jj-vcs.github.io/jj/latest/cli-reference/#jj-split) command in interactive mode.
+* First class [Mega-Merge](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#mega-merge-workflow) support: `Ctrl-N` starts a new branch, `Alt-N` inserts a new empty commit, `Alt-P` edits merged branches, `Alt-O` absorbs fixes into related commits of merged branches.
+* Commits can be [squashed](https://jj-vcs.github.io/jj/latest/cli-reference/#jj-squash) (combined into a single commit) from arbitrary points in the ancestry with `Alt-Q`.
+* A dedicated browser (`Ctrl-T`) shows the evolution of each revision ([change_id](https://jj-vcs.github.io/jj/latest/glossary/#change-id)) and allows to inject (`Alt-J`) historic versions of a revision as a new commit without affecting the working copy.
+* Key bindings are easily discoverable in an onscreen area and via `Ctrl-H` or the `jj-fzf.1` manual page.
+* At any point the [oplog](https://jj-vcs.github.io/jj/latest/operation-log/) can be opened with `Ctrl-O` to understand recent modifications, browse the working copy of a previous operation and restore the repository to an arbitrary earlier snapshot.
+* Use `Alt-J` in the oplog to "inject" past snapshots of a repository as newly created historic commits after the fact without affecting the working copy.
+* Snapshots are usually created with commands like `jj status`, [Watchman](https://jj-vcs.github.io/jj/latest/config/#watchman) or upon `Save` in Emacs by using the [contrib/jj-undirty.el](https://github.com/tim-janik/jj-fzf/blob/trunk/contrib/jj-undirty.el) script.
+* The shortcuts for repository wide undo/redo are `Alt-Z` and `Alt-Y`. The operation log view (`Ctrl-O`) reflects the current state of the undo stack by marking past undo operations with `⋯`.
+
+The main view centers around `jj log` and allows editing of the revset that is currently being displayed.
+Next to it is a preview window that shows details, message and diff for the current revision.
+Cursor keys change the current revision and (`Shift-`)`Tab` selects commits.
+Enter can be used to browse the commit history, or to confirm if `jj-fzf` was started as a selector.
+Various `Ctrl` and `Alt` key bindings are provided to quickly perform actions such as abandon, squash, merge, rebase, split, branch, undo or redo of a commit and more.
 The commands and key bindings can also be displayed with `jj-fzf --help` and are documented in the wiki: [jj-fzf-help](https://github.com/tim-janik/jj-fzf/wiki/jj-fzf-help)
 
-The `jj-fzf` script is implemented in bash-5.1, using fzf and jj with git.
-Command line tools like sed, grep, gawk are assumed to provide GNU tool semantics.
+## Installation
+
+There are several ways to install and use `jj-fzf`:
+
+* Download the [latest](https://github.com/tim-janik/jj-fzf/releases/latest/) release tarball.
+  Extract, then run `make all` and `make install PREFIX=~/.local` under a suitable prefix to run `jj-fzf` from `$PATH` and have `jj-fzf.1` in `$MANPATH`.
+* Download [jj-fzf.sfx](https://github.com/tim-janik/jj-fzf/releases/latest/download/jj-fzf.sfx), rename to `jj-fzf` and mark it executable to run it directly.
+* Download [jj-fzf.1.gz](https://github.com/tim-janik/jj-fzf/releases/latest/download/jj-fzf.1.gz), install it under e.g. `~/.local/share/man/man1/jj-fzf.1.gz`.
+
+Internally, `jj-fzf` uses tools like python3, awk, sed and grep with GNU tool semantics.
 
 <!-- USAGE -->
 ## Usage
 
 Start `jj-fzf` in any `jj` repository and study the keybindings.
-Various `jj` commands are accesible through `Alt` and `Ctrl` key bindings.
-The query prompt can be used to filter the *oneline* revision display from the `jj log` output and
-the preview window shows commit and diff information.
-When a key binding is pressed to modify the history, the corresponding `jj` command with its
-arguments is displayed on stderr.
+Various `jj` commands are accessible through `Alt` and `Ctrl` key bindings.
+The query prompt can be used to type a new revset to be displayed by `jj log`.
+The preview window shows commit details and diff information.
+When a key binding is pressed to modify the history, the actual `jj` command is displayed on stderr with its arguments.
+Quit `jj-fzf` with `Escape` or suspend it with `Ctrl-Z` to look at the execution trail.
 
 <!-- FEATURES -->
-## Features
+## Demo Screencasts
+
+### UI Introduction
+
+The intro screen cast shows the `jj log` view, the commit diff preview window and a brief glimpse of the oplog (`Ctrl-O`).
+
+![JJ-FZF Intro](https://github.com/user-attachments/assets/a4e248d1-15ef-4967-bc8a-35783da45eaa)
+**JJ-FZF Introduction:** [Asciicast](https://asciinema.org/a/684019) [MP4](https://github.com/user-attachments/assets/1dcaceb0-d7f0-437e-9d84-25d5b799fa53)
+
 
 ### Splitting Commits
 
