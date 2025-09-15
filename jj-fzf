@@ -7,11 +7,14 @@ ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find inst
 # == Setup & Options ==
 source "${ABSPATHSCRIPT%/*}"/lib/setup.sh	# preflight.sh common.sh
 jjfzf_tempd					# assigns $JJFZF_TEMPD
+ENTER=
 while test $# -ne 0 ; do
   case "$1" in \
     --version)		echo "${ABSPATHSCRIPT##*/} `$JJFZF_ABSPATHLIB/../version.sh`"; exit ;;
+    --help-bindings)	exit ;; # TODO: implement key binding dump
     -h|--help)		echo "Usage: ${ABSPATHSCRIPT##*/} [--man] [--version] [OPTIONS...]"; exit ;;
-    --man|--help)	exec man $JJFZF_ABSPATHLIB/../doc/jj-fzf.1 ;;
+    -c|+c|-r|+r|-s)	ENTER="$1" ;;
+    --man)		exec man $JJFZF_ABSPATHLIB/../doc/jj-fzf.1 ;;
     -x)			set -x ;;
     *)         		break ;;
   esac
@@ -206,7 +209,14 @@ RUN[edit]="jjfzf_run jj --no-pager \$($JJFZFT \"if(immutable,'new','edit')\" -r 
 DOC[edit]='Use `jj {edit|new}` to set the currently selected revision (or divergent commit) as the working-copy revision. Will create a new empty commit if the selected revision is immutable.'
 
 # Enter - commit info
-BINDINGS+=( --bind 'enter:execute( jjfzf_full_history {2} )' )
+case "$ENTER" in
+  -c)	BINDINGS+=( --bind 'enter:become( jjfzf_list_commit_ids {2} )' ) ;;
+  +c)	BINDINGS+=( --bind 'enter:become( jjfzf_list_commit_ids {+2} )' ) ;;
+  -r)	BINDINGS+=( --bind 'enter:become( jjfzf_list_change_ids {2} )' ) ;;
+  +r)	BINDINGS+=( --bind 'enter:become( jjfzf_list_change_ids {+2} )' ) ;;
+  -s)	BINDINGS+=( --bind 'enter:become( jjfzf_revset )' ) ;;
+  *)	BINDINGS+=( --bind 'enter:execute( jjfzf_full_history {2} )' ) ;;
+esac
 
 # Log history
 KEY[log]="Ctrl-L"
