@@ -161,7 +161,7 @@ assert0error()
 }
 assert1error()
 {
-  grep -Eq '\bERROR:' <<<"$*" ||
+  grep -Eiq '\bERROR:' <<<"$*" ||
     die- "assert1error: missing mandatory ERROR message: $*"
 }
 
