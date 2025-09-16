@@ -294,6 +294,28 @@ jjfzf_set_revset()
 )
 export -f jjfzf_set_revset
 
+# == RUN commands ==
+if [ -v "RUN[${1-}]" ]; then
+  KEY="$1" && CMD="${RUN[$KEY]}" ; shift
+  if [[ "$CMD" =~ \{ ]] ; then
+    CIDS=( $(jjfzf_list_change_ids "$@") )
+    test "${#CIDS[@]}" -lt 1 &&
+      die "missing revisions for command: $KEY"
+    # Placeholder replacments
+    while [[ "$CMD" =~ (.*)\{2\}(.*) ]] ; do
+      CMD="${BASH_REMATCH[1]}${CIDS[0]}${BASH_REMATCH[2]}"
+    done
+    while [[ "$CMD" =~ (.*)\{[+]2\}(.*) ]] ; do
+      CMD="${BASH_REMATCH[1]}${CIDS[*]}${BASH_REMATCH[2]}"
+    done
+    [[ "$CMD" =~ \{ ]] &&
+      die "failed to run command: $KEY"
+  fi
+  export JJFZF_LOAD_LIST=true
+  bash -c " $CMD "
+  exit
+fi
+
 # == Process Bindings ==
 declare -a CMDS # Sort commands by key binding string (KEY[$cmd])
 while IFS= read -r line; do
