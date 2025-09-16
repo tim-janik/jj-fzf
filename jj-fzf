@@ -72,6 +72,11 @@ KEY[commit]="Alt-C"	POST[commit]="+first"
 RUN[commit]="JJFZF_EDITOR=\"${JJ_EDITOR-}\" JJ_EDITOR=\"$JJFZF_ABSPATHLIB/editor.sh\" jjfzf_run +e jj commit -i"
 DOC[commit]='Use `jj commit` to describe the currently selected revision and create a new child revision as working-copy.'
 
+# Delete bookmarks & tags
+KEY[bookmarks]="Alt-B"
+DOC[bookmarks]='Create, move, delete jj bookmarks and git tags.'
+BINDINGS+=( --bind "alt-b:execute( '$JJFZF_ABSPATHLIB'/bookmarks.sh -m {2} ; jjfzf_load_and_status )+$RELOAD" )
+
 # Diffedit interactively
 KEY[diffedit]="Alt-E"
 RUN[diffedit]="jjfzf_run +e jj --no-pager diffedit -r {2}"
