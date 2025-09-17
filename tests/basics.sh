@@ -3,6 +3,8 @@
 set -Eeuo pipefail #-x
 SCRIPTNAME="${0##*/}" && SCRIPTDIR="$(readlink -f "$0")" && SCRIPTDIR="${SCRIPTDIR%/*}"
 
+[[ " $* " =~ -x ]] && set -x
+
 source $SCRIPTDIR/utils.sh
 
 # == TESTS ==
@@ -66,6 +68,9 @@ test-undo-undo-redo()
   assert_commit_count $((2 + 5 + 3)) && assert_@ `get_commit_id U3` && assert_@- `get_commit_id U2`
 )
 TESTS+=( test-undo-undo-redo )
+
+# TODO: test-add-parent
+# TODO: test-multi-rebase
 
 # == RUN ==
 temp_dir

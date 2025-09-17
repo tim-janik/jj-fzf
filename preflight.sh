@@ -25,23 +25,21 @@ fi
 __preflightish_die() { echo "$0: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
 __preflightish_fixenv="$__preflightish_fixenv"$' unset -f __preflightish_die \n'
 
-# == Python ==
-python3 -c 'import sys; sys.exit ((3,9) >= sys.version_info)' ||
-  __preflightish_die "Failed to find 'python3' >= 3.9 in \$PATH"
-
 # == __preflightish_le ==
+# Fast version comparison in pure bash: returns 0 if $1 <= $2
 __preflightish_le()
 { # compare V1.M1.P1 <= V2.M2.P2 for each segment
-  python3 -c '
-import sys
-a = list (map (int, sys.argv[1].split (".")))
-b = list (map (int, sys.argv[2].split (".")))
-n = max (len (a), len (b))
-a += [0] * (n - len (a))
-b += [0] * (n - len (b))
-sys.exit (a > b)
-  ' \
-	  "$1" "$2"
+  local IFS=.
+  local -a a=($1) b=($2)
+  # pad shorter array with zeros
+  while ((${#a[@]} < ${#b[@]})); do a+=(0); done
+  while ((${#b[@]} < ${#a[@]})); do b+=(0); done
+  # compare segments
+  for ((i=0; i<${#a[@]}; i++)); do
+    ((10#${a[i]} < 10#${b[i]})) && return 0
+    ((10#${a[i]} > 10#${b[i]})) && return 1
+  done
+  return 0
 }
 
 # == __preflightish_require ==
@@ -85,6 +83,9 @@ __preflightish_require "0.33" jj --version --ignore-working-copy
 
 # == fzf ==
 __preflightish_require "0.44.1" fzf --version
+
+# == python3 ==
+__preflightish_require "3.9" python3 --version
 
 # == column ==
 command -v "column" > /dev/null 2>&1 ||
