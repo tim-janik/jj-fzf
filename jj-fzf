@@ -245,6 +245,32 @@ KEY[oplog]="Ctrl-O"
 BINDINGS+=( --bind "ctrl-o:execute( '$JJFZF_ABSPATHLIB'/oplog.sh ; jjfzf_load_and_status )+$RELOAD" )
 DOC[oplog]='Use `jj operation log` to browse the recent operations log. Use hotkeys to view operation diffs and history. Undo operations or restore its working copy into a new commit.'
 
+# Push & fetch from remotes
+KEY[push]="Ctrl-P"	POST[new]="+first"
+DOC[push]='Use `jj git fetch` and `jj git push --tracked --deleted` to update the local and remote repositories. Pushing needs confirmation after a dry-run.'
+jjfzf_push()
+(
+  REVS=( --tracked --deleted )
+  if test ${#@} -gt 2 -o "$1" != "$2" ; then # fzf selection beyond pointer
+    shift # eat pointer
+    ALL="$(jjfzf_ccrevs "$@")" &&
+      REVS=( -r "$ALL" )
+  fi
+  jjfzf_run +n jj $JJFZF_KEEPCOMMITS git fetch
+  jjfzf_run +n jj git push "${REVS[@]}" --dry-run 2>&1 |
+    tee $JJFZF_TEMPD/push.log
+  if grep -qFi 'nothing changed' $JJFZF_TEMPD/push.log ; then
+    read -p "Press Enter..."
+  else
+    read -p 'Proceed with actual push and submit changes? (y/n) ' YN
+    [[ "${YN:0:1}" =~ [yY] ]] || exit 0
+    jjfzf_run +n jj git push "${REVS[@]}"
+  fi
+  jjfzf_load_and_status
+)
+export -f jjfzf_push
+BINDINGS+=( --bind "ctrl-p:execute( jjfzf_push {2} {+2} )+$RELOAD" )
+
 # Subshell
 KEY[shell]="Ctrl-Z"
 BINDINGS+=( --bind "ctrl-z:execute( jjfzf_exec_usershell )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
