@@ -43,7 +43,7 @@ CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
 # == SCRIPTS ==
-LIBSCRIPTS   := lib/common.sh lib/exectool.sh lib/preview.sh
+LIBSCRIPTS   := $(wildcard lib/*.sh)
 SHELLSCRIPTS := jj-fzf preflight.sh version.sh sfx.sh
 
 # == tests ==
