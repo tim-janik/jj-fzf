@@ -1,5 +1,7 @@
 ## FUTURE
 
+* The minimum supported fzf version is now 0.65.2.
+
 * Ctrl-L will now either show the history up to a single selected revision,
   or for the selected (multiple) revisions only.
 
