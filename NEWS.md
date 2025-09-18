@@ -1,3 +1,48 @@
+## FUTURE
+
+* Ctrl-L will now either show the history up to a single selected revision,
+  or for the selected (multiple) revisions only.
+
+* All key binding commands now operate on a change_id or a list thereof.
+
+* In case of divergent commits, an fzf list entry expands to a commit_id.
+
+* Inject will now copy the author, timestamp and message into the new commit.
+
+* The oplog now combines the operation show, diff and historic log views.
+
+* The default set of revisions for the jj-fzf log list is now
+  `jj-fzf.log_revset` with a fallback of `revsets.log` (the standard jj log
+  revset). To use a different revset with jj-fzf, type the revset into the
+  query field for live revset updates. To persist the revset in the repo
+  config under `jj-fzf.log_revset`, hit Alt-Enter.
+
+* The default commit display template for the jj-fzf log list is now
+  `jj-fzf.log_template` with a fallback of `templates.log` (the standard jj
+  log template). In order to configure jj-fzf for one line display, use:
+  	`jj config set --user jj-fzf.log_template builtin_log_oneline`
+
+* When describing a commit, jj-fzf no longer appends the diff to the draft.
+  To inspect the diff during edits, use jj config to configure the
+  `templates.draft_commit_description`, see:
+  https://jj-vcs.github.io/jj/latest/config/#default-description
+
+* Missing commands:
+  - Alt-S: restore-file	- consider Ctrl-A to restore *all* files
+  - Alt-T: tag
+  - Alt-V: vivifydivergent
+  - Ctrl-A: author-reset - consider deprecating for metaedit
+  - Ctrl-I: diff	- can this be replaced by Ctrl-L ?
+  - Ctrl-P: push-remote	- considering to make this
+            --all --tracked --deleted but *not* --allow-new
+	    support -r {+2}
+  - Ctrl-T: evolog
+  - Ctrl-V: gitk	- consider removing
+  - Ctrl-W: wb-diff	- toggle ±b ±w for diff
+  - Ctrl-F: file-editor	- considering to make this fzf-filter instead
+  - oplog: Ctrl-D to toggle jj log diff ON/OFF
+
+
 ## JJ-FZF 0.33.0 - 2025-09-11
 
 ### Added:

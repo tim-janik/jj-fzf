@@ -7,10 +7,15 @@
 ABSPATHLIB="${ABSPATHLIB%/*}"
 
 # == JJFZF_PRIVATE ==
-# Read git.private-commits to find a "private" revset name that alters preview rendering
-JJFZF_PRIVATE="$(jj config get --ignore-working-copy --no-pager git.private-commits 2>/dev/null)" &&
-  [[ "$JJFZF_PRIVATE" =~ ^[.a-z_()-]+$ ]] ||
-    JJFZF_PRIVATE=''	# only supports unquoted revset names
+JJFZF_PRIVATE_CONFIG=""
+# Try to read a revset name from git.private-commits, then add a marker "🌟" to all "private" commits in logs
+if JJFZF_PRIVATE="$(jj config get --ignore-working-copy --no-pager git.private-commits 2>/dev/null)" &&
+    [[ "$JJFZF_PRIVATE" =~ ^[.a-z_()-]+$ ]] ; then
+  JJFZF_PRIVATE_CONFIG="--config=template-aliases.'format_short_commit_id(id)'='format_short_id(id) ++ if(self.contained_in(\"$JJFZF_PRIVATE\") && ! immutable, label(\"committer\", \" 🌟\"))'"
+else
+  JJFZF_PRIVATE=''	# only supports unquoted revset names
+fi
+export JJFZF_PRIVATE_CONFIG JJFZF_PRIVATE
 
 # == JJ_FZF_SHOWDETAILS ==
 # extended version of builtin_log_detailed; https://github.com/martinvonz/jj/blob/main/cli/src/config/templates.toml
