@@ -350,7 +350,7 @@ export -f jjfzf_showkeys
 BINDINGS+=( --bind "start,resize,alt-h,f11:+transform-header: jjfzf_showkeys 2>&1 " )
 
 # == fzf ==
-V=$($JJFZF_ABSPATHLIB/../version.sh | sed 's/-.*//')
+V=$($JJFZF_ABSPATHLIB/../version.sh | sed 's/-0-g.*//; s/-[1-9][0-9]*-g.*/+/')
 FZF_ARGS+=(
   --marker=' '
   --border-label "-[ JJ-FZF ($V) ]-" --color=border:cyan,label:cyan
