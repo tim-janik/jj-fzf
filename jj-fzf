@@ -304,9 +304,9 @@ jjfzf_set_revset()
 (
   if test -z "${1-}" ; then			# reset
     if test "$(jj --no-pager --ignore-working-copy config get jj-fzf.log_revset 2>/dev/null)" == "" ; then
+      RECENT7=' @:: | ancestors(immutable_heads()..,7) | tags() | bookmarks() | remote_bookmarks() | present(trunk()) '
       # toggle default revset
-      jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset \
-	 '((@|trunk()|parents(heads(immutable()),3))::)'
+      jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset "$RECENT7"
     else
       jj --no-pager --ignore-working-copy config unset --repo jj-fzf.log_revset
     fi
