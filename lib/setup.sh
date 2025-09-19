@@ -113,8 +113,8 @@ jjfzf_revset()
   set -Eeuo pipefail
   JJ="jj --no-pager --ignore-working-copy"
   test -n "${JJFZF_REVSET_OVERRIDE-}" && REVSET=$(cat "$JJFZF_REVSET_OVERRIDE" 2>/dev/null) || REVSET=
-  test -n "$REVSET" || REVSET=$($JJ config get jj-fzf.log_revset 2>/dev/null)
-  test -n "$REVSET" || REVSET=$($JJ config get revsets.log 2>/dev/null)
+  test -n "$REVSET" || REVSET=$($JJ config get jj-fzf.log_revset 2>/dev/null) || :
+  test -n "$REVSET" || REVSET=$($JJ config get revsets.log 2>/dev/null) || :
   test -n "$REVSET" || REVSET=::
   echo "$REVSET"
 )
