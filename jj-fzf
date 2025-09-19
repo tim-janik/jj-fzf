@@ -22,6 +22,7 @@ while test $# -ne 0 ; do
 done
 
 # == Config ==
+export JJFZF_REVSET_OVERRIDE="$JJFZF_TEMPD/log_revset"
 # Always ensure root relative paths
 JJROOT="$(jj --ignore-working-copy --no-pager root 2>/dev/null)" &&
   cd "$JJROOT" ||
@@ -256,23 +257,45 @@ BINDINGS+=( --bind "f5:execute( jjfzf_load_and_status )+$RELOAD+refresh-preview"
 DOC[reload]='Reload the revset.'
 
 # Interactive Revset
-BINDINGS+=( --disabled --prompt 'Revset > ' )
 BINDINGS+=( --bind 'change:reload: jjfzf_revset_log {q} ' )
 jjfzf_revset_log()
 (
   Q="${1-}"
   if test "${Q:0:1}" != " " &&
       jj --no-pager --ignore-working-copy log --no-graph -T '' -r "@&($Q)" >/dev/null 2>&1 ; then
-    echo "$Q" > $JJFZF_TEMPD/log_revset
+    echo "$Q" > $JJFZF_REVSET_OVERRIDE
   else
-    rm -f $JJFZF_TEMPD/log_revset
+    rm -f $JJFZF_REVSET_OVERRIDE
   fi
   jjfzf_load --stdout
 )
 export -f jjfzf_revset_log
 
+# Ctrl-F toggle FZF vs Revset
+export JJFZF_PROMPT1="Revset > " JJFZF_ILABEL1=' Ctrl-F: fzf-filter ⫶ Alt-Enter: save-revset '
+export JJFZF_PROMPT2="fzf > "    JJFZF_ILABEL2=' Ctrl-F: Revset '
+BINDINGS+=( --disabled --prompt "$JJFZF_PROMPT1" )
+BINDINGS+=( --bind 'ctrl-f:transform: jjfzf_fzf_transform' )
+jjfzf_fzf_transform()
+(
+  # https://github.com/junegunn/fzf/blob/master/ADVANCED.md#switching-between-ripgrep-mode-and-fzf-mode-using-a-single-key-binding
+  if [[ ! $FZF_PROMPT =~ Revset ]] ; then
+    T="rebind(change)+rebind(alt-enter)+change-prompt($JJFZF_PROMPT1)+disable-search"
+    T="$T+change-input-label($JJFZF_ILABEL1)"
+    T="$T+change-ghost()"
+    T="$T+transform-query:echo {q} > $JJFZF_TEMPD/q_fzf ; cat $JJFZF_TEMPD/q_revset"
+  else
+    T="unbind(change)+unbind(alt-enter)+change-prompt($JJFZF_PROMPT2)+enable-search"
+    T="$T+change-input-label($JJFZF_ILABEL2)"
+    T="$T+transform-query:echo {q} > $JJFZF_TEMPD/q_revset ; cat $JJFZF_TEMPD/q_fzf"
+  fi
+  echo "$T" # fzf transform instructions
+)
+export -f jjfzf_fzf_transform
+BINDINGS+=( --bind 'ctrl-f,focus:+transform-ghost: [[ ! $FZF_PROMPT =~ Revset ]] && R={2} && echo -n "${R:0:12}" ' )
+
 # Persist Revset
-BINDINGS+=( --input-label=' Alt-Enter: toggle revset ' )
+BINDINGS+=( --input-label="$JJFZF_ILABEL1" )
 BINDINGS+=( --bind 'alt-enter:execute-silent( jjfzf_set_revset {q} )+reload( jjfzf_load --stdout )+clear-query' )
 BINDINGS+=( --info-command='echo -e " \x1b[33;1m$FZF_POS\x1b[m/$FZF_INFO ⫶ all: $(jjfzf_revset)"' )
 #KEY[revset]="Alt-Enter" # TODO: for --help only
@@ -287,8 +310,8 @@ jjfzf_set_revset()
     else
       jj --no-pager --ignore-working-copy config unset --repo jj-fzf.log_revset
     fi
-  elif test -r $JJFZF_TEMPD/log_revset ; then	# assign new if validated
-    jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset "$(cat $JJFZF_TEMPD/log_revset)"
+  elif test -r $JJFZF_REVSET_OVERRIDE ; then	# assign new if validated
+    jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset "$(cat $JJFZF_REVSET_OVERRIDE)"
   fi
   true
 )
@@ -350,7 +373,7 @@ export -f jjfzf_showkeys
 BINDINGS+=( --bind "start,resize,alt-h,f11:+transform-header: jjfzf_showkeys 2>&1 " )
 
 # == fzf ==
-V=$($JJFZF_ABSPATHLIB/../version.sh | sed 's/-.*//')
+V=$($JJFZF_ABSPATHLIB/../version.sh | sed 's/-0-g.*//; s/-[1-9][0-9]*-g.*/+/')
 FZF_ARGS+=(
   --marker=' '
   --border-label "-[ JJ-FZF ($V) ]-" --color=border:cyan,label:cyan
