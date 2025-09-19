@@ -22,6 +22,7 @@ while test $# -ne 0 ; do
 done
 
 # == Config ==
+export JJFZF_REVSET_OVERRIDE="$JJFZF_TEMPD/log_revset"
 # Always ensure root relative paths
 JJROOT="$(jj --ignore-working-copy --no-pager root 2>/dev/null)" &&
   cd "$JJROOT" ||
@@ -262,9 +263,9 @@ jjfzf_revset_log()
   Q="${1-}"
   if test "${Q:0:1}" != " " &&
       jj --no-pager --ignore-working-copy log --no-graph -T '' -r "@&($Q)" >/dev/null 2>&1 ; then
-    echo "$Q" > $JJFZF_TEMPD/log_revset
+    echo "$Q" > $JJFZF_REVSET_OVERRIDE
   else
-    rm -f $JJFZF_TEMPD/log_revset
+    rm -f $JJFZF_REVSET_OVERRIDE
   fi
   jjfzf_load --stdout
 )
@@ -309,8 +310,8 @@ jjfzf_set_revset()
     else
       jj --no-pager --ignore-working-copy config unset --repo jj-fzf.log_revset
     fi
-  elif test -r $JJFZF_TEMPD/log_revset ; then	# assign new if validated
-    jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset "$(cat $JJFZF_TEMPD/log_revset)"
+  elif test -r $JJFZF_REVSET_OVERRIDE ; then	# assign new if validated
+    jj --no-pager --ignore-working-copy config set --repo jj-fzf.log_revset "$(cat $JJFZF_REVSET_OVERRIDE)"
   fi
   true
 )

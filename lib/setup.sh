@@ -107,18 +107,19 @@ jjfzf_status()
 export -f jjfzf_status
 
 # == jjfzf_revset ==
-# Determine jj log revset
+# Determine jj log revset, supports reading $JJFZF_REVSET_OVERRIDE
 jjfzf_revset()
 (
   set -Eeuo pipefail
   JJ="jj --no-pager --ignore-working-copy"
-  REVSET="$(cat $JJFZF_TEMPD/log_revset 2>/dev/null)" ||
-    REVSET=$($JJ config get jj-fzf.log_revset 2>/dev/null) ||
-    REVSET=$($JJ config get revsets.log 2>/dev/null) ||
-    REVSET=::
+  test -n "${JJFZF_REVSET_OVERRIDE-}" && REVSET=$(cat "$JJFZF_REVSET_OVERRIDE" 2>/dev/null) || REVSET=
+  test -n "$REVSET" || REVSET=$($JJ config get jj-fzf.log_revset 2>/dev/null)
+  test -n "$REVSET" || REVSET=$($JJ config get revsets.log 2>/dev/null)
+  test -n "$REVSET" || REVSET=::
   echo "$REVSET"
 )
 export -f jjfzf_revset
+export JJFZF_REVSET_OVERRIDE=	# has to be changed *after* `source setup.sh`
 
 # == jjfzf_log_detailed ==
 # Extend builtin_log_detailed
