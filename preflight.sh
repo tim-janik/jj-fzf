@@ -82,7 +82,7 @@ command -v "awk" > /dev/null 2>&1 &&
 __preflightish_require "0.33" jj --version --ignore-working-copy
 
 # == fzf ==
-__preflightish_require "0.44.1" fzf --version
+__preflightish_require "0.65.2" fzf --version
 
 # == python3 ==
 __preflightish_require "3.9" python3 --version
