@@ -24,6 +24,10 @@
   log template). In order to configure jj-fzf for one line display, use:
   	`jj config set --user jj-fzf.log_template builtin_log_oneline`
 
+* Alt-B now presents a dialog to create, move, delete or track bookmarks and
+  delete tags. The former bookmark deletion under Alt-D has been merged into
+  Alt-B.
+
 * When describing a commit, jj-fzf no longer appends the diff to the draft.
   To inspect the diff during edits, use jj config to configure the
   `templates.draft_commit_description`, see:
