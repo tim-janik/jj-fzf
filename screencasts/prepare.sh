@@ -157,19 +157,31 @@ find_asciinema_pid()
   ps --no-headers -ao pid,comm,args | awk "/asciinema.*\/python.*\/asci[i]nema rec.*\\<$SCREENCAST_SESSION\\>/{ print \$1 }"
 }
 
+screencast_shell_setup()
+{
+  if test -z "${SCREENCAST_SHELL-}" ; then
+    # Simplify nano exit to Ctrl+X without 'y' confirmation
+    echo -e "set saveonexit"							>  $TEMPD/nanorc
+    echo -e "#!/usr/bin/env bash\nexec nano --rcfile $TEMPD/nanorc \"\$@\""	>  $TEMPD/nano
+    chmod +x $TEMPD/nano
+    # Setup clean shell env
+    echo "export HISTFILE=/dev/null"			       			>  $TEMPD/bashrc
+    echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"				>> $TEMPD/bashrc
+    echo "export EDITOR=$TEMPD/nano"						>> $TEMPD/bashrc
+    echo "export JJFZF_SHELL='/usr/bin/env bash --rcfile $TEMPD/bashrc -i'"	>> $TEMPD/bashrc
+    echo 'echo "$$" ' ">$TEMPD/bash-i.pid"					>> $TEMPD/bashrc
+    echo "PS1='\s<\W>$ '"							>> $TEMPD/bashrc
+    echo "cd $TEMPD/$SCREENCAST_SESSION"					>> $TEMPD/bashrc
+    export SCREENCAST_SHELL="bash --init-file $TEMPD/bashrc -i"
+  fi
+}
+
 # Start recording with asciinema in a dedicated terminal, using $W x $H, etc
 start_screencast() # start_screencast <shelldir> [send-keys..]
 {
   printf '  %-8s %s\n' START $ASCIINEMA_SCREENCAST
   local DIR="$(readlink -f "${1:-.}")" ; shift
-  # Setup clean shell env
-  echo "export HISTFILE=/dev/null"			       			>  $TEMPD/bashrc
-  echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"					>> $TEMPD/bashrc
-  echo "export EDITOR='/usr/bin/env nano --rcfile $TEMPD/nanorc'"		>> $TEMPD/bashrc
-  echo "export JJFZF_SHELL='/usr/bin/env bash --rcfile $TEMPD/bashrc -i'"	>> $TEMPD/bashrc
-  echo 'echo "$$" ' ">$TEMPD/bash-i.pid"					>> $TEMPD/bashrc
-  # Simplify nano exit to Ctrl+X without 'y' confirmation
-  echo -e "set saveonexit"							>  $TEMPD/nanorc
+  screencast_shell_setup
   # stert new screencast session
   tmux kill-session -t $SCREENCAST_SESSION 2>/dev/null || :
   ( cd "$DIR"
@@ -179,7 +191,7 @@ start_screencast() # start_screencast <shelldir> [send-keys..]
   printf '  %-8s %s\n' TMUX "$SCREENCAST_SESSION"
   tmux set-option -t $SCREENCAST_SESSION status off
   tmux set-option -t $SCREENCAST_SESSION allow-rename off
-  tmux send-keys -t $SCREENCAST_SESSION "source $TEMPD/bashrc"$'\n'
+  tmux send-keys -t $SCREENCAST_SESSION "exec $SCREENCAST_SHELL"$'\n'
   while ! test -r $TEMPD/bash-i.pid ; do sleep 0.1 ; done
   tmux resize-window -t $SCREENCAST_SESSION -x $W -y $H ; sleep 0.1
   tmux send-keys -t $SCREENCAST_SESSION $'clear\n' ; sleep 0.1
