@@ -156,7 +156,12 @@ find_asciinema_pid()
 {
   ps --no-headers -ao pid,comm,args | awk "/asciinema.*\/python.*\/asci[i]nema rec.*\\<$SCREENCAST_SESSION\\>/{ print \$1 }"
 }
+# Discard stdout and stderr unless `set -x` was set
+stderr_to_dev_null() { [[ $- == *x* ]] || exec 2>/dev/null; }
+stdout_to_dev_null() { [[ $- == *x* ]] || exec >/dev/null; }
+stdio_to_dev_null()  { [[ $- == *x* ]] || exec >/dev/null 2>&1; }
 
+# Configure bash and nano for screencasts
 screencast_shell_setup()
 {
   if test -z "${SCREENCAST_SHELL-}" ; then
@@ -343,19 +348,19 @@ __EOF
 clone_jj_repo()
 {
   local DIR="$1"
-  # cd ~/.cache/ && git clone --bare git@github.com:jj-vcs/jj.git'
+  # cd ~/.cache/ && git clone --bare --single-branch --shallow-since 2024-12-31 -b v0.29.0 git@github.com:jj-vcs/jj.git
   test -r /$HOME/.cache/jj.git/ ||
     die 'missing ~/.cache/jj.git'
   rm -rf "$DIR"
-  ( set -x
+  ( stdio_to_dev_null # unless set -x
     git clone --shallow-since 2025-01-01 file://$HOME/.cache/jj.git "$DIR"
     cd "$DIR"
-    rm -r .git/packed-refs .git/refs/tags/v0.3* .git/refs/tags/v0.28.2 .git/refs/tags/v0.29.0
+    rm -f .git/packed-refs .git/refs/tags/v0.3* .git/refs/tags/v0.28.2 .git/refs/tags/v0.29.0
+    mkdir -p .git/refs/remotes/origin/
     echo 041c4fecb77434dd6720e7d7f1ce48d9575ac5f7 > .git/refs/remotes/origin/main
     jj git init --colocate
     jj new b9ebe2f0
     jj abandon --ignore-immutable ' lxuluxyq:: | sqywrslw::'
     jj rebase --destination 3aac8d21 --source 8b949f7e
-  ) > $TEMPD/clone_jj_repo.log 2>&1 ||
-    { cat $TEMPD/clone_jj_repo.log >&2 ; exit -1 ; }
+  )
 }
