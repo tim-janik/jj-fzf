@@ -37,15 +37,15 @@ export -f jjfzf_op_inject
 
 # Restore operation
 H+=( 'Alt-R: Restore repository to the selected operation via `jj op restore`' )
-B+=( --bind "alt-r:execute( jjfzf_run jj --no-pager op restore {2} )+$RELOAD" )
+B+=( --bind "alt-r:execute( jjfzf_run jj --no-pager op restore {2} )+$RELOAD+down" )
 
 # Redo
 H+=( 'Alt-Y: Redo the last undo operation (marked `⋯`)' )
-B+=( --bind "alt-y:execute( jjfzf_run jj --no-pager redo )+$RELOAD" )
+B+=( --bind "alt-y:execute( jjfzf_run jj --no-pager redo )+$RELOAD+down" )
 
 # Undo
 H+=( 'Alt-Z: Undo the next operation (not already marked `⋯`)' )
-B+=( --bind "alt-z:execute( jjfzf_run jj --no-pager undo )+$RELOAD+down+down" )
+B+=( --bind "alt-z:execute( jjfzf_run jj --no-pager undo )+$RELOAD+down" )
 
 # Enter
 H+=( 'Enter: Info browser for the selected operation' )
