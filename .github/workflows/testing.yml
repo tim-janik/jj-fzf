@@ -14,6 +14,9 @@ jobs:
   MakeDistCheck:
     runs-on: ubuntu-24.04
     steps:
+    - run: |
+        sudo apt-get update
+        sudo TZ=Etc/UTC DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata nano tmux asciinema pv bsdextrautils
     - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
     - run: git fetch -f --tags	# Fix actions/checkout#290
     - run: |
@@ -47,9 +50,18 @@ jobs:
         make artifacts/jj-fzf.1.gz
     - uses: actions/upload-artifact@v4
       with: { name: jj-fzf-Artifacts, path: artifacts/ }
+    - name: Screencast Tests
+      run: |
+        mkdir -p ~/.cache/
+        cd ~/.cache/
+        git clone --bare --single-branch --shallow-since 2024-12-31 -b v0.29.0 https://github.com/jj-vcs/jj.git
+        cd -
+        make test
+    - uses: actions/upload-artifact@v4
+      with: { name: jj-fzf-Screencasts, path: screencasts/*.cast }
 
   CreateRelease:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ MakeDistCheck ]
     if: github.ref_type == 'tag'	# https://docs.github.com/en/actions/reference/events-that-trigger-workflows
     # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
