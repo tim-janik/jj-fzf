@@ -151,11 +151,6 @@ Q0()
 { tmux send-keys -t $SCREENCAST_SESSION C-U; tmux send-keys -t $SCREENCAST_SESSION -l "$*"; tmux send-keys -t $SCREENCAST_SESSION C-U; }
 
 # == Recording ==
-# Find PID of asciinema for the current $SCREENCAST_SESSION
-find_asciinema_pid()
-{
-  ps --no-headers -ao pid,comm,args | awk "/asciinema.*\/python.*\/asci[i]nema rec.*\\<$SCREENCAST_SESSION\\>/{ print \$1 }"
-}
 # Discard stdout and stderr unless `set -x` was set
 stderr_to_dev_null() { [[ $- == *x* ]] || exec 2>/dev/null; }
 stdout_to_dev_null() { [[ $- == *x* ]] || exec >/dev/null; }
@@ -179,6 +174,18 @@ screencast_shell_setup()
     echo "cd $TEMPD/$SCREENCAST_SESSION"					>> $TEMPD/bashrc
     export SCREENCAST_SHELL="bash --init-file $TEMPD/bashrc -i"
   fi
+}
+
+# Find PID of asciinema for the current $SCREENCAST_SESSION
+find_asciinema_pid()
+{
+  ps --no-headers -eo pid=,comm=,args= |
+    awk -v session="$SCREENCAST_SESSION" '
+    $0 ~ /asciinema.*\/python.*\/asci[i]nema rec.* tmux attach-session/ && $0 ~ session {
+    	if (firstpid == "" || $1 < firstpid) firstpid = $1
+    }
+    END { if (firstpid != "") print firstpid }
+  '
 }
 
 # Start recording with asciinema in a dedicated terminal, using $W x $H, etc
