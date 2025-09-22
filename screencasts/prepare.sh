@@ -236,8 +236,10 @@ start_screencast() # start_screencast <shelldir> [send-keys..]
   echo "$!" > $TEMPD/subshell.pid
   sleep $sync
   test -z "$(find_asciinema_pid)" && sleep $sync
-  test -n "$(find_asciinema_pid)" ||
+  test -n "$(find_asciinema_pid)" || {
+    ps --no-headers -ao pid,comm,args
     die "failed to identify asciinema process for screencast session: $SCREENCAST_SESSION"
+  }
   stdin_discard	# Absorb to terminal DSR escape sequences
   true
 }
@@ -247,8 +249,10 @@ stop_screencast()
 {
   set -Eeuo pipefail # -x
   # hard abort asciinema, so last frame is preserved
-  kill -9 $(find_asciinema_pid) 	# PID=$(tmux list-panes -t $SCREENCAST_SESSION -F '#{pane_pid}')
-  # test -r $TEMPD/script.pid && kill -9 $(cat $TEMPD/script.pid)
+  ( set -x
+    ps --no-headers -ao pid,comm,args
+    kill -SIGUSR1 $(find_asciinema_pid) 	# PID=$(tmux list-panes -t $SCREENCAST_SESSION -F '#{pane_pid}')
+  ) > $TEMPD/kill.log 2>&1
   tmux kill-session -t $SCREENCAST_SESSION
   ( wait -fn $(cat $TEMPD/subshell.pid) || true ) >/dev/null 2>&1
   sleep $sync
@@ -262,6 +266,8 @@ stop_screencast()
   else
     sleep $sync
   fi
+  [[ $- == *x* ]] &&
+    cat $TEMPD/kill.log
   printf '  %-8s %s\n' STOP $SCREENCAST_ABSPATH
 }
 
