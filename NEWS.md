@@ -35,13 +35,9 @@
 
 * Missing commands:
   - Alt-S: restore-file	- consider Ctrl-A to restore *all* files
-  - Alt-T: tag
   - Alt-V: vivifydivergent
   - Ctrl-A: author-reset - consider deprecating for metaedit
   - Ctrl-I: diff	- can this be replaced by Ctrl-L ?
-  - Ctrl-P: push-remote	- considering to make this
-            --all --tracked --deleted but *not* --allow-new
-	    support -r {+2}
   - Ctrl-T: evolog
   - Ctrl-V: gitk	- consider removing
   - Ctrl-W: wb-diff	- toggle ±b ±w for diff
