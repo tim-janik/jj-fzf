@@ -37,7 +37,7 @@ B=() H=()
 # == Nearest Bookmark ==
 rev_bookmarks()
 {
-  T='self.local_bookmarks()'
+  T='self.local_bookmarks()++"\n"'
   test "$1" == -t && { shift ; T="$T ++ ' ' ++ self.tags()" ; }
   $JJFZFT "$T" "$@" 2>/dev/null |
     tr ' ' '\n' | sed -r '/@/d; s/[*?].*//;' || :
@@ -49,7 +49,6 @@ NEAREST=( $(jj bookmark list -T 'name++"\n"' -- "$INPUT_REV" | sed -r '1q')
 	  $(rev_bookmarks -r "$INPUT_REV"-)
 	  $(rev_bookmarks -r "$INPUT_REV"+)
 	  $(rev_bookmarks -r .."$INPUT_REV") )
-# FIXME: echo "NEAREST: ${NEAREST[*]}" && exit
 
 # == Bookmark & Tag List ==
 format_refs()
