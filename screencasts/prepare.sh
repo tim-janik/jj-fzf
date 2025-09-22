@@ -28,14 +28,16 @@ __EOF
 		exit 0 ;;
   esac
 done
+[[ "$SCREENCAST_WINDOW$SCREENCAST_HIDE" == *true* ]] &&
+  SCREENCAST_FIXTTY=false || SCREENCAST_FIXTTY=true
 
 # == Config  ==
 test -n "${SCREENCAST_SESSION-}" || die "missing SCREENCAST_SESSION name"
 TEMPD=$(mktemp --tmpdir -d screencasts.XXXXXX) &&
   trap "rm -rf '$TEMPD'" 0 || die "mktemp failed"
 echo "$$" > $TEMPD/$SCREENCAST_SESSION.pid
-readonly ASCIINEMA_SCREENCAST=$(readlink -f "./$SCREENCAST_SESSION")
-export SCREENCAST_SESSION ASCIINEMA_SCREENCAST
+readonly SCREENCAST_ABSPATH=$(readlink -f "./$SCREENCAST_SESSION")
+export SCREENCAST_SESSION SCREENCAST_ABSPATH
 export JJ_EMAIL=jane.doe@example.com
 export JJ_USER="Jane Doe"
 export JJ_CONFIG=/dev/null	# per default, ignore user config
@@ -155,6 +157,7 @@ Q0()
 stderr_to_dev_null() { [[ $- == *x* ]] || exec 2>/dev/null; }
 stdout_to_dev_null() { [[ $- == *x* ]] || exec >/dev/null; }
 stdio_to_dev_null()  { [[ $- == *x* ]] || exec >/dev/null 2>&1; }
+stdin_discard()      ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
 
 # Configure bash and nano for screencasts
 screencast_shell_setup()
@@ -168,7 +171,7 @@ screencast_shell_setup()
     echo "export HISTFILE=/dev/null"			       			>  $TEMPD/bashrc
     echo "PS1='\[\033[01;34m\]\W\[\033[00m\]\$ '"				>> $TEMPD/bashrc
     echo "export EDITOR=$TEMPD/nano"						>> $TEMPD/bashrc
-    echo "export JJFZF_SHELL='/usr/bin/env bash --rcfile $TEMPD/bashrc -i'"	>> $TEMPD/bashrc
+    echo "export JJFZF_SHELL='/usr/bin/env bash --init-file $TEMPD/bashrc -i'"	>> $TEMPD/bashrc
     echo 'echo "$$" ' ">$TEMPD/bash-i.pid"					>> $TEMPD/bashrc
     echo "PS1='\s<\W>$ '"							>> $TEMPD/bashrc
     echo "cd $TEMPD/$SCREENCAST_SESSION"					>> $TEMPD/bashrc
@@ -191,14 +194,15 @@ find_asciinema_pid()
 # Start recording with asciinema in a dedicated terminal, using $W x $H, etc
 start_screencast() # start_screencast <shelldir> [send-keys..]
 {
-  printf '  %-8s %s\n' START $ASCIINEMA_SCREENCAST
+  export TERM=xterm-256color	# best agg compatibility
+  printf '  %-8s %s\n' START $SCREENCAST_ABSPATH
   local DIR="$(readlink -f "${1:-.}")" ; shift
   screencast_shell_setup
   # stert new screencast session
   tmux kill-session -t $SCREENCAST_SESSION 2>/dev/null || :
   ( cd "$DIR"
     # export JJ_CONFIG=/dev/null
-    tmux new-session -s $SCREENCAST_SESSION -P -d -x $W -y $H
+    tmux new-session -s $SCREENCAST_SESSION -P -d -x $W -y $H $SCREENCAST_SHELL
   ) >$TEMPD/session
   printf '  %-8s %s\n' TMUX "$SCREENCAST_SESSION"
   tmux set-option -t $SCREENCAST_SESSION status off
@@ -213,31 +217,29 @@ start_screencast() # start_screencast <shelldir> [send-keys..]
   done
   sleep $sync
   # start asciinema in bg, so this script continues
-  ASCIINEMA_REC_C="asciinema rec --overwrite $ASCIINEMA_SCREENCAST.cast --cols $W --rows $H -c "
+  RECORDER_C="asciinema rec --overwrite $SCREENCAST_ABSPATH.cast --cols $W --rows $H -c "
   TMUX_ATTACH_RO="tmux attach-session -t $SCREENCAST_SESSION -f read-only"
   ( set -e
     if $SCREENCAST_WINDOW ; then
       gnome-terminal --geometry $W"x"$H -t "$SCREENCAST_SESSION -- asciinema" --zoom $Z -- \
-		     $ASCIINEMA_REC_C "$TMUX_ATTACH_RO"
+		     $RECORDER_C "$TMUX_ATTACH_RO"
     elif $SCREENCAST_HIDE ; then
       script -Enever -O $TEMPD/script.log -c \
-	     "stty rows $H cols $W && $ASCIINEMA_REC_C '$TMUX_ATTACH_RO' " |
-	pv -b -t -p -e -i 0.1 -w80 -N '  ASCIINEMA' >/dev/null
+	     "stty rows $H cols $W && $RECORDER_C '$TMUX_ATTACH_RO' " |
+	pv -b -t -p -e -i 0.1 -w80 -N '  SCREENCAST' >/dev/null
     else
       script -Enever -O $TEMPD/script.log -c \
-	     "stty rows $H cols $W && $ASCIINEMA_REC_C '$TMUX_ATTACH_RO' "
+	     "stty rows $H cols $W && $RECORDER_C '$TMUX_ATTACH_RO' "
+      stdin_discard	# Absorb to terminal DSR escape sequences
     fi
   ) &
-  echo "$!" > $TEMPD/script.pid
-  ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
+  echo "$!" > $TEMPD/subshell.pid
   sleep $sync
-  test -z "$(find_asciinema_pid)" && {
-    sleep $sync
-    sleep $sync
-  }
-  ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
+  test -z "$(find_asciinema_pid)" && sleep $sync
   test -n "$(find_asciinema_pid)" ||
     die "failed to identify asciinema process for screencast session: $SCREENCAST_SESSION"
+  stdin_discard	# Absorb to terminal DSR escape sequences
+  true
 }
 
 # Stop recording
@@ -246,22 +248,21 @@ stop_screencast()
   set -Eeuo pipefail # -x
   # hard abort asciinema, so last frame is preserved
   kill -9 $(find_asciinema_pid) 	# PID=$(tmux list-panes -t $SCREENCAST_SESSION -F '#{pane_pid}')
+  # test -r $TEMPD/script.pid && kill -9 $(cat $TEMPD/script.pid)
   tmux kill-session -t $SCREENCAST_SESSION
+  ( wait -fn $(cat $TEMPD/subshell.pid) || true ) >/dev/null 2>&1
   sleep $sync
-  ( wait -fn $(cat $TEMPD/script.pid) || true ) >/dev/null 2>&1
-  sleep $sync
-  echo  # leave PV line
-  printf '  %-8s %s\n' STOP $ASCIINEMA_SCREENCAST
-  if ! $SCREENCAST_WINDOW && ! $SCREENCAST_HIDE ; then
-    ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
+  $SCREENCAST_HIDE && echo	# leave PV line
+  if $SCREENCAST_FIXTTY ; then
+    stdin_discard	# Absorb to terminal DSR escape sequences
+    stty sane || true	# may fail in Github CI env
     # Reset terminal state from mouse/alt-screen/etc
-    stty sane
-    reset -I
-    # Swallow any buffered replies to Terminal Device Status Reports escape sequences
-    ( set +x; rest=1 ; while test -n "$rest" ; do read -t 0.1 -n1 rest || : ; done )
-    echo -e '\x1bc'
+    reset	# does: sleep 1
+    # resize
+  else
+    sleep $sync
   fi
-  sleep $sync
+  printf '  %-8s %s\n' STOP $SCREENCAST_ABSPATH
 }
 
 # == repo commands ==
