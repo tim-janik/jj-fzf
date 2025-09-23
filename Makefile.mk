@@ -38,7 +38,7 @@ define CmdRunReplace
 endef
 
 # == doc/jj-fzf.1 ==
-doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
+doc/jj-fzf.1: doc/jj-fzf.1.md Makefile.mk jj-fzf $(wildcard lib/*)
 	$(file > doc/cmdrr.awk, $(CmdRunReplace))
 	$(QGEN)
 	$Q TEMPD="`mktemp -d`" && cd "$$TEMPD" \
