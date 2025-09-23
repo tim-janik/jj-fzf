@@ -7,10 +7,12 @@ ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find inst
 # == Setup & Options ==
 source "${ABSPATHSCRIPT%/*}"/setup.sh	# preflight.sh
 jjfzf_tempd				# assigns $JJFZF_TEMPD
+PRINTOUT=
 echo 'MODE=V'	> $JJFZF_TEMPD/bookmarks.env
 INPUT_REV=@
 while test $# -ne 0 ; do
   case "$1" in \
+    --help-bindings) PRINTOUT="$1" ;;
     -B|-m)	echo 'MODE=B' > $JJFZF_TEMPD/bookmarks.env ; FZF_ARGS+=( --disabled ) ;;
     -T)		echo 'MODE=T' > $JJFZF_TEMPD/bookmarks.env ; FZF_ARGS+=( --disabled ) ;;
     -D)		echo 'MODE=D' > $JJFZF_TEMPD/bookmarks.env ;;
@@ -138,7 +140,6 @@ jjfzf_refs_enter()
   [[ "$1" =~ \[Tag\] ]] && ISTAG=true || ISTAG=false
   [[ "$1" =~ \[Bookmark\] ]] && ISBOOKMARK=true || ISBOOKMARK=false
   NEWNAME="$QUERY"
-  # FIXME: jjfzf_run() ( echo "$@" )
   case "$MODE" in
     T)
       test -z "$NEWNAME" -o -z "$JJFZF_COMMITID" || {
@@ -196,6 +197,16 @@ jjfzf_ref_info()
 export -f jjfzf_ref_info
 B+=( --preview ' L={} && test -n "$L" && jjfzf_ref_info "${L%% *}" ' )
 B+=( --preview-label " Ref Info " )
+
+# == PRINTOUT ==
+[[ "$PRINTOUT" == --help-bindings ]] && {
+  for h in "${H[@]}" ; do
+    echo "$h" |
+      sed -r 's/^([^ ]+): *([^ ]+) *(.*)/\n### _\1_: **\2**\n\2 \3/'
+  done
+  echo
+  exit 0
+}
 
 # == fzf ==
 FZF_ARGS+=(
