@@ -65,6 +65,19 @@ check-help:
 	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
 check: check-deps check-help shellcheck-error tests-basics.sh
 
+# == test ==
+test: test-screencasts
+.PHONY: test test-screencasts
+SCREENCAST.SCRIPTS := oplog.sh bookmarks.sh revset.sh
+define TEST_SCREENCAST
+test-screencast-$1: screencasts/$1
+	$$(QECHO) RUN $$<
+	$Q cd screencasts && ./$1 --hide --fast
+.PHONY: test-screencast-$1
+test-screencasts: test-screencast-$1
+endef
+$(foreach F, $(SCREENCAST.SCRIPTS), $(eval $(call TEST_SCREENCAST,$F)))
+
 # == install & uninstall ==
 install: all
 	$(QGEN)
