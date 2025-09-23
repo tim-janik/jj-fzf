@@ -8,6 +8,47 @@ DEBUG = False
 DEBUG_PROMPT = False
 DUP_OUTPUT = False
 
+# LLM setup help, repeated in the manual page
+LLM_HELP = '''
+Commit messages can be generated using different Large Language Models (LLMs).
+The LLM is chosen based on environment variables, in the following order of precedence:
+
+1. Generic llama.cpp-compatible API:
+   Set LLM_API_BASE to the base URL of your API endpoint.
+   Optionally, set LLM_API_KEY if the API requires an authorization key.
+   Example:
+   ```
+   export LLM_API_BASE="http://llm-server.local:8080/v1"
+   export LLM_API_KEY="your-api-key"  # optional
+   ```
+2. Google Gemini:
+   Set GEMINI_API_KEY to your Google AI Studio API key.
+   Get a free key from: https://aistudio.google.com/
+   Example:
+   ```
+   export GEMINI_API_KEY="AI-gemini-api-key"
+   ```
+
+3. OpenAI:
+   Set OPENAI_API_KEY to your OpenAI API key.
+   Optionally, set OPENAI_API_BASE to use a different endpoint
+   (e.g., for Azure OpenAI or other compatible services).
+   Example:
+   ```
+   export OPENAI_API_KEY="sk-openai-api-key"
+   # Optionally, to use a different endpoint:
+   export OPENAI_API_BASE="https://api.llm-server.local/v1"
+   ```
+
+4. Local llama.cpp server (default):
+   If none of the above are set, a connection attempt is made to a local
+   llama.cpp server at http://localhost:8080/v1.
+   You can set LLM_API_KEY if your local server requires it.
+   For more info on llama.cpp server:
+
+   https://github.com/ggml-org/llama.cpp/blob/master/tools/server
+'''
+
 def configure_model_stream():
   chcompl = '/chat/completions'
   if os.environ.get ('LLM_API_BASE'):
@@ -163,7 +204,15 @@ def tidy_print (iterable):
     output ('\n')
 
 def main():
-  parser = argparse.ArgumentParser (description = 'Generate a commit message using an LLM.')
+  if '--llm-help' in sys.argv:
+    print (LLM_HELP.strip())
+    sys.exit (0)        # used for man page generation
+
+  parser = argparse.ArgumentParser (
+    description = 'Generate a commit message using an LLM.',
+    epilog = 'LLM Configuration:' + LLM_HELP,
+    formatter_class = argparse.RawDescriptionHelpFormatter
+  )
   parser.add_argument ('commit_hash', help = 'The hash of the commit to generate a message for.')
   parser.add_argument ('--max-count', type=int, default=19, help = 'The maximum number of recent commits to use as examples.')
   parser.add_argument ('--dup-output', action = 'store_true', help = 'Duplicate output to stderr.')
