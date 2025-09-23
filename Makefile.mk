@@ -46,6 +46,7 @@ doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
 	&& awk -f $(abspath doc/cmdrr.awk) $(abspath $<) > $(abspath doc/jj-fzf+cmds.1.md) \
 	&& cd / && rm -r -f "$$TEMPD"	# jj-fzf needs a .jj repo to run
 	$Q ! grep -B3 -Fn '__CMDRR_ERROR__' doc/jj-fzf+cmds.1.md /dev/null
+	$Q grep -iq 'alt-r.*rebase' doc/jj-fzf+cmds.1.md || { echo 'doc/jj-fzf+cmds.1.md: missing Alt-R'; false; }
 	$Q pandoc $(man/markdown-flavour) -s -p \
 		-M date="$(word 2, $(version_full))" \
 		-M footer="jj-fzf-$(word 1, $(version_full))" \
