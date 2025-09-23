@@ -26,19 +26,32 @@ check-deps: preflight.sh jj-fzf
 .PHONY: check-deps
 all check: check-deps
 
+# == CmdRunReplace ==
+define CmdRunReplace
+/^!!!!/ {
+  cmd = substr($$0, 5)
+  while (( (cmd " 2>&1 || echo __CMDRR_ERROR__=$$?") | getline line) > 0) { print line }
+  close(cmd)
+  next
+}
+{ print }
+endef
+
 # == doc/jj-fzf.1 ==
 doc/jj-fzf.1: doc/jj-fzf.1.md jj-fzf Makefile.mk
+	$(file > doc/cmdrr.awk, $(CmdRunReplace))
 	$(QGEN)
-	$Q TEMPD="`mktemp -d`" && cd "$$TEMPD" && jj git init 2>/dev/null \
-	&& $(abspath ./jj-fzf) --help-bindings > $(abspath doc/keys.tmp) \
-	&& cd / && rm -r -f "$$TEMPD" # jj-fzf needs a .jj repo to run
-	$Q sed -r $$'/```jj-fzf --help-bindings```/ { r doc/keys.tmp\n d ; }' $< > doc/jj-fzf.1.tmp.md
+	$Q TEMPD="`mktemp -d`" && cd "$$TEMPD" \
+	&& jj git init 2>/dev/null && ln -s $(abspath .)/* . \
+	&& awk -f $(abspath doc/cmdrr.awk) $(abspath $<) > $(abspath doc/jj-fzf+cmds.1.md) \
+	&& cd / && rm -r -f "$$TEMPD"	# jj-fzf needs a .jj repo to run
+	$Q ! grep -B3 -Fn '__CMDRR_ERROR__' doc/jj-fzf+cmds.1.md /dev/null
 	$Q pandoc $(man/markdown-flavour) -s -p \
 		-M date="$(word 2, $(version_full))" \
 		-M footer="jj-fzf-$(word 1, $(version_full))" \
-		-t man doc/jj-fzf.1.tmp.md -o $@.tmp
-	$Q rm -f doc/keys.tmp doc/jj-fzf.1.tmp.md && mv $@.tmp $@
-man/markdown-flavour	:= -f markdown+hard_line_breaks+autolink_bare_uris+emoji+lists_without_preceding_blankline-smart
+		-t man doc/jj-fzf+cmds.1.md -o $@.tmp
+	$Q rm -f doc/cmdrr.awk doc/keys.tmp doc/jj-fzf.1.tmp.md && mv $@.tmp $@
+man/markdown-flavour	:= -f markdown+autolink_bare_uris+emoji+lists_without_preceding_blankline-smart
 CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
