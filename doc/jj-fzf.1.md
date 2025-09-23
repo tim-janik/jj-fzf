@@ -98,7 +98,8 @@
   executed to stderr. The output aids users in learning how to use `jj` directly
   to achieve the desired effects. It can also be useful when debugging and helps
   users determine which actions they might wish to undo. Most commands can also
-  be run via the command line, using: `jj-fzf <command> <revision>`
+  be run via the command line, using: \
+  `jj-fzf <command> <revision>`
 
 # KEY BINDINGS
 
@@ -126,10 +127,17 @@
    
 !!!! lib/reparent.sh --help-bindings
 
+# CONFIGURATION
+
+  The default revset for the main **jj-fzf** log view is configured via `jj-fzf.log_revset`.
+  When a new value is stored, it is set as a configuration setting local to the repository.
+  The configuration setting `jj-fzf.show-keys` determines if an **fzf** header is shown that displays active key bindings.
+
 # SEE ALSO
 
   For screencasts, workflow suggestions or feature requests, visit the
   **jj-fzf** project page at: \
-  https://github.com/tim-janik/jj-fzf \
+  https://github.com/tim-janik/jj-fzf
+
   For revsets, see: \
   https://martinvonz.github.io/jj/latest/revsets
