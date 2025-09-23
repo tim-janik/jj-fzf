@@ -132,6 +132,8 @@
   The default revset for the main **jj-fzf** log view is configured via `jj-fzf.log_revset`.
   When a new value is stored, it is set as a configuration setting local to the repository.
   The configuration setting `jj-fzf.show-keys` determines if an **fzf** header is shown that displays active key bindings.
+  Pre-generated commit messages for `jj describe` are provided as a temporary config value in
+  `template-aliases.default_commit_description`.
 
 # SEE ALSO
 
@@ -139,5 +141,8 @@
   **jj-fzf** project page at: \
   https://github.com/tim-janik/jj-fzf
 
-  For revsets, see: \
+  For revset expressions, see: \
   https://martinvonz.github.io/jj/latest/revsets
+
+  For using `default_commit_description` in `draft_commit_description` customization, see: \
+  https://jj-vcs.github.io/jj/latest/config/#default-description
