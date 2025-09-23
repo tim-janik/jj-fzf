@@ -39,24 +39,29 @@ def stream_text (chat_url, api_key, model, prompt):
   }
   json_data = json.dumps (data).encode ('utf-8')
   req = urllib.request.Request (chat_url, data = json_data, headers = headers)
-  with urllib.request.urlopen (req) as response:
-    for line in response:
-      line = line.decode ('utf-8').strip()
-      if not line:
-        continue
-      if line.startswith ('data: '):
-        data_str = line[6:]  # Remove 'data: ' prefix
-        if data_str == '[DONE]':
-          break
-        try:
-          obj = json.loads (data_str)                   # parse JSON fully
-        except json.JSONDecodeError:
-          continue                                      # skip malformed JSON
-        if 'choices' in obj and len (obj['choices']) > 0:
-          choice = obj['choices'][0]
-          if ('delta' in choice and 'content' in choice['delta'] and
-               choice['delta']['content']):
-            yield choice['delta']['content']
+  try:
+    response = urllib.request.urlopen (req)
+  except Exception as e:
+    yield f"ERROR: Failed to connect to endpoint: {chat_url} ({e})"
+    return
+  for line in response:
+    line = line.decode ('utf-8').strip()
+    if not line:
+      continue
+    if line.startswith ('data: '):
+      data_str = line[6:]  # Remove 'data: ' prefix
+      if data_str == '[DONE]':
+        break
+      try:
+        obj = json.loads (data_str)                   # parse JSON fully
+      except json.JSONDecodeError:
+        continue                                      # skip malformed JSON
+      if 'choices' in obj and len (obj['choices']) > 0:
+        choice = obj['choices'][0]
+        if ('delta' in choice and 'content' in choice['delta'] and
+             choice['delta']['content']):
+          yield choice['delta']['content']
+  response.close()
 
 def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None, None]:
   """Stream text from the Gemini API"""
