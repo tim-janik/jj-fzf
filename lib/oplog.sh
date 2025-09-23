@@ -8,10 +8,12 @@ ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find inst
 source "${ABSPATHSCRIPT%/*}"/setup.sh	# preflight.sh
 jjfzf_tempd				# assigns $JJFZF_TEMPD
 echo 'DIFF=1'	> $JJFZF_TEMPD/oplog.env
+PRINTOUT=
 while test $# -ne 0 ; do
   case "$1" in \
-    -x)		set -x ;;
-    *)         	break ;;
+    --help-bindings)	PRINTOUT="$1" ;;
+    -x)			set -x ;;
+    *)         		break ;;
   esac
   shift
 done
@@ -106,6 +108,16 @@ jjfzf_oplog0()
     sed '/¸¸/s/^/\x00/ ; 1s/^\x00//'
 )
 export -f jjfzf_oplog0
+
+# == PRINTOUT ==
+[[ "$PRINTOUT" == --help-bindings ]] && {
+  for h in "${H[@]}" ; do
+    echo "$h" |
+      sed -r 's/^([^ ]+): *([^ ]+) *(.*)/\n### _\1_: **\2**\n\2 \3/'
+  done
+  echo
+  exit 0
+}
 
 # == fzf ==
 FZF_ARGS+=(
