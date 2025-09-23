@@ -102,13 +102,34 @@
 
 # KEY BINDINGS
 
-  Most **jj-fzf** commands operate on the currently selected revision and
-  are made available via the following keyboard shortcuts:
+  Most **jj-fzf** commands operate on the current revision under the fzf pointer
+  and/or a set of previously selected revisions (use _Tab_ or _Shift-Tab_ to change
+  selection). All dialogs can be closed at any point with _Escape_.
 
-  ```jj-fzf --help-bindings```
+## KEY BINDINGS FOR JJ-FZF
+   
+!!!! ./jj-fzf --help-bindings
+
+## KEY BINDINGS FOR BOOKMARKS & TAGS
+   
+!!!! lib/bookmarks.sh --help-bindings
+
+## KEY BINDINGS FOR THE OPERATION LOG
+   
+!!!! lib/oplog.sh --help-bindings
+
+## KEY BINDINGS FOR REBASE
+   
+!!!! lib/rebase.sh --help-bindings
+
+## KEY BINDINGS FOR CHANGE PARENTS
+   
+!!!! lib/reparent.sh --help-bindings
 
 # SEE ALSO
 
   For screencasts, workflow suggestions or feature requests, visit the
-  **jj-fzf** project page at: https://github.com/tim-janik/jj-fzf
-  For revsets, see: https://martinvonz.github.io/jj/latest/revsets
+  **jj-fzf** project page at: \
+  https://github.com/tim-janik/jj-fzf \
+  For revsets, see: \
+  https://martinvonz.github.io/jj/latest/revsets

@@ -8,10 +8,12 @@ ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find inst
 source "${ABSPATHSCRIPT%/*}"/setup.sh	# preflight.sh
 jjfzf_tempd				# assigns $JJFZF_TEMPD
 echo > $JJFZF_TEMPD/rebase.env
+PRINTOUT=
 while test $# -ne 0 ; do
   case "$1" in \
-    -x)		set -x ;;
-    *)         	break ;;
+    -x)			set -x ;;
+    --help-bindings)	PRINTOUT="$1" ;;
+    *)         		break ;;
   esac
   shift
 done
@@ -136,6 +138,16 @@ jjfzf_log0_marked_revs()
     sed -r -f $JJFZF_TEMPD/rebase.sed
 )
 export -f jjfzf_log0_marked_revs
+
+# == PRINTOUT ==
+[[ "$PRINTOUT" == --help-bindings ]] && {
+  for h in "${H[@]}" ; do
+    echo "$h" |
+      sed -r 's/^([^ ]+): *([^ ]+) *(.*)/\n### _\1_: **\2**\n\2 \3/'
+  done
+  echo
+  exit 0
+}
 
 # == fzf ==
 FZF_ARGS+=(
