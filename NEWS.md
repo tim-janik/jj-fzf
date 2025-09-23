@@ -2,9 +2,6 @@
 
 * The minimum supported fzf version is now 0.65.2.
 
-* Ctrl-L will now either show the history up to a single selected revision,
-  or for the selected (multiple) revisions only.
-
 * All key binding commands now operate on a change_id or a list thereof.
 
 * In case of divergent commits, an fzf list entry expands to a commit_id.
@@ -33,6 +30,13 @@
   `templates.draft_commit_description`, see:
   https://jj-vcs.github.io/jj/latest/config/#default-description
 
+* Ctrl-F now toggles between the fzf finder and live revset editing.
+  There is no key binding replacement for the old 'file-editor', just run
+  `jj edit` or `jj new` on an old commit and open the file of interest.
+
+* Ctrl-L will now either show the history up to a single selected revision,
+  or for the selected (multiple) revisions only.
+
 * Missing commands:
   - Alt-S: restore-file	- consider Ctrl-A to restore *all* files
   - Alt-V: vivifydivergent
@@ -41,7 +45,6 @@
   - Ctrl-T: evolog
   - Ctrl-V: gitk	- consider removing
   - Ctrl-W: wb-diff	- toggle ±b ±w for diff
-  - Ctrl-F: file-editor	- considering to make this fzf-filter instead
   - oplog: Ctrl-D to toggle jj log diff ON/OFF
 
 

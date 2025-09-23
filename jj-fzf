@@ -256,16 +256,22 @@ KEY[push]="Ctrl-P"	POST[new]="+first"
 DOC[push]='Use `jj git fetch` and `jj git push --tracked --deleted` to update the local and remote repositories. Pushing needs confirmation after a dry-run. Tries to push all refs if no revisions are currently selected.'
 jjfzf_push()
 (
+  set -Eeuo pipefail
   REVS=( --tracked --deleted )
   if test ${#@} -gt 2 -o "$1" != "$2" ; then # fzf selection beyond pointer
     shift # eat pointer
     ALL="$(jjfzf_ccrevs "$@")" &&
       REVS=( -r "$ALL" )
   fi
-  jjfzf_run +n jj $JJFZF_KEEPCOMMITS git fetch
-  jjfzf_run +n jj git push "${REVS[@]}" --dry-run 2>&1 |
-    tee $JJFZF_TEMPD/push.log
-  if grep -qFi 'nothing changed' $JJFZF_TEMPD/push.log ; then
+  STATUS=0
+  jjfzf_run +n jj git fetch $JJFZF_COLOR $JJFZF_KEEPCOMMITS \
+    || STATUS=$?
+  if test $STATUS == 0 ; then
+    jjfzf_run +n jj git push $JJFZF_COLOR "${REVS[@]}" --dry-run > $JJFZF_TEMPD/push.log 2>&1 \
+      || STATUS=$?
+    cat $JJFZF_TEMPD/push.log
+  fi
+  if test $STATUS != 0 || grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/push.log ; then
     read -p "Press Enter..."
   else
     read -p 'Proceed with actual push and submit changes? (y/n) ' YN
