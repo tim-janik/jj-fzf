@@ -8,10 +8,11 @@ ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find inst
 source "${ABSPATHSCRIPT%/*}"/lib/setup.sh	# preflight.sh common.sh
 jjfzf_tempd					# assigns $JJFZF_TEMPD
 ENTER=
+PRINTOUT=
 while test $# -ne 0 ; do
   case "$1" in \
     --version)		echo "${ABSPATHSCRIPT##*/} `$JJFZF_ABSPATHLIB/../version.sh`"; exit ;;
-    --help-bindings)	exit ;; # TODO: implement key binding dump
+    --help-bindings)	PRINTOUT="$1" ;;
     -h|--help)		echo "Usage: ${ABSPATHSCRIPT##*/} [--man] [--version] [OPTIONS...]"; exit ;;
     -c|+c|-r|+r|-s)	ENTER="$1" ;;
     --man)		exec man $JJFZF_ABSPATHLIB/../doc/jj-fzf.1 ;;
@@ -56,7 +57,7 @@ jjfzf_full_history()
 export -f jjfzf_full_history
 
 # == Key Bindings ==
-BINDINGS=() HELPDOCS=()
+BINDINGS=()
 declare -A POST
 declare -A KEY
 declare -A RUN
@@ -379,8 +380,6 @@ for cmd in "${CMDS[@]}"; do
   key="${KEY[$cmd],,}"
   post="$RELOAD${POST[$cmd]-}"
   KEYDOCS+=( "${KEY[$cmd]}:$cmd" )
-  test -n "${DOC[$cmd]-}" &&
-    HELPDOCS+=( "**${KEY[$cmd]} $cmd**$'\n'${DOC[$cmd]}" )
   test -n "${RUN[$cmd]-}" &&
     BINDINGS+=( --bind "$key:execute( ${RUN[$cmd]} )+$post" )
 done
@@ -402,6 +401,16 @@ jjfzf_showkeys()
 )
 export -f jjfzf_showkeys
 BINDINGS+=( --bind "start,resize,alt-h,f11:+transform-header: jjfzf_showkeys 2>&1 " )
+
+# == PRINTOUT ==
+[[ "$PRINTOUT" == --help-bindings ]] && {
+  for cmd in "${CMDS[@]}"; do
+    echo
+    echo "### _${KEY[$cmd]}_:" "**$cmd**"
+    echo "${DOC[$cmd]}"
+  done
+  exit 0
+}
 
 # == fzf ==
 V=$($JJFZF_ABSPATHLIB/../version.sh | sed 's/-0-g.*//; s/-[1-9][0-9]*-g.*/+/')
