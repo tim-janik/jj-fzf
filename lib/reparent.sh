@@ -8,10 +8,12 @@ ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find inst
 source "${ABSPATHSCRIPT%/*}"/setup.sh	# preflight.sh
 jjfzf_tempd				# assigns $JJFZF_TEMPD
 echo > $JJFZF_TEMPD/reparent.env
+PRINTOUT=
 while test $# -ne 0 ; do
   case "$1" in \
-    -x)		set -x ;;
-    *)         	break ;;
+    -x)			set -x ;;
+    --help-bindings)	PRINTOUT="$1" ;;
+    *)         		break ;;
   esac
   shift
 done
@@ -38,8 +40,8 @@ B+=( --bind "alt-i:execute-silent( sed 's/^II=-.*/II=x/; s/^II=$/II=--ignore-imm
 H+=( 'Alt-P:  Simplify-parents of the revision (after any rebasing)' )
 B+=( --bind "alt-p:execute-silent( sed 's/^SP=false/SP=x/; s/^SP=true/SP=false/; s/^SP=x/SP=true/' -i $JJFZF_TEMPD/reparent.env )+refresh-preview" )
 
-H+=( "Enter:  Confirm — select / confirm reparenting operation" )
 B+=( --bind 'enter:execute( jjfzf_handle_reparenting RUN {+2} )+close+close+close' )
+B+=( --input-label " Enter: Run Reparenting Commands " )
 
 # == jjfzf_reparent_list ==
 # Determine new parent revset
@@ -135,6 +137,16 @@ jjfzf_header()
   echo "$JJFZF_HELP"
 )
 export -f jjfzf_header
+
+# == PRINTOUT ==
+[[ "$PRINTOUT" == --help-bindings ]] && {
+  for h in "${H[@]}" ; do
+    echo "$h" |
+      sed -r 's/^([^ ]+): *([^ ]+) *(.*)/\n### _\1_: **\2**\n\2 \3/'
+  done
+  echo
+  exit 0
+}
 
 # == fzf ==
 FZF_ARGS+=(
