@@ -25,17 +25,18 @@
   delete tags. The former bookmark deletion under Alt-D has been merged into
   Alt-B.
 
-* When describing a commit, jj-fzf no longer appends the diff to the draft.
-  To inspect the diff during edits, use jj config to configure the
-  `templates.draft_commit_description`, see:
-  https://jj-vcs.github.io/jj/latest/config/#default-description
-
 * Alt-Q will now sqash changes from selected revisions into the revision
   under the pointer, or into the parent if no revisions are selected.
 
 * Alt-S now starts `jj restore --interactive` and restores files from a single
   selected revision into the revision under the pointer, or into the parent
   if no revisions are selected.
+
+* Ctrl-D will pre-generate a commit message for merge commits only. For normal
+  commit messages, use `templates.draft_commit_description` instead. If you
+  depend on the messages of previous jj-fzf versions, consider the hint printed
+  out by: `lib/draft.sh --hint`
+  See also: https://jj-vcs.github.io/jj/latest/config/#default-description
 
 * Ctrl-F now toggles between the fzf finder and live revset editing.
   There is no key binding replacement for the old 'file-editor', just run
@@ -45,7 +46,6 @@
   or for the selected (multiple) revisions only.
 
 * Missing commands:
-  - Alt-S: restore-file	- consider Ctrl-A to restore *all* files
   - Alt-V: vivifydivergent
   - Ctrl-A: author-reset - consider deprecating for metaedit
   - Ctrl-I: diff	- can this be replaced by Ctrl-L ?
