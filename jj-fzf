@@ -398,7 +398,7 @@ jjfzf_showkeys()
   HEADER_LINES="${LINES-$FZF_LINES}"
   test -n "$FZF_PREVIEW_LEFT" && test "$FZF_PREVIEW_LEFT" -gt $((FZF_COLUMNS / 10)) &&
     HEADER_COLUMNS="$FZF_PREVIEW_LEFT" || HEADER_COLUMNS="$FZF_COLUMNS"
-  if test "$(jjfzf_config get jj-fzf.show-keys)" == 0 -o "$HEADER_LINES" -lt 20 -o "$HEADER_COLUMNS" -lt 20 ; then
+  if test "$(jjfzf_config get jj-fzf.show-keys)" == false -o "$HEADER_LINES" -lt 20 -o "$HEADER_COLUMNS" -lt 20 ; then
     : # echo "Ctrl-H:help Alt-H:showkeys"
   else
     source $JJFZF_TEMPD/jjfzf_KEYDOCS

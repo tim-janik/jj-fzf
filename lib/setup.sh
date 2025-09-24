@@ -74,7 +74,7 @@ jjfzf_config()
     set)	$JJ config set --repo "$2" "$3" ;;
     toggle)
       T="$($JJ config get "$2" 2>/dev/null || :)"
-      test "$T" == 0 && T=1 || T=0
+      test "$T" == 0 -o "$T" == false && T=true || T=false
       $JJ config set --repo "$2" "$T"
       ;;
   esac
