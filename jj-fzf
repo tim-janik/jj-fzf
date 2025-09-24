@@ -172,12 +172,39 @@ jjfzf_squash()
 	jjfzf_run +n jj --no-pager new --insert-after @
       fi
       jjfzf_run jj --no-pager squash --from "$ALL" --into "$TARGET"
-      return
+      return # already called jjfzf_load_and_status
     fi
   fi
+  # else
   jjfzf_load_and_status
 )
 export -f jjfzf_squash
+
+# Restore
+KEY[restore]="Alt-S"
+RUN[restore]="jjfzf_restore {2} {+2}"
+DOC[restore]='Use `jj restore` to interactively select changes to be restored from a selected revisions into the revision under the cursor. Add `Ctrl` to run with `--restore-descendants`.'
+BINDINGS+=( --bind "ctrl-alt-s:execute( jjfzf_restore --restore-descendants {2} {+2} )+$RELOAD" )
+jjfzf_restore()
+(
+  set -Eeuo pipefail
+  ARGS=()
+  while [[ "${1-}" == --* ]] ; do
+    ARGS+=("$1") && shift
+  done
+  TARGET="${1-}"; shift
+  ALL="$(jjfzf_ccrevs "$@")"
+  if test -n "$TARGET" ; then
+    test "$TARGET" == "$ALL" && TARGET="$TARGET-"
+    if test -n "$($JJFZFT 'true' -r "~$TARGET & ($ALL)")"; then
+      jjfzf_run jj restore --interactive --from "$ALL" --into "$TARGET" "${ARGS[@]}"
+      return # already called jjfzf_load_and_status
+    fi
+  fi
+  # else
+  jjfzf_load_and_status
+)
+export -f jjfzf_restore
 
 # Rebase Commits
 KEY[rebase]="Alt-R"
@@ -398,7 +425,7 @@ jjfzf_showkeys()
   HEADER_LINES="${LINES-$FZF_LINES}"
   test -n "$FZF_PREVIEW_LEFT" && test "$FZF_PREVIEW_LEFT" -gt $((FZF_COLUMNS / 10)) &&
     HEADER_COLUMNS="$FZF_PREVIEW_LEFT" || HEADER_COLUMNS="$FZF_COLUMNS"
-  if test "$(jjfzf_config get jj-fzf.show-keys)" == 0 -o "$HEADER_LINES" -lt 20 -o "$HEADER_COLUMNS" -lt 20 ; then
+  if test "$(jjfzf_config get jj-fzf.show-keys)" == false -o "$HEADER_LINES" -lt 20 -o "$HEADER_COLUMNS" -lt 20 ; then
     : # echo "Ctrl-H:help Alt-H:showkeys"
   else
     source $JJFZF_TEMPD/jjfzf_KEYDOCS

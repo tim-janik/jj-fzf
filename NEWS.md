@@ -30,6 +30,13 @@
   `templates.draft_commit_description`, see:
   https://jj-vcs.github.io/jj/latest/config/#default-description
 
+* Alt-Q will now sqash changes from selected revisions into the revision
+  under the pointer, or into the parent if no revisions are selected.
+
+* Alt-S now starts `jj restore --interactive` and restores files from a single
+  selected revision into the revision under the pointer, or into the parent
+  if no revisions are selected.
+
 * Ctrl-F now toggles between the fzf finder and live revset editing.
   There is no key binding replacement for the old 'file-editor', just run
   `jj edit` or `jj new` on an old commit and open the file of interest.

@@ -53,25 +53,45 @@ NEAREST=( $(jj bookmark list -T 'name++"\n"' -- "$INPUT_REV" | sed -r '1q')
 	  $(rev_bookmarks -r .."$INPUT_REV") )
 
 # == Bookmark & Tag List ==
-format_refs()
+jjfzf_format_refs() # width label
 (
   while read MARK rest ; do
-    printf "%-$1s $2 %s\n" "${MARK%:}" "$rest"
+    MARK="${MARK%:}"
+    printf "%-$1s $2 %s\n" "$MARK" "$rest"
   done
 )
-jj --no-pager --ignore-working-copy bookmark list $JJFZF_COLOR |
-  # sed reorders conflicted
-  sed -r ':0; /^\s/!s/ \(conflicted\):/: (conflicted)/; N; $!b0; s/\n\s+/ /g' |
-  format_refs 40 "[Bookmark]"	>  $JJFZF_TEMPD/refs.lst
-echo				>> $JJFZF_TEMPD/refs.lst
-export JJFZF_REFS_START_POS=$(wc -l < $JJFZF_TEMPD/refs.lst)
-jj --no-pager --ignore-working-copy tag list $JJFZF_COLOR |
-  format_refs 45 "[Tag]"	>> $JJFZF_TEMPD/refs.lst
+jjfzf_bookmark_list()
+{
+  true > $JJFZF_TEMPD/bm_refs.lst
+  # bookmarks tracked @origin
+  jj --no-pager --ignore-working-copy bookmark list --color=never -T 'name++"\n"' -t --remote origin |
+    sort | uniq > $JJFZF_TEMPD/bm_origin.lst
+  # local bookmarks
+  jj --no-pager --ignore-working-copy bookmark list $JJFZF_COLOR -T 'name++"\n"' > $JJFZF_TEMPD/bm_local.lst
+  # loop over local bookmarks to extend formatting
+  while read MARK ; do
+    jj --no-pager --ignore-working-copy bookmark list $JJFZF_COLOR "$MARK" > $JJFZF_TEMPD/bm_1.lst
+    # sed reorders conflicted
+    sed -r ':0; /^\s/!s/ \(conflicted\):/: (conflicted)/; N; $!b0; s/\n\s+/ /g' -i $JJFZF_TEMPD/bm_1.lst
+    grep -qFx "$MARK" $JJFZF_TEMPD/bm_origin.lst &&
+      LABEL="[Bookmark] (tracked)" || LABEL="[Bookmark]"
+    jjfzf_format_refs 40 "$LABEL" < $JJFZF_TEMPD/bm_1.lst >> $JJFZF_TEMPD/bm_refs.lst
+  done < $JJFZF_TEMPD/bm_local.lst
+  # spacer
+  echo				>> $JJFZF_TEMPD/bm_refs.lst
+  # save spacer pos
+  export JJFZF_REFS_START_POS=$(wc -l < $JJFZF_TEMPD/bm_refs.lst)
+  # list tags
+  jj --no-pager --ignore-working-copy tag list $JJFZF_COLOR > $JJFZF_TEMPD/bm_tags.lst
+  # format, adds "[Tag]"
+  jjfzf_format_refs 45 "[Tag]" < $JJFZF_TEMPD/bm_tags.lst	>> $JJFZF_TEMPD/bm_refs.lst
+}
+jjfzf_bookmark_list
 
 # == Start Position ==
 # Position at nearest bookmark
 [[ ${#NEAREST[@]} -ge 1 ]] &&
-  NEAREST_POS=$(sed -r 's/\x1b\[[0-9;]*[mK]//g' $JJFZF_TEMPD/refs.lst |
+  NEAREST_POS=$(sed -r 's/\x1b\[[0-9;]*[mK]//g' $JJFZF_TEMPD/bm_refs.lst |
 		  grep -m 1 -n "\b${NEAREST[0]}\b" | cut -d: -f1) &&
   test -n "$NEAREST_POS" &&
   JJFZF_REFS_START_POS="$NEAREST_POS"
@@ -166,9 +186,31 @@ jjfzf_refs_enter()
       }
       ;;
     O)
-      $ISBOOKMARK && {
-	jjfzf_run +n jj --no-pager bookmark track -- "$REF"@origin
-      }
+      if $ISBOOKMARK ; then
+	ATORIGIN=$(jj --no-pager --ignore-working-copy bookmark list \
+		      -T 'name++if(remote,"@"++remote)++"\n"' -a |
+		     grep -xF "$REF@origin") || :
+	if test -n "$ATORIGIN" ; then	# present @origin
+	  TRACKED=$(jj --no-pager --ignore-working-copy bookmark list \
+		       -T 'name++if(remote,"@"++remote)++"\n"' -t "$REF")
+	  if test -z "$TRACKED" ; then
+	    jjfzf_run +n jj --no-pager bookmark track -- "$REF"@origin
+	  else
+	    jjfzf_run +n jj --no-pager bookmark untrack -- "$REF"@origin
+	  fi
+	else	# needs push to be present @origin
+	  jjfzf_run +n jj git push $JJFZF_COLOR --allow-new --remote origin --bookmark "$REF" --dry-run > $JJFZF_TEMPD/bpush.log 2>&1 \
+	    && STATUS=0 || STATUS=$?
+	  cat $JJFZF_TEMPD/bpush.log
+	  if test $STATUS != 0 || grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/bpush.log ; then
+	    read -p "Press Enter..."
+	  else
+	    read -p 'Proceed with bookmark push and submit changes? (y/n) ' YN
+	    [[ "${YN:0:1}" =~ [yY] ]] &&
+	      jjfzf_run +n jj git push $JJFZF_COLOR --allow-new --bookmark "$REF"
+	  fi
+	fi
+      fi
       ;;
     V|*)
       test -z "$REF" ||
@@ -215,4 +257,4 @@ FZF_ARGS+=(
 )
 unset FZF_DEFAULT_OPTS FZF_DEFAULT_COMMAND
 fzf -m "${FZF_ARGS[@]}" "${B[@]}" \
-    < $JJFZF_TEMPD/refs.lst
+    < $JJFZF_TEMPD/bm_refs.lst
