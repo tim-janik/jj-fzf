@@ -347,6 +347,11 @@ jjfzf_push()
 export -f jjfzf_push
 BINDINGS+=( --bind "ctrl-p:execute( jjfzf_push {2} {+2} )+$RELOAD" )
 
+# Evolog Commits
+KEY[evolog]="Ctrl-V"
+BINDINGS+=( --bind "ctrl-v:execute( '$JJFZF_ABSPATHLIB'/evolog.sh {2} ; jjfzf_load_and_status )+$RELOAD" )
+DOC[evolog]='Use `jj evolog` to browse the evolution of the selected revision. Inject historic commits into the ancestry without changing descendants.'
+
 # Subshell
 KEY[shell]="Ctrl-Z"
 BINDINGS+=( --bind "ctrl-z:execute( jjfzf_exec_usershell )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
