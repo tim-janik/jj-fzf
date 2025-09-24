@@ -315,7 +315,7 @@ jjfzf_push()
   if test $STATUS != 0 || grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/push.log ; then
     read -p "Press Enter..."
   else
-    read -p 'Proceed with actual push and submit changes? (y/n) ' YN
+    read -p 'Proceed with actual push and submit changes? (y/N) ' YN
     [[ "${YN:0:1}" =~ [yY] ]] || exit 0
     jjfzf_run +n jj git push "${REVS[@]}"
   fi
