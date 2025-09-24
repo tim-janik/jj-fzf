@@ -126,7 +126,7 @@ These scripts are aimed at developers and provide useful utilities for working w
   Usage:
     ;; Suspend emacs with a custom command, without using `ioctl(TIOCSTI)`
     (load (expand-file-name "~/jj-fzf/contrib/suspend-with-shell.el"))
-    ;; Suspend emacs and start jj-fzf on Ctrl+T
+    ;; Suspend emacs and start jj-fzf on Ctrl-T
     (global-set-key (kbd "C-t") (lambda () (interactive) (suspend-with-shell "jj-fzf")))
   ```
 
