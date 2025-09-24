@@ -135,6 +135,9 @@
   Pre-generated commit messages for `jj describe` are provided as a temporary config value in
   `template-aliases.default_commit_description`.
 
+## LLM CONFIGURATION
+!!!! lib/gen-message.py --llm-help
+
 # SEE ALSO
 
   For screencasts, workflow suggestions or feature requests, visit the

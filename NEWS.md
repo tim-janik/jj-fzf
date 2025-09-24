@@ -45,6 +45,11 @@
 * Ctrl-L will now either show the history up to a single selected revision,
   or for the selected (multiple) revisions only.
 
+* An LLM can be used to generate commit messages with the Ctrl-S key binding.
+  The generated message is provided to `jj describe` as a config value in
+  `template-aliases.default_commit_description`.
+  See the manual page for LLM configurations via environment variables.
+
 * Missing commands:
   - Alt-V: vivifydivergent
   - Ctrl-A: author-reset - consider deprecating for metaedit

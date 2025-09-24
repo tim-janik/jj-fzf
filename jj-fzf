@@ -251,6 +251,27 @@ jjfzf_describe_commit()
 )
 export -f jjfzf_describe_commit
 
+# Describe with LLM assistance
+RUN[synth]="jjfzf_describe_llm {2}"
+DOC[synth]='Use `jj describe` to edit a synthetic LLM generated description of the currently selected revision.'
+KEY[synth]="Ctrl-S"
+jjfzf_describe_llm()
+(
+  set -Eeuo pipefail
+  REV="${1-@}"
+  CONFIG=()
+  COMMIT=$($JJFZFT 'if(description, "", commit_id)' -r "$REV")
+  if test -n "$COMMIT" ; then
+    QMSG=$($JJFZF_ABSPATHLIB/gen-message.py --dup-output "$COMMIT" |
+	     jjfzf_config_quote '' '') # $'\n'
+    CONFIG+=(--config="template-aliases.default_commit_description=$QMSG")
+  fi
+  export JJFZF_EDITOR="${JJ_EDITOR-}"			# preserve $JJ_EDITOR user settings
+  export JJ_EDITOR="$JJFZF_ABSPATHLIB/editor.sh"	# use hash-comparing wrapper
+  jjfzf_run +e jj describe --edit "${CONFIG[@]}" "$REV"
+)
+export -f jjfzf_describe_llm
+
 # Edit
 KEY[edit]="Ctrl-E"
 RUN[edit]="jjfzf_run jj --no-pager \$($JJFZFT \"if(immutable,'new','edit')\" -r {2}) {2}"
