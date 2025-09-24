@@ -205,7 +205,7 @@ jjfzf_refs_enter()
 	  if test $STATUS != 0 || grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/bpush.log ; then
 	    read -p "Press Enter..."
 	  else
-	    read -p 'Proceed with bookmark push and submit changes? (y/n) ' YN
+	    read -p 'Proceed with bookmark push and submit changes? (y/N) ' YN
 	    [[ "${YN:0:1}" =~ [yY] ]] &&
 	      jjfzf_run +n jj git push $JJFZF_COLOR --allow-new --bookmark "$REF"
 	  fi
