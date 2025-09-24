@@ -278,6 +278,7 @@ export -f jjfzf_chronological_change_ids
 jjfzf_inject()
 (
   set -Eeuo pipefail
+  REV="$1" && shift
   for ((i=$#; i>0; i--)); do
     C="${!i}"
     AUTHOR="$($JJFZFT 'self.author().name()' -r "$C")"
@@ -290,8 +291,10 @@ jjfzf_inject()
       --message="$DESCRIPTION"
     )
     export JJ_TIMESTAMP="$(date --rfc-3339=ns -d "$TIMESTAMP")"
-    jjfzf_run +n jj --no-pager new "${ARGS[@]}" --no-edit --insert-before @
-    jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to @-
+    if [[ "$REV" == @ ]] ; then
+      jjfzf_run +n jj --no-pager new --no-edit --insert-before @ "${ARGS[@]}"
+      jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to @-
+    fi
   done # TODO: JJ ideally would support metadata copies for jj restore --restore-descendants
 )
 export -f jjfzf_inject

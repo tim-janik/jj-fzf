@@ -133,7 +133,7 @@ export -f jjfzf_split_i
 
 # Inject commit
 KEY[inject]="Alt-J"
-RUN[inject]="jjfzf_inject {+2} ; jjfzf_load_and_status"
+RUN[inject]="jjfzf_inject @ {+2} ; jjfzf_load_and_status"
 DOC[inject]='Inject the currently selected revision(s) as historic commit(s) before @.'
 
 # New-A
