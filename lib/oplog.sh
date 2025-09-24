@@ -41,6 +41,10 @@ export -f jjfzf_op_inject
 H+=( 'Alt-R: Restore repository to the selected operation via `jj op restore`' )
 B+=( --bind "alt-r:execute( jjfzf_run jj --no-pager op restore {2} )+$RELOAD+down" )
 
+# Revert operation
+H+=( 'Alt-V: Revert the effects of the selected operation via `jj op revert`' )
+B+=( --bind "alt-v:execute( jjfzf_run jj --no-pager op revert {2} )+$RELOAD+down" )
+
 # Redo
 H+=( 'Alt-Y: Redo the last undo operation (marked `⋯`)' )
 B+=( --bind "alt-y:execute( jjfzf_run jj --no-pager redo )+$RELOAD+down" )
