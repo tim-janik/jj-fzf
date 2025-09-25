@@ -147,7 +147,7 @@ H+=( 'Alt-V: View details' )
 B+=( --bind "alt-v:execute-silent( echo {q} > $JJFZF_TEMPD/refs_query )+enable-search+execute-silent( sed 's/^MODE=.*/MODE=V/' -i $JJFZF_TEMPD/bookmarks.env )+$REFRESH+transform-query( cat $JJFZF_TEMPD/refs_query )" )
 
 # == Header Help ==
-HEADER_HELP=$(printf "%s\n" "${H[@]}")
+HEADER_HELP=$(printf "%s\n" "${H[@]}" | jjfzf_bold_keys)
 B+=( --header "$HEADER_HELP" )
 
 # == jjfzf_refs_enter ==

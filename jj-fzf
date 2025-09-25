@@ -107,7 +107,7 @@ DOC[filesplit]='Use `jj split` in a loop to split each file modified by the curr
 
 # Showkeys
 # KEY[showkeys]="Alt-H"	# TODO: add for --help
-BINDINGS+=( --header-label ' Alt-H: Toggle Key Display ⫶ Ctrl-H: help ' )
+BINDINGS+=( --header-label "$(echo ' Alt-H: Toggle Key Display ⫶ Ctrl-H: help ' | jjfzf_bold_keys)" )
 BINDINGS+=( --bind "alt-h:execute-silent( jjfzf_config toggle jj-fzf.show-keys )" )	# see also transform-header
 DOC[showkeys]='Display or hide the list of avilable key bindings, persist the setting in `jj-fzf.show-keys` of the `jj` user config.'
 
@@ -379,8 +379,8 @@ jjfzf_revset_log()
 export -f jjfzf_revset_log
 
 # Ctrl-F toggle FZF vs Revset
-export JJFZF_PROMPT1="Revset > " JJFZF_ILABEL1=' Ctrl-F: fzf-filter ⫶ Alt-Enter: save-revset '
-export JJFZF_PROMPT2="fzf > "    JJFZF_ILABEL2=' Ctrl-F: Revset '
+export JJFZF_PROMPT1="Revset > " JJFZF_ILABEL1="$(echo ' Ctrl-F: fzf-filter ⫶ Alt-Enter: save-revset ' | jjfzf_bold_keys)"
+export JJFZF_PROMPT2="fzf > "    JJFZF_ILABEL2="$(echo ' Ctrl-F: Revset ' | jjfzf_bold_keys)"
 BINDINGS+=( --disabled --prompt "$JJFZF_PROMPT1" )
 BINDINGS+=( --bind 'ctrl-f:transform: jjfzf_fzf_transform' )
 jjfzf_fzf_transform()
@@ -471,7 +471,8 @@ jjfzf_showkeys()
     : # echo "Ctrl-H:help Alt-H:showkeys"
   else
     source $JJFZF_TEMPD/jjfzf_KEYDOCS
-    jjfzf_wrap_args "$((HEADER_COLUMNS - 8))" "${KEYDOCS[@]}"
+    jjfzf_wrap_args "$((HEADER_COLUMNS - 8))" "${KEYDOCS[@]}" |
+      jjfzf_bold_keys
   fi
 )
 export -f jjfzf_showkeys

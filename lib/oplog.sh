@@ -58,7 +58,7 @@ H+=( 'Enter: Info browser for the selected operation' )
 B+=( --bind 'enter:execute( jjfzf_op_info {2} | $JJFZF_PAGER )' )
 
 # == Header Help ==
-HEADER_HELP=$(printf "%s\n" "${H[@]}")
+HEADER_HELP=$(printf "%s\n" "${H[@]}" | jjfzf_bold_keys)
 B+=( --header "$HEADER_HELP" )
 
 # == jjfzf_op_info ==

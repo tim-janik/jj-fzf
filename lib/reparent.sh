@@ -130,7 +130,7 @@ export -f jjfzf_log0_marked_revs
 
 # == jjfzf_header ==
 # Help text
-export JJFZF_HELP=$(printf "%s\n" "${H[@]}")
+export JJFZF_HELP=$(printf "%s\n" "${H[@]}" | jjfzf_bold_keys)
 jjfzf_header()
 (
   set -Eeuo pipefail #-x
