@@ -43,6 +43,20 @@ jjfzf_tempd()
   }
 }
 
+# == jjfzf_bold_keys ==
+jjfzf_bold_keys()
+(
+  # Key list (fzf)
+  KL="Ctrl-[\\/_A-Z6^]|Ctrl-(Space|Delete)|Ctrl-\]|Ctrl-Alt-[A-Z]|Alt-[a-zA-Z]|F[1-9]|F1[012]"
+  KL="$KL|(Alt-)?(Enter|Return|Space|Backspace|Bspace|Bs)"
+  KL="$KL|Tab|Shift-Tab|Esc|(Shift-)?Delete|Del|Home|End|Insert|Page-Up|Pg[Uu]p|Page-Down|Pg[Dd]n"
+  KL="$KL|(Alt-|Shift-|Alt-Shift-)?(Up|Down|Left|Right)"
+  KL="$KL|Left-Click|Right-Click|Double-Click|Shift-Left-Click|Shift-Right-Click"
+  KL="$KL|(Preview-)?Scroll-(Up|Down)|Shift-Scroll-(Up|Down)"	# |[a-zA-Z]
+  sed -r "s,\b($KL):,\x1b[1m\1:\x1b[0m,g"			# Add bold around \bKEY:
+)
+export -f jjfzf_bold_keys
+
 # == jjfzf_wrap_args ==
 # Fold arguments at wrap width
 jjfzf_wrap_args()
