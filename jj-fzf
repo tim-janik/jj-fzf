@@ -454,7 +454,7 @@ done < <(for cmd in "${!KEY[@]}"; do echo "${KEY[$cmd]} $cmd"; done | sort)
 for cmd in "${CMDS[@]}"; do
   key="${KEY[$cmd],,}"
   post="$RELOAD${POST[$cmd]-}"
-  KEYDOCS+=( "${KEY[$cmd]}:$cmd" )
+  KEYDOCS+=( "${KEY[$cmd]}: $cmd" )
   test -n "${RUN[$cmd]-}" &&
     BINDINGS+=( --bind "$key:execute( ${RUN[$cmd]} )+$post" )
 done
@@ -471,7 +471,9 @@ jjfzf_showkeys()
     : # echo "Ctrl-H:help Alt-H:showkeys"
   else
     source $JJFZF_TEMPD/jjfzf_KEYDOCS
-    jjfzf_wrap_args "$((HEADER_COLUMNS - 8))" "${KEYDOCS[@]}" |
+    FMT_WIDTH="$((HEADER_COLUMNS - 8))"	# Subtract fzf border
+    printf '%s\n' "${KEYDOCS[@]}" |
+      awk -v WIDTH="$FMT_WIDTH" -f $JJFZF_ABSPATHLIB/ocolumns.awk |
       jjfzf_bold_keys
   fi
 )
