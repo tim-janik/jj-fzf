@@ -273,11 +273,53 @@ jjfzf_chronological_change_ids()
 )
 export -f jjfzf_chronological_change_ids
 
+# == jjfzf_list_unique_elements ==
+# List unique array elements
+jjfzf_list_unique_elements()
+(
+  local -n arr_a="$1"	# nameref to first array
+  local -n arr_b="$2"	# nameref to second array
+  declare -A a_set	# associative array
+  for element in "${arr_a[@]}"; do
+    a_set["$element"]=1
+  done
+  # Find elements in B but not in A
+  for element in "${arr_b[@]}"; do
+    [[ -z ${a_set["$element"]-} ]] &&
+      printf "%s\n" "$element"
+  done
+  true
+)
+export -f jjfzf_list_unique_elements
+
+# == jjfzf_match_elements ==
+# List elements from $1 matching $2
+jjfzf_match_elements()
+(
+  local -n arr_a="$1"	# nameref to first array
+  for element in "${arr_a[@]}"; do
+    [[ "$element" =~ $2 ]] &&
+      printf "%s\n" "$element"
+  done
+  true
+)
+export -f jjfzf_match_elements
+
+# == jjfzf_list_parents ==
+# Print commit IDs in revset $1
+jjfzf_list_commits()
+(
+  # jj --no-pager --ignore-working-copy log --no-graph -r "$1" -T 'self.parents().map(|c|c.commit_id()).join("\n") '
+  jj --no-pager --ignore-working-copy log --no-graph -r "$1" -T 'commit_id++"\n"'
+)
+export -f jjfzf_list_commits
+
 # == jjfzf_inject ==
-# Inject revisions as historic commits before @
+# Inject revisions as historic commits before $1
 jjfzf_inject()
 (
   set -Eeuo pipefail
+  REV="$1" && shift
   for ((i=$#; i>0; i--)); do
     C="${!i}"
     AUTHOR="$($JJFZFT 'self.author().name()' -r "$C")"
@@ -290,8 +332,26 @@ jjfzf_inject()
       --message="$DESCRIPTION"
     )
     export JJ_TIMESTAMP="$(date --rfc-3339=ns -d "$TIMESTAMP")"
-    jjfzf_run +n jj --no-pager new "${ARGS[@]}" --no-edit --insert-before @
-    jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to @-
+    if [[ "$REV" == @ ]] ; then
+      jjfzf_run +n jj --no-pager new --no-edit --insert-before @ "${ARGS[@]}"
+      jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to @-
+    else
+      # TODO: JJ new --no-edit doesn't give us the new revision; so we have to count children
+      # of the previous parent commit_id to find it (using a change_id could be divergent)
+      COMMITS=( $(jjfzf_list_commits "$REV") )			# REV as commit_id
+      [[ ${#COMMITS[@]} -eq 1 ]] && REV="${COMMITS[0]}" ||
+	{ echo "jjfzf_inject: need exactly one matching commit: $REV" >&2 ; exit 1 ; }
+      P=( $(jjfzf_list_commits "$REV-") ) && P1="${P[0]}"	# first parent
+      Cb=( $(jjfzf_list_commits "$P+") )			# children of first parent
+      test "$(jjfzf_match_elements Cb $REV)" == "$REV" ||
+	{ echo "jjfzf_inject: failed to find revision in ancestry: $REV" >&2 ; exit 1 ; }
+      jjfzf_run +n jj --no-pager new --no-edit --insert-before "$REV" "${ARGS[@]}"
+      Cn=( $(jjfzf_list_commits "$P+") )			# new children of parent
+      N=( $(jjfzf_list_unique_elements Cb Cn) )			# new commits
+      [[ ${#N[@]} -eq 1 ]] ||
+	{ echo "jjfzf_inject: failed to find revision newly created before: $REV" >&2 ; exit 1 ; }
+      jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to "${N[0]}"
+    fi
   done # TODO: JJ ideally would support metadata copies for jj restore --restore-descendants
 )
 export -f jjfzf_inject

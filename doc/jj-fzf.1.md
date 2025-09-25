@@ -115,17 +115,21 @@
    
 !!!! lib/bookmarks.sh --help-bindings
 
+## KEY BINDINGS FOR THE EVOLOG
+   
+!!!! lib/evolog.sh --help-bindings
+
 ## KEY BINDINGS FOR THE OPERATION LOG
    
 !!!! lib/oplog.sh --help-bindings
 
-## KEY BINDINGS FOR REBASE
-   
-!!!! lib/rebase.sh --help-bindings
-
 ## KEY BINDINGS FOR CHANGE PARENTS
    
 !!!! lib/reparent.sh --help-bindings
+
+## KEY BINDINGS FOR REBASE
+   
+!!!! lib/rebase.sh --help-bindings
 
 # CONFIGURATION
 
