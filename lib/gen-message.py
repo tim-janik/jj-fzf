@@ -53,16 +53,24 @@ def configure_model_stream():
   chcompl = '/chat/completions'
   if os.environ.get ('LLM_API_BASE'):
     base, key = os.environ['LLM_API_BASE'], os.environ.get ('LLM_API_KEY', '')
-    return lambda p: stream_text (base + chcompl, key, 'llama.cpp', p)
+    llm_name = f"llama.cpp-compatible API at {base}"
+    stream_fn = lambda p: stream_text (base + chcompl, key, 'llama.cpp', p)
+    return stream_fn, llm_name
   elif os.environ.get ('GEMINI_API_KEY'):
     # https://ai.google.dev/gemini-api/docs/models
     model = 'gemini-2.0-flash-lite' # 'gemini-1.5-flash-latest'
-    return lambda p: gemini_stream (os.environ['GEMINI_API_KEY'], model, p)
+    llm_name = f"Google Gemini model '{model}'"
+    stream_fn = lambda p: gemini_stream (os.environ['GEMINI_API_KEY'], model, p)
+    return stream_fn, llm_name
   elif os.environ.get ('OPENAI_API_KEY'):
     model = 'gpt-3.5-turbo' # 'gpt-4.1-nano' 'gpt-4o-mini'
     base = os.environ.get ('OPENAI_API_BASE', 'https://api.openai.com/v1')
-    return lambda p: stream_text (base + chcompl, os.environ['OPENAI_API_KEY'], model, p)
-  return lambda p: stream_text ('http://localhost:8080/v1' + chcompl, os.environ.get ('LLM_API_KEY', ''), 'llama.cpp', p)
+    llm_name = f"OpenAI model '{model}' at {base}"
+    stream_fn = lambda p: stream_text (base + chcompl, os.environ['OPENAI_API_KEY'], model, p)
+    return stream_fn, llm_name
+  llm_name = "local llama.cpp server at http://localhost:8080/v1"
+  stream_fn = lambda p: stream_text ('http://localhost:8080/v1' + chcompl, os.environ.get ('LLM_API_KEY', ''), 'llama.cpp', p)
+  return stream_fn, llm_name
 
 def stream_text (chat_url, api_key, model, prompt):
   """Stream text from the llama.cpp API"""
@@ -134,7 +142,7 @@ def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None
 
 def generate_commit_message (commit_hash, max_count=99):
   """Generate a commit message for the given commit hash"""
-  llm_stream = configure_model_stream()
+  llm_stream, llm_name = configure_model_stream()
   if DEBUG:
     print ("EXEC: Running `git log ...`", file = sys.stderr)
   try:
@@ -161,6 +169,8 @@ def generate_commit_message (commit_hash, max_count=99):
     "/no-think" +
     "\n"
   )
+  if DEBUG:
+    print (f"LLM: {llm_name}", file = sys.stderr)
   if DEBUG_PROMPT:
     print ("PROMPT:", file = sys.stderr)
     print (constructed_prompt, file = sys.stderr)
@@ -216,8 +226,8 @@ def main():
   parser.add_argument ('commit_hash', help = 'The hash of the commit to generate a message for.')
   parser.add_argument ('--max-count', type=int, default=19, help = 'The maximum number of recent commits to use as examples.')
   parser.add_argument ('--dup-output', action = 'store_true', help = 'Duplicate output to stderr.')
-  parser.add_argument ('--debug', action = 'store_true', help = 'Debug operational status to stderr.')
   parser.add_argument ('--debug-prompt', action = 'store_true', help = 'Print the generated prompt to stderr.')
+  parser.add_argument ('-x', '--debug', action = 'store_true', help = 'Debug operational status to stderr.')
   args = parser.parse_args()
   global DEBUG, DEBUG_PROMPT, DUP_OUTPUT
   DEBUG = args.debug
