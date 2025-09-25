@@ -262,9 +262,11 @@ jjfzf_describe_llm()
   CONFIG=()
   COMMIT=$($JJFZFT 'if(description, "", commit_id)' -r "$REV")
   if test -n "$COMMIT" ; then
-    QMSG=$($JJFZF_ABSPATHLIB/gen-message.py --dup-output "$COMMIT" |
-	     jjfzf_config_quote '' '') # $'\n'
-    CONFIG+=(--config="template-aliases.default_commit_description=$QMSG")
+    echo '[template-aliases]'			>  $JJFZF_TEMPD/llmdraft.toml
+    echo -n "default_commit_description="	>> $JJFZF_TEMPD/llmdraft.toml
+    $JJFZF_ABSPATHLIB/gen-message.py --dup-output "$COMMIT" |
+      jjfzf_config_quote '' ''			>> $JJFZF_TEMPD/llmdraft.toml # $'\n'
+    CONFIG+=( --config-file $JJFZF_TEMPD/llmdraft.toml )
   fi
   export JJFZF_EDITOR="${JJ_EDITOR-}"			# preserve $JJ_EDITOR user settings
   export JJ_EDITOR="$JJFZF_ABSPATHLIB/editor.sh"	# use hash-comparing wrapper
