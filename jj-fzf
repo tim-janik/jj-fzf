@@ -74,8 +74,8 @@ RUN[commit]="JJFZF_EDITOR=\"${JJ_EDITOR-}\" JJ_EDITOR=\"$JJFZF_ABSPATHLIB/editor
 DOC[commit]='Use `jj commit` to describe the currently selected revision and create a new child revision as working-copy.'
 
 # Delete bookmarks & tags
-KEY[bookmarks]="Alt-B"
-DOC[bookmarks]='Create, move, delete jj bookmarks and git tags.'
+KEY[bookmark]="Alt-B"
+DOC[bookmark]='Create, move, delete jj bookmarks and git tags.'
 BINDINGS+=( --bind "alt-b:execute( '$JJFZF_ABSPATHLIB'/bookmarks.sh -m {2} ; jjfzf_load_and_status )+$RELOAD" )
 
 # Diffedit interactively
