@@ -57,8 +57,7 @@ CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
 
 # == SCRIPTS ==
-LIBSCRIPTS   := $(wildcard lib/*.sh)
-SHELLSCRIPTS := jj-fzf preflight.sh version.sh sfx.sh
+SHELLSCRIPTS := jj-fzf $(wildcard *.sh lib/*.sh)
 
 # == tests ==
 tests-basics.sh:
@@ -93,11 +92,13 @@ endef
 $(foreach F, $(SCREENCAST.SCRIPTS), $(eval $(call TEST_SCREENCAST,$F)))
 
 # == install & uninstall ==
+PRJ_INSTALL_FILES := $(wildcard README.md NEWS.md jj-fzf *.sh)
+LIB_INSTALL_FILES := $(wildcard lib/*.awk lib/*.py lib/*.sh)
 install: all
 	$(QGEN)
 	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(PRJDIR)/lib $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
-	install -c $(SHELLSCRIPTS) $(DESTDIR)$(PRJDIR)
-	install -c $(LIBSCRIPTS) $(DESTDIR)$(PRJDIR)/lib
+	install -c $(PRJ_INSTALL_FILES) $(DESTDIR)$(PRJDIR)
+	install -c $(LIB_INSTALL_FILES) $(DESTDIR)$(PRJDIR)/lib
 	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
 	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
 	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
