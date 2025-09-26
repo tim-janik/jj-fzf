@@ -49,7 +49,7 @@ H+=( 'Enter: Show evolution of the change ID in the input revision up to the cur
 B+=( --bind 'enter:execute( jjfzf_evolog_info {2} | $JJFZF_PAGER )' )
 
 # == Header Help ==
-HEADER_HELP=$(printf "%s\n" "${H[@]}")
+HEADER_HELP=$(printf "%s\n" "${H[@]}" | jjfzf_bold_keys)
 B+=( --header "$HEADER_HELP" )
 
 # == jjfzf_evolog_info ==

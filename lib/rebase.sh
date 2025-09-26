@@ -71,7 +71,7 @@ H+=( "Ctrl-B: Before — pick the target to insert before" )
 B+=( --bind "ctrl-b:execute-silent( sed 's/^TO=.*/TO=--insert-before/' -i $JJFZF_TEMPD/rebase.env )+refresh-preview" )
 
 # == Header Help ==
-HEADER_HELP=$(printf "%s\n" "${H[@]}")
+HEADER_HELP=$(printf "%s\n" "${H[@]}" | jjfzf_bold_keys)
 B+=( --header "$HEADER_HELP" )
 
 # == jjfzf_rebase_enter ==
