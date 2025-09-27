@@ -22,7 +22,7 @@
 ## JJ LOG VIEW
 
   The `jj log` view in **jj-fzf** displays a list of revisions with commit
-  information on each line. Each line contains the following elements:
+  information on each line. Each entry contains the following elements:
 
   `@`
   : Marks the working copy
@@ -62,20 +62,17 @@
   **First Line**
   : The `jj log -T builtin_log_oneline` output for the selected commit
 
-  **Change ID**
-  : The `jj` revision identifier for this revisions
-
   **Commit ID**
   : The unique identifier for the Git commit
 
-  **Refs**
-  : Tags and bookmarks (similar to branch names) for this revisions
-
-  **Immutable**
-  : A boolean indication for immutable revisions
+  **Change ID**
+  : The `jj` revision identifier for this revisions
 
   **Parents**
   : A list of parent revisions (more than one for merge commits)
+
+  **Tags** / **Bookmarks**
+  : Tags and bookmarks (similar to branch names) for this revisions
 
   **Author**
   : The author of the revision, including name and email, timestamp
