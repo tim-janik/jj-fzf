@@ -112,6 +112,32 @@
 !!!! ./jj-fzf --help-bindings
 
 ## KEY BINDINGS FOR BOOKMARKS & TAGS
+
+  The "Bookmarks & Tags" dialog (_Alt-B_) displays bookmarks and their states.
+  Since `jj` tracks bookmarks locally and on remotes (like `@origin`), a
+  bookmark can exist in several states. The dialog simplifies this by showing a
+  single, most significant state for each bookmark and only takes `@origin`
+  as remote into consideration:
+
+  `[Deleted]`
+  : The bookmark is deleted locally but is still tracked on a remote, the deletion still needs to be pushed to the remote.
+
+  `[Conflicted]`
+  : The local and remote bookmarks have diverged and need to be resolved by moving the bookmark.
+
+  `[Tracked]`
+  : The bookmark exists locally and is tracking the bookmark at the remote.
+
+  `[Untracked]`
+  : The bookmark exists locally and on a remote, but is not tracked.
+
+  `[Local]`
+  : The bookmark exists only locally, but not on a remote.
+
+  `[Remote]`
+  : The bookmark exists only on a remote.
+
+  Consequently, only a subset of the key bindings will have an effect on bookmarks in certain states.
    
 !!!! lib/bookmarks.sh --help-bindings
 
