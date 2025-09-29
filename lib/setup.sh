@@ -13,9 +13,6 @@ export JJFZF_ABSPATHLIB="${JJFZF_ABSPATHLIB%/*}"
 # Check for dependencies, define sed(), etc
 source "$JJFZF_ABSPATHLIB"/../preflight.sh
 
-# Common definitions also used by preview.sh
-source "$JJFZF_ABSPATHLIB"/common.sh
-
 # Bash function exports needs sub-shell to be bash too
 export JJFZF_ORIGPWD="$PWD"	# save original PWD for interactive subshells
 export JJFZF_ORIGSHELL="${JJFZF_ORIGSHELL-$SHELL}"	# save original $SHELL
@@ -145,21 +142,49 @@ jjfzf_revset()
 export -f jjfzf_revset
 export JJFZF_REVSET_OVERRIDE=	# has to be changed *after* `source setup.sh`
 
+# == jjfzf_toml ==
+# Create config settings in $JJFZF_TEMPD/jjfzf.toml, setup $JJFZF_TOML
+jjfzf_toml()
+{
+  jjfzf_tempd
+  local git_private_commits orig_tmpl
+  # Try to read a revset name from git.private-commits
+  git_private_commits="$(jjfzf_config get git.private-commits)" &&
+    [[ "$git_private_commits" =~ ^[.a-z_()-]+$ ]] ||
+      git_private_commits='none()'	# only supports unquoted revset names
+  # [template-aliases]
+  cat > $JJFZF_TEMPD/jjfzf.toml <<-__EOF
+	[colors]
+	jjfzf_topics = { fg = "bright yellow" }
+	[template-aliases]
+	# Add a marker "🌟" to all "private" commits in logs
+	jjfzf_mark_private='''  if(self.contained_in('$git_private_commits') && ! immutable, label('committer', ' 🌟')) '''
+	# Allow topic markers
+	jjfzf_mark_topics=''' if(stringify(jjfzf_topics(self)), label('jjfzf_topics', '🏷 ' ++ jjfzf_topics(self) ++ " ")) '''
+	__EOF
+  if orig_tmpl="$(jjfzf_config get "template-aliases.'jjfzf_topics(commit)'")" && [[ "$orig_tmpl" == "" ]] ; then
+    echo "'jjfzf_topics(commit)'=''' '' '''"							>> $JJFZF_TEMPD/jjfzf.toml
+  fi
+  if orig_tmpl="$(jjfzf_config get "template-aliases.'format_short_commit_id(id)'")" ; then
+    echo "'format_short_commit_id(id)'=''' jjfzf_mark_topics ++ $orig_tmpl ++ jjfzf_mark_private '''"	>> $JJFZF_TEMPD/jjfzf.toml
+  fi
+  if orig_tmpl="$(jjfzf_config get "template-aliases.'builtin_log_detailed(commit)'")" ; then
+    local PANDT=' "Parents  :" ++ commit.parents().map(|c| " " ++ c.change_id()) ++ "\n" '
+    PANDT="$PANDT"' ++if(stringify(jjfzf_mark_topics), "Topics   : " ++ jjfzf_mark_topics ++ "\n") '
+    echo "'builtin_log_detailed(commit)'=''' $orig_tmpl '''" |
+      sed -r -e 's/(\bcommit\.change_id\(\)\s*\++\s*"\\n"),/\1,'"$PANDT"',/' \
+	  -e 's/(\bif\(commit\.description\()/if(stringify(jjfzf_mark_private),jjfzf_mark_private++" ")++\1/'	>> $JJFZF_TEMPD/jjfzf.toml
+  fi
+  export JJFZF_TOML="--config-file=$JJFZF_TEMPD/jjfzf.toml"
+}
+
 # == jjfzf_log_detailed ==
 # Extend builtin_log_detailed
 # TODO: It'd be nice if JJ had a builtin_log_detailed + Parents + PRIVATE marker
 jjfzf_log_detailed()
 {
-  local STAR='""++'
-  test -n "$JJFZF_PRIVATE" &&	# see also JJFZF_PRIVATE_CONFIG
-    STAR=" if(self.contained_in(\"$JJFZF_PRIVATE\") \&\& !immutable, label(\"committer\", \"🌟\")++\" \") ++ "
-  local PARENTS=' "Parents  :" ++ commit.parents().map(|c| " " ++ c.change_id()) ++ "\n" '
-  JJFZF_LOG_DETAILED_CONFIG="$(
-	jjfzf_config get "template-aliases.'builtin_log_detailed(commit)'" |
-	  sed -r -e 's/(\bcommit\.change_id\(\)\s*\++\s*"\\n"),/\1,'"$PARENTS"',/' \
-	         -e 's/(\bif\(commit\.description\()/'"$STAR"'\1/'
-	)"
-  export JJFZF_LOG_DETAILED_CONFIG=--config="template-aliases.'builtin_log_detailed(commit)'=''' $JJFZF_LOG_DETAILED_CONFIG '''"
+  jjfzf_toml
+  export JJFZF_LOG_DETAILED_CONFIG="$JJFZF_TOML"
 }
 
 # == jjfzf_jjlog ==
@@ -167,9 +192,7 @@ jjfzf_log_detailed()
 jjfzf_jjlog()
 (
   ARGS=(--ignore-working-copy --no-pager)
-  # avoid underlines hiding +- diff chars
-  ARGS+=( '--config=colors."diff token"={underline=false}' )
-  test -n "$JJFZF_PRIVATE_CONFIG" && ARGS+=( "$JJFZF_PRIVATE_CONFIG" )
+  ARGS+=( "$JJFZF_TOML" )
   jj "${ARGS[@]}" log "$@"
 )
 export -f jjfzf_jjlog
