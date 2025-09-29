@@ -164,6 +164,12 @@ jjfzf_jjlog()
 )
 export -f jjfzf_jjlog
 
+# == JJFZF_REVISION_TMPL ==
+# Unique identifier for revisions, ideally use the change_id which has better usability and is stable
+# across ancestor rebase operations. Uunless a commit is hidden or divergent, in which case we must
+# use the commit_id for unique identification.
+export JJFZF_REVISION_TMPL='if(self.divergent()||self.hidden(),commit_id,change_id)'
+
 # == jjfzf_log0 ==
 # Write current log with 0-separation
 jjfzf_log0()
@@ -175,7 +181,7 @@ jjfzf_log0()
     TMPL=$($JJ config get templates.log 2>/dev/null) ||
     TMPL=builtin_log_oneline
   jjfzf_jjlog $JJFZF_COLOR -r "$REVSET" \
-      -T " '¸'++stringify(if(self.divergent(),commit_id,change_id))++'¸¸' ++ $TMPL " 2>&1 |
+      -T " '¸'++stringify($JJFZF_REVISION_TMPL)++'¸¸' ++ $TMPL " 2>&1 |
     sed '/¸¸/s/^/\x00/ ; 1s/^\x00//'
 )
 export -f jjfzf_log0
@@ -272,7 +278,7 @@ export -f jjfzf_list_commit_ids
 # Produce newline-separated change_id list (or commit_id if divergent) from revset
 jjfzf_list_change_ids()
 (
-  CIDTMPL='if(self.divergent(),commit_id,change_id) ++ "\n"'
+  CIDTMPL="$JJFZF_REVISION_TMPL"' ++ "\n"'
   jj --no-pager --ignore-working-copy log --color=never --no-graph -T "$CIDTMPL" -r "$(jjfzf_ccrevs "$@")"
 )
 export -f jjfzf_list_change_ids
@@ -281,7 +287,7 @@ export -f jjfzf_list_change_ids
 # Produce newline-separated change_id list (or commit_id if divergent) in forward chronological order
 jjfzf_chronological_change_ids()
 (
-  CIDTMPL='if(self.divergent(),commit_id,change_id) ++ "\n"'
+  CIDTMPL="$JJFZF_REVISION_TMPL"' ++ "\n"'
   # forward chronological needs --reversed
   jj --no-pager --ignore-working-copy log --color=never --no-graph -T "$CIDTMPL" --reversed -r "$(jjfzf_ccrevs "$@")"
 )
