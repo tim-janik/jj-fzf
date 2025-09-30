@@ -22,7 +22,7 @@
 ## JJ LOG VIEW
 
   The `jj log` view in **jj-fzf** displays a list of revisions with commit
-  information on each line. Each line contains the following elements:
+  information on each line. Each entry contains the following elements:
 
   `@`
   : Marks the working copy
@@ -62,20 +62,17 @@
   **First Line**
   : The `jj log -T builtin_log_oneline` output for the selected commit
 
-  **Change ID**
-  : The `jj` revision identifier for this revisions
-
   **Commit ID**
   : The unique identifier for the Git commit
 
-  **Refs**
-  : Tags and bookmarks (similar to branch names) for this revisions
-
-  **Immutable**
-  : A boolean indication for immutable revisions
+  **Change ID**
+  : The `jj` revision identifier for this revisions
 
   **Parents**
   : A list of parent revisions (more than one for merge commits)
+
+  **Tags** / **Bookmarks**
+  : Tags and bookmarks (similar to branch names) for this revisions
 
   **Author**
   : The author of the revision, including name and email, timestamp
@@ -159,11 +156,22 @@
 
 # CONFIGURATION
 
-  The default revset for the main **jj-fzf** log view is configured via `jj-fzf.log_revset`.
-  When a new value is stored, it is set as a configuration setting local to the repository.
-  The configuration setting `jj-fzf.show-keys` determines if an **fzf** header is shown that displays active key bindings.
-  Pre-generated commit messages for `jj describe` are provided as a temporary config value in
-  `template-aliases.default_commit_description`.
+  The default set of revisions for the main **jj-fzf** log view is configured via
+  `jj-fzf.log_revset`, with a fallback to `revsets.log` (the standard `jj log`
+  revset). To use a different revset, type it into the **jj-fzf** query field which
+  will live update the log view. To persist the revset in the repository's local
+  `jj-fzf.log_revset` configuration, press _Alt-Enter_.
+
+  The default commit display template for the log view is configured via
+  `jj-fzf.log_template`, with a fallback to `templates.log` (the standard `jj log`
+  template). For example, to configure one-line display as the default, use:
+  `jj config set --user jj-fzf.log_template builtin_log_oneline`
+
+  The configuration setting `jj-fzf.show-keys` determines if an **fzf** header
+  is shown that displays active key bindings.
+  Pre-generated commit messages for `jj describe` are provided as a temporary config
+  value in `template-aliases.default_commit_description`.
+
 
 ## LLM CONFIGURATION
 !!!! lib/gen-message.py --llm-help
