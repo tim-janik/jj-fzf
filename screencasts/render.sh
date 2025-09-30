@@ -33,6 +33,8 @@ render_screencast()
     --theme asciinema
     --speed 1
   )
+  test -z "$MAX_IDLE" ||
+    ARGS+=( --idle-time-limit "$MAX_IDLE" )
   ( set -e -x
     agg "${ARGS[@]}" "$BASENAME.cast" "$BASENAME.gif"
     gif2webp "$BASENAME.gif" -min_size -metadata all -o "$BASENAME.webp" & p=$!
@@ -48,9 +50,23 @@ render_screencast()
   find "$BASENAME"* -printf "%8kk  %p\n"
 }
 
-# Process all casts
-test -n "${1-}" && INPUTS=("$@") || INPUTS=($SCREENCASTSDIR/*.cast)
-for f in "${INPUTS[@]}" ; do
+# == Setup & Options ==
+source "${ABSPATHSCRIPT%/*}"/lib/setup.sh	# preflight.sh common.sh
+jjfzf_tempd					# assigns $JJFZF_TEMPD
+MAX_IDLE=
+CASTS=()
+while test $# -ne 0 ; do
+  case "$1" in \
+    -i)		shift; MAX_IDLE="$1" ;;
+    *)		CASTS+=( "$1" ) ;;
+  esac
+  shift
+done
+test ${#CASTS[@]} -ge 1 ||
+  CASTS=($SCREENCASTSDIR/*.cast)
+
+# == Process ==
+for f in "${CASTS[@]}" ; do
   render_screencast "$f"
   ls -l "${f%.cast}"*
 done
