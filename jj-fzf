@@ -9,6 +9,7 @@ source "${ABSPATHSCRIPT%/*}"/lib/setup.sh	# preflight.sh common.sh
 jjfzf_tempd					# assigns $JJFZF_TEMPD
 ENTER=
 PRINTOUT=
+WITH_PREVIEW=true
 while test $# -ne 0 ; do
   case "$1" in \
     --version)		echo "${ABSPATHSCRIPT##*/} `$JJFZF_ABSPATHLIB/../version.sh`"; exit ;;
@@ -16,6 +17,7 @@ while test $# -ne 0 ; do
     -h|--help)		echo "Usage: ${ABSPATHSCRIPT##*/} [--man] [--version] [OPTIONS...]"; exit ;;
     -c|+c|-r|+r|-s)	ENTER="$1" ;;
     --man)		exec man $JJFZF_ABSPATHLIB/../doc/jj-fzf.1 ;;
+    --no-preview)	WITH_PREVIEW=false ;;
     -x)			set -x ;;
     *)         		break ;;
   esac
@@ -497,13 +499,14 @@ FZF_ARGS+=(
   --border-label "-[ JJ-FZF ($V) ]-" --color=border:cyan,label:cyan
   --preview-label " Revision Info "
 )
+$WITH_PREVIEW &&
+  FZF_ARGS+=( --preview "jjfzf_full_commit {2} | sed '1{/^$/d}; 3001q' " )
 jjfzf_status
 export JJFZF_LOAD_LIST=jjfzf_log0
 unset FZF_DEFAULT_OPTS FZF_DEFAULT_COMMAND
 jjfzf_load --stdout |
   fzf -m "${FZF_ARGS[@]}" "${BINDINGS[@]}" \
       --read0 '-d¸' --accept-nth=2 --with-nth '{1} {4..}' \
-      --preview "jjfzf_full_commit {2} | sed '1{/^$/d}; 3001q' " \
       --header-first
 # Notes:
 # - Initial listing is read async to quickly popup the fzf log view
