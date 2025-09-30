@@ -287,6 +287,18 @@ jjfzf_chronological_change_ids()
 )
 export -f jjfzf_chronological_change_ids
 
+# == jjfzf_contained ==
+# Return if "$1" is contained in "$@" ?
+jjfzf_contained()
+{
+  local first="$1" && shift
+  for e in "$@"; do
+    [[ "$e" == "$first" ]] && return 0
+  done
+  return 1
+}
+export -f jjfzf_contained
+
 # == jjfzf_list_unique_elements ==
 # List unique array elements
 jjfzf_list_unique_elements()
