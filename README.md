@@ -137,6 +137,10 @@ This application is licensed under
 [MPL-2.0](https://github.com/tim-janik/jj-fzf/blob/master/LICENSE).
 
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=tim-janik/jj-fzf&type=Timeline)](https://star-history.com/#tim-janik/jj-fzf)
+
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [irc-badge]: https://img.shields.io/badge/Live%20Chat-Libera%20IRC-blueviolet?style=for-the-badge
