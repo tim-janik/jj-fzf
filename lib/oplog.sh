@@ -33,7 +33,7 @@ jjfzf_op_inject()
 (
   set -Eeuo pipefail
   COMMIT="$(jj --no-pager --ignore-working-copy --at-op "$1" show --tool true -T commit_id -r @)"
-  jjfzf_inject @ "$COMMIT"
+  jjfzf_inject --tree @ "$COMMIT"
 )
 export -f jjfzf_op_inject
 
