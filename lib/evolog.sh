@@ -31,18 +31,8 @@ B=() H=()
 RELOAD="reload-sync(cat $JJFZF_TEMPD/jjfzf_list)"	# see jjfzf_load
 
 # Inject
-H+=( 'Alt-J: Inject the selected commit as historic parent before the input revision.' )
-B+=( --bind "alt-j:execute( jjfzf_evolog_inject {2} ; jjfzf_load_and_status )+$RELOAD+close+close+close" )
-jjfzf_evolog_inject()
-(
-  set -Eeuo pipefail
-  COMMIT="$1"
-  WORKING_COPY=$(jj --no-pager --ignore-working-copy log --no-graph -r @ -T change_id) # FIXME: divergent?
-  jjfzf_inject "$JJFZF_EVOLOG_SRC" "$COMMIT" && ERR=0 || ERR=$?
-  jjfzf_run jj edit "$WORKING_COPY" || ERR=$?
-  exit $ERR
-)
-export -f jjfzf_evolog_inject
+H+=( 'Alt-J: Inject the selected commit as historic diff while preserving the input revision.' )
+B+=( --bind "alt-j:execute( jjfzf_run +x +e jjfzf_inject --diff '$JJFZF_EVOLOG_SRC' {2} )+$RELOAD+close+close+close" )
 
 # Enter
 H+=( 'Enter: Show evolution of the change ID in the input revision up to the currently selected commit.' )

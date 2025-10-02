@@ -355,6 +355,14 @@ export -f jjfzf_list_commits
 jjfzf_inject()
 (
   set -Eeuo pipefail
+  TREE=false
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --tree)	shift ; TREE=true ;;
+      --diff)	shift ; TREE=false ;;
+      *)	break ;;
+    esac
+  done
   REV="$1" && shift
   for ((i=$#; i>0; i--)); do
     C="${!i}"
@@ -368,25 +376,35 @@ jjfzf_inject()
       --message="$DESCRIPTION"
     )
     export JJ_TIMESTAMP="$(date --rfc-3339=ns -d "$TIMESTAMP")"
-    if [[ "$REV" == @ ]] ; then
+    if $TREE && [[ "$REV" == @ ]] ; then
       jjfzf_run +n jj --no-pager new --no-edit --insert-before @ "${ARGS[@]}"
       jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to @-
     else
       # TODO: JJ new --no-edit doesn't give us the new revision; so we have to count children
-      # of the previous parent commit_id to find it (using a change_id could be divergent)
+      # of the previous parent commit_id to find it (avoiding possibly divergent change IDs)
       COMMITS=( $(jjfzf_list_commits "$REV") )			# REV as commit_id
       [[ ${#COMMITS[@]} -eq 1 ]] && REV="${COMMITS[0]}" ||
-	{ echo "jjfzf_inject: need exactly one matching commit: $REV" >&2 ; exit 1 ; }
+	  { echo "jjfzf_inject: need exactly one matching commit: $REV" >&2 ; exit 1 ; }
       P=( $(jjfzf_list_commits "$REV-") ) && P1="${P[0]}"	# first parent
       Cb=( $(jjfzf_list_commits "$P+") )			# children of first parent
       test "$(jjfzf_match_elements Cb $REV)" == "$REV" ||
 	{ echo "jjfzf_inject: failed to find revision in ancestry: $REV" >&2 ; exit 1 ; }
       jjfzf_run +n jj --no-pager new --no-edit --insert-before "$REV" "${ARGS[@]}"
-      Cn=( $(jjfzf_list_commits "$P+") )			# new children of parent
-      N=( $(jjfzf_list_unique_elements Cb Cn) )			# new commits
+      Cn=( $(jjfzf_list_commits "$P+") )			# children of parent after new
+      N=( $(jjfzf_list_unique_elements Cb Cn) )			# new commit + children
       [[ ${#N[@]} -eq 1 ]] ||
 	{ echo "jjfzf_inject: failed to find revision newly created before: $REV" >&2 ; exit 1 ; }
-      jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to "${N[0]}"
+      if $TREE ; then	# --tree
+	jjfzf_run +n jj --no-pager restore --restore-descendants --from "$C" --to "${N[0]}"
+      else		# --diff
+	jjfzf_run +n jj --no-pager duplicate -r "$C" -d "$P"	# duplicate (+rebase) commit onto new parent
+	Cd=( $(jjfzf_list_commits "$P+") )			# children of parent after duplicate
+	D=( $(jjfzf_list_unique_elements Cn Cd) )			# duplicated commit + children
+	[[ ${#D[@]} -eq 1 ]] ||
+	  { echo "jjfzf_inject: failed to find revision duplicated onto: $P" >&2 ; exit 1 ; }
+	jjfzf_run +n jj --no-pager restore --restore-descendants --from "${D[0]}" --to "${N[0]}"
+	jjfzf_run +n jj --no-pager abandon "${D[0]}"		# discard duplicate after restore
+      fi
     fi
   done # TODO: JJ ideally would support metadata copies for jj restore --restore-descendants
 )
