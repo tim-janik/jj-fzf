@@ -24,7 +24,7 @@ jobs:
           sudo tar zxvf - -C /usr/local/bin/ fzf
         fzf --version
     - run: |
-        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.33.0/jj-v0.33.0-x86_64-unknown-linux-musl.tar.gz |
+        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.34.0/jj-v0.34.0-x86_64-unknown-linux-musl.tar.gz |
           sudo tar zxvf - -C /usr/local/bin/ ./jj
         jj --version
     - run: |
