@@ -78,7 +78,7 @@ DOC[commit]='Use `jj commit` to describe the currently selected revision and cre
 # Delete bookmarks & tags
 KEY[bookmark]="Alt-B"
 DOC[bookmark]='Create, move, delete jj bookmarks and git tags.'
-BINDINGS+=( --bind "alt-b:execute( '$JJFZF_ABSPATHLIB'/bookmarks.sh -m {2} ; jjfzf_load_and_status )+$RELOAD" )
+RUN[bookmark]="jjfzf_run +x +e '$JJFZF_ABSPATHLIB'/bookmarks.sh -m {2}"
 
 # Diffedit interactively
 KEY[diffedit]="Alt-E"
@@ -151,8 +151,8 @@ DOC[absorb]='Use `jj absorb` to split the content diff of the current revision a
 
 # Reparent Commits
 KEY[reparent]="Alt-P"
-BINDINGS+=( --bind "alt-p:execute( '$JJFZF_ABSPATHLIB'/reparent.sh {+2} ; jjfzf_load_and_status )+$RELOAD" )
 DOC[reparent]='Change parent(s) of the current revision by adding a new or removing an existing parent, and optionally simplify the parent list.'
+RUN[reparent]="jjfzf_run +x +e '$JJFZF_ABSPATHLIB'/reparent.sh {+2}"
 
 # Squash
 KEY[squash]="Alt-Q"
@@ -210,8 +210,8 @@ export -f jjfzf_restore
 
 # Rebase Commits
 KEY[rebase]="Alt-R"
-BINDINGS+=( --bind "alt-r:execute( '$JJFZF_ABSPATHLIB'/rebase.sh {+2} ; jjfzf_load_and_status )+$RELOAD" )
 DOC[rebase]='Use `jj rebase` or `jj duplicate` to move or copy a set of revisions (possibly with descendants), onto, before or after another revision. Also supports `jj simplify-parents` afterwards.'
+RUN[rebase]="jjfzf_run +x +e '$JJFZF_ABSPATHLIB'/rebase.sh {+2}"
 
 # Revert Commits
 KEY[revert]="Alt-V"	POST[revert]="+first"
@@ -314,12 +314,13 @@ DOC[new]='Use `jj new` to create a new revision on top of the currently selected
 
 # Oplog Commits
 KEY[oplog]="Ctrl-O"
-BINDINGS+=( --bind "ctrl-o:execute( '$JJFZF_ABSPATHLIB'/oplog.sh ; jjfzf_load_and_status )+$RELOAD" )
+RUN[oplog]="jjfzf_run +x +e '$JJFZF_ABSPATHLIB'/oplog.sh"
 DOC[oplog]='Use `jj operation log` to browse the recent operations log. Use hotkeys to view operation diffs and history. Undo operations or restore its working copy into a new commit.'
 
 # Push & fetch from remotes
 KEY[push]="Ctrl-P"	POST[new]="+first"
 DOC[push]='Use `jj git fetch` and `jj git push --tracked --deleted` to update the local and remote repositories. Pushing needs confirmation after a dry-run. Tries to push all refs if no revisions are currently selected.'
+RUN[push]="jjfzf_push {2} {+2}"
 jjfzf_push()
 (
   set -Eeuo pipefail
@@ -347,23 +348,22 @@ jjfzf_push()
   jjfzf_load_and_status
 )
 export -f jjfzf_push
-BINDINGS+=( --bind "ctrl-p:execute( jjfzf_push {2} {+2} )+$RELOAD" )
 
 # Evolog Commits
 KEY[evolog]="Ctrl-V"
-BINDINGS+=( --bind "ctrl-v:execute( '$JJFZF_ABSPATHLIB'/evolog.sh {2} ; jjfzf_load_and_status )+$RELOAD" )
 DOC[evolog]='Use `jj evolog` to browse the evolution of the selected revision. Inject historic commits into the ancestry without changing descendants.'
+RUN[evolog]="jjfzf_run +x +e '$JJFZF_ABSPATHLIB'/evolog.sh {2}"
 
 # Subshell
 KEY[shell]="Ctrl-Z"
-BINDINGS+=( --bind "ctrl-z:execute( jjfzf_exec_usershell )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
 DOC[shell]='Start interactive subshell.'
+BINDINGS+=( --bind "ctrl-z:execute( jjfzf_exec_usershell )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
 # This needs to run execute() twice, because of the exec in jjfzf_exec_usershell
 
 # Reload
 KEY[reload]="F5"
-BINDINGS+=( --bind "f5:execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
 DOC[reload]='Reload the revset.'
+BINDINGS+=( --bind "f5:execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" )
 
 # Interactive Revset
 BINDINGS+=( --bind 'change:reload: jjfzf_revset_log {q} ' )
@@ -430,7 +430,7 @@ export -f jjfzf_set_revset
 if [ -v "RUN[${1-}]" ]; then
   KEY="$1" && CMD="${RUN[$KEY]}" ; shift
   if [[ "$CMD" =~ \{ ]] ; then
-    CIDS=( $(jjfzf_list_change_ids "$@") )
+    CIDS=( $(jjfzf_list_change_ids "${@-@}") )
     test "${#CIDS[@]}" -lt 1 &&
       die "missing revisions for command: $KEY"
     # Placeholder replacments
