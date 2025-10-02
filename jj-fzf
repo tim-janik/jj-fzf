@@ -135,8 +135,8 @@ export -f jjfzf_split_i
 
 # Inject commit
 KEY[inject]="Alt-J"
-RUN[inject]="jjfzf_inject @ {+2} ; jjfzf_load_and_status"
-DOC[inject]='Inject the currently selected revision(s) as historic commit(s) before @.'
+RUN[inject]="jjfzf_inject --diff @ {2} ; jjfzf_load_and_status"
+DOC[inject]='Inject the currently selected revision as historic diff before @ while preserving its content.'
 
 # New-A
 KEY[new-a]="Alt-N"
