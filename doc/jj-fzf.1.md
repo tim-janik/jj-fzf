@@ -4,7 +4,31 @@
   jj-fzf - Terminal interface for the `jj` version control system based on fzf
 
 # SYNOPSIS
-  **jj-fzf** [*COMMAND*] [*ARGUMENTS*...]
+  **jj-fzf** [*OPTIONS*]
+  **jj-fzf** *COMMAND* [*ARGUMENTS*...]
+
+# OPTIONS
+
+  **--version**
+  : Print version information.
+
+  **--help**
+  : Print brief usage information.
+
+  **--man**
+  : Browse this man page.
+
+  **--no-preview**
+  : Hide the preview window.
+
+  **-c**, **+c**
+  : Start as a commit picker, **-c** picks a single commit, **+c** picks multiple commits.
+
+  **-r**, **+r**
+  : Start as a revision (change ID) picker, **-r** picks a single revision, **+r** picks multiple revisions.
+
+  **-s**
+  : Start as a revset picker, returns the edited / current revset expression.
 
 # DESCRIPTION
 
