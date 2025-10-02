@@ -1,10 +1,15 @@
-## FUTURE
+## JJ-FZF 0.34.0 - 2025-10-02
 
-* The minimum supported fzf version is now 0.65.2.
+### Added:
+
+* In the last month, jj-fzf underwent a complete rewrite. The new version has
+  out of the box support for running jj commands with multiple revisions and
+  extends utilization of new jj and fzf features.
 
 * All key binding commands now operate on a change_id or a list thereof.
 
-* In case of divergent commits, an fzf list entry expands to a commit_id.
+* In case of divergent commits, an fzf list entry now expands to a commit_id,
+  which also means pretty much all commands now handle divergent commits.
 
 * Inject will now copy the author, timestamp and message into the new commit.
 
@@ -25,7 +30,7 @@
   delete tags. The former bookmark deletion under Alt-D has been merged into
   Alt-B.
 
-* Alt-Q will now sqash changes from selected revisions into the revision
+* Alt-Q will now squash changes from selected revisions into the revision
   under the pointer, or into the parent if no revisions are selected.
 
 * Alt-S now starts `jj restore --interactive` and restores files from a single
@@ -52,14 +57,60 @@
   `template-aliases.default_commit_description`.
   See the manual page for LLM configurations via environment variables.
 
-* Missing commands:
-  - Alt-V: vivifydivergent
-  - Ctrl-A: author-reset - consider deprecating for metaedit
-  - Ctrl-I: diff	- can this be replaced by Ctrl-L ?
-  - Ctrl-T: evolog
-  - Ctrl-V: gitk	- consider removing
-  - Ctrl-W: wb-diff	- toggle ±b ±w for diff
-  - oplog: Ctrl-D to toggle jj log diff ON/OFF
+* Sub-dialogs like rebase, reparent or even bookmarks should now retain the
+  commit (bookmark) pointer position.
+
+* An optimal column-major text layout algorithm now presents the key bindings.
+
+* The CI now runs and validates a selected set of screencasts.
+
+* New -c +c -r +r -s options allow using jj-fzf as a picker for 1 or many
+  commits, 1 or many revisions or a revset expression.
+
+### Changed:
+
+* Bookmarks are now display with a simplified state that indicates:
+  Deleted / Conflicted / Tracked / Untracked / Local Remote
+
+* On startup `jj-fzf` now offers revset editing in the query field.
+  Use Ctrl-F for the fzf filter.
+
+* When running `jj describe` a $EDITOR wrapper is used that prevents jj
+  from accepting an auto-generated default description as message.
+
+* Running a command from jj-fzf switches back from the alternative screen
+  and will reload the entire `jj log` output before returning. This may
+  take longer than the async log loading in previous versions, but it
+  allows fzf to track and keep the current pointer position.
+
+### Fixed:
+
+* The man page now list key bindings for jj-fzf and all sub-commands.
+
+* A new configuration section in the man page describes config keys that
+  jj-fzf makes use of, as well as how to configure LLM usage.
+
+* The `push` command now avoids querying if nothing changed.
+
+### Breaking:
+
+* The minimum supported fzf version is now 0.65.2.
+
+* This release requires jj-0.34.0
+
+* Commands missing from the rewrite:
+  - Alt-V: vivifydivergent - use `jj metaedit --update-change-id`
+  - Ctrl-A: author-reset   - use `jj metaedit --update-author`
+  - Ctrl-I: diff           - should be handled by Ctrl-L now
+  - Ctrl-V: gitk           - not provided anymore
+  - Ctrl-W: wb-diff        - toggle ±b ±w for diff
+
+* A number of changes listed above could be considered breaking old
+  workflows. Please provide feedback in Github discussions or IRC
+  if you encounter regressions or miss important features.
+
+Thanks to everyone who gave feedback regarding the rewrite and
+helped to make this release happen!
 
 
 ## JJ-FZF 0.33.0 - 2025-09-11
