@@ -214,9 +214,10 @@ export -f jjfzf_load_and_status
 jjfzf_run()
 (
   set -Eeuo pipefail
-  IGNORE=false NOLOAD=false
+  IGNORE=false NOLOAD=false _X=-x
   while test $# -ne 0 ; do
     case "$1" in \
+      +x)	_X=+x ;;
       +e)	IGNORE=true ;;
       +n)	NOLOAD=true ;;
       +*)	true ;; # skip
@@ -226,13 +227,16 @@ jjfzf_run()
   done
   ERR=0
   if test -n "${1-}" ; then
-    ( set -x; "$@" ) || {
+    if ( set $_X; "$@" ) ; then
+      :
+    else
       ERR=$?
-      echo "jj-fzf: command exit_status=$ERR" >&2
-      $IGNORE ||
-	read -t 1 || :
-      $IGNORE && ERR=0
-    }
+      $IGNORE &&
+	ERR=0 || {
+	  echo "jj-fzf: command exit_status=$ERR" >&2
+	  read -t 1 || :	# pause
+	}
+    fi
   fi
   $NOLOAD || jjfzf_load_and_status
   exit $ERR

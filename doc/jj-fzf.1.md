@@ -4,7 +4,31 @@
   jj-fzf - Terminal interface for the `jj` version control system based on fzf
 
 # SYNOPSIS
-  **jj-fzf** [*COMMAND*] [*ARGUMENTS*...]
+  **jj-fzf** [*OPTIONS*] \
+  **jj-fzf** *COMMAND* [*ARGUMENTS*...]
+
+# OPTIONS
+
+  **--version**
+  : Print version information.
+
+  **--help**
+  : Print brief usage information.
+
+  **--man**
+  : Browse this man page.
+
+  **--no-preview**
+  : Hide the preview window.
+
+  **-c**, **+c**
+  : Start as a commit picker, **-c** picks a single commit, **+c** picks multiple commits.
+
+  **-r**, **+r**
+  : Start as a revision (change ID) picker, **-r** picks a single revision, **+r** picks multiple revisions.
+
+  **-s**
+  : Start as a revset picker, returns the edited / current revset expression.
 
 # DESCRIPTION
 
@@ -16,8 +40,8 @@
   separate view for the operations log, `jj op log`, allows fast previews of
   diffs and commit histories of past operations and enabling undo of previous
   actions. The available hotkeys are displayed on-screen for easy
-  discoverability. The commands and key bindings can also be displayed with
-  `jj-fzf --help` and are documented in the **jj-fzf** wiki.
+  discoverability. The commands and key bindings can also be found in the man
+  page (displayed with `jj-fzf --man`) and are documented in the **jj-fzf** wiki.
 
 ## JJ LOG VIEW
 
@@ -93,10 +117,12 @@
 
   For all repository-modifying commands, **jj-fzf** prints the actual `jj` commands
   executed to stderr. The output aids users in learning how to use `jj` directly
-  to achieve the desired effects. It can also be useful when debugging and helps
-  users determine which actions they might wish to undo. Most commands can also
-  be run via the command line, using: \
-  `jj-fzf <command> <revision>`
+  to achieve the desired effects. This output can also be useful when debugging and
+  helps users determine which actions they might wish to undo.
+
+  Most commands can also be run directly from the command line. The supported
+  commands are the same as the key bindings listed below (e.g., `abandon`,
+  `squash`, etc.). The arguments are typically one or more commit or change IDs.
 
 # KEY BINDINGS
 
