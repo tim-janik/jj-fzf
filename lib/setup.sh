@@ -460,14 +460,25 @@ FZF_ARGS=(
   --header-first
   --header-label-pos 2
   --list-label ' JJ-LOG '
-  --bind 'page-down:half-page-down'
-  --bind 'page-up:half-page-up'
-  --bind "scroll-down:offset-up"
   --bind "scroll-up:offset-down"
+  --bind "scroll-down:offset-up"
+  # Notes:
+  # - In fzf on Linux, Shift+ ↑↓←→ is the same as Ctrl+ ↑↓←→
+  # - Shift+←→ is used in the query field
+  # - Plain ↑↓ PgUp PgDn is used to move in the list
+  # - Other editros scroll with Ctrl+↑↓, like vscode
+  --bind "shift-up:offset-down"		# == ctrl-up
+  --bind "shift-down:offset-up"		# == ctrl-down
+  --bind 'page-up:half-page-up'
+  --bind 'page-down:half-page-down'
   --bind "alt-up:preview-up"
   --bind "alt-down:preview-down"
-  --bind "alt-<:first"
-  --bind "alt->:last"
+  --bind "alt-left:preview-half-page-up"
+  --bind "alt-right:preview-half-page-down"
+  #--bind "shift-alt-up:preview-top"
+  #--bind "shift-alt-down:preview-bottom"
+  #--bind "shift-alt-left:first"
+  #--bind "shift-alt-right:last"
   --bind 'ctrl-u:deselect-all+clear-query'
   --bind "ctrl-alt-w:toggle-wrap+toggle-preview-wrap"
   --bind "ctrl-x:jump"
