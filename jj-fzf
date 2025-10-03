@@ -500,7 +500,7 @@ FZF_ARGS+=(
   --preview-label " Revision Info "
 )
 $WITH_PREVIEW &&
-  FZF_ARGS+=( --preview "jjfzf_full_commit {2} | sed '1{/^$/d}; 3001q' " )
+  FZF_ARGS+=( --preview "jjfzf_full_commit {2} | sed '1{/^$/d}; 9999q' " )
 jjfzf_status
 export JJFZF_LOAD_LIST=jjfzf_log0
 unset FZF_DEFAULT_OPTS FZF_DEFAULT_COMMAND
