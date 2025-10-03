@@ -50,11 +50,19 @@ doc/jj-fzf.1: doc/jj-fzf.1.md Makefile.mk jj-fzf $(wildcard lib/*)
 	$Q pandoc $(man/markdown-flavour) -s -p \
 		-M date="$(word 2, $(version_full))" \
 		-M footer="jj-fzf-$(word 1, $(version_full))" \
-		-t man doc/jj-fzf+cmds.1.md -o $@.tmp
+		doc/jj-fzf+cmds.1.md -t man -o $@.tmp
 	$Q rm -f doc/cmdrr.awk doc/keys.tmp doc/jj-fzf.1.tmp.md && mv $@.tmp $@
 man/markdown-flavour	:= -f markdown+autolink_bare_uris+emoji+lists_without_preceding_blankline-smart
 CLEANFILES += doc/jj-fzf.1 doc/*.tmp*
 all: doc/jj-fzf.1
+
+# == jj-fzf-help.md ==
+# Man page for the jj-fzf wiki
+doc/jj-fzf.1.gfm.md: doc/jj-fzf.1
+	pandoc $(man/markdown-flavour) -s -p \
+		-M date="$(word 2, $(version_full))" \
+		-M footer="jj-fzf-$(word 1, $(version_full))" \
+		doc/jj-fzf+cmds.1.md -t gfm -o $@
 
 # == SCRIPTS ==
 SHELLSCRIPTS := jj-fzf $(wildcard *.sh lib/*.sh)
