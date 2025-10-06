@@ -30,6 +30,7 @@ test -z "${NO_COLOR-}" && JJFZF_COLOR=--color=always || JJFZF_COLOR=--color=neve
 export JJFZF_COLOR
 # abandon-unreachable=true can be dangerous: https://github.com/jj-vcs/jj/discussions/7248#discussioncomment-14135120
 export JJFZF_KEEPCOMMITS=--config=git.abandon-unreachable-commits=false
+export JJFZF_SEDLIMIT=10000q
 
 # == JJFZF_TEMPD ==
 # Ensure temporary directory

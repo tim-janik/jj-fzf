@@ -49,7 +49,7 @@ jjfzf_evolog_info()
   set -Eeuo pipefail #-x
   COMMITID="$1"
   jj --no-pager --ignore-working-copy $JJFZF_COLOR evolog -p -r "$COMMITID" |
-    sed '3001q'
+    sed $JJFZF_SEDLIMIT
 )
 export -f jjfzf_evolog_info
 
