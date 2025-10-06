@@ -472,12 +472,23 @@ FZF_ARGS=(
   --list-label ' JJ-LOG '
   --bind 'page-down:half-page-down'
   --bind 'page-up:half-page-up'
-  --bind "scroll-down:offset-up"
-  --bind "scroll-up:offset-down"
+  --bind "ctrl-up:offset-up"
+  --bind "ctrl-down:offset-down"
+  --bind "ctrl-left:first"
+  --bind "ctrl-right:last"
+  --bind "scroll-up:offset-up"
+  --bind "scroll-down:offset-down"
+  # DEFAULT: --bind "shift-up:preview-up"
+  # DEFAULT: --bind "shift-down:preview-down"
   --bind "alt-up:preview-up"
   --bind "alt-down:preview-down"
-  --bind "alt-<:first"
-  --bind "alt->:last"
+  --bind "alt-left:preview-top"
+  --bind "alt-right:preview-bottom"
+  --bind "shift-alt-up:preview-page-up"
+  --bind "shift-alt-down:preview-page-down"
+  --bind "shift-alt-left:preview-half-page-up"
+  --bind "shift-alt-right:preview-half-page-down"
+
   --bind 'ctrl-u:deselect-all+clear-query'
   --bind "ctrl-alt-w:toggle-wrap+toggle-preview-wrap"
   --bind "ctrl-x:jump"
