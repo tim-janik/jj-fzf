@@ -451,7 +451,7 @@ FZF_ARGS=(
   --info default
   --layout reverse-list
   --scrollbar '▍'	# '▌'
-  --scroll-off 2
+  --scroll-off 0
   --highlight-line
   --preview-label-pos 2
   --input-label-pos 2
