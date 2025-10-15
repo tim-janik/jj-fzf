@@ -1,0 +1,29 @@
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+
+# See https://pre-commit.com for more information
+default_stages: [pre-push]	# only run on push
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  # See https://pre-commit.com/hooks.html for more hooks
+  hooks:
+  # id: end-of-file-fixer
+  - id: check-added-large-files
+  - id: check-executables-have-shebangs
+  - id: check-json
+  - id: check-merge-conflict
+  - id: check-symlinks
+  - id: check-toml
+  - id: check-xml
+  - id: check-yaml
+  - id: forbid-new-submodules
+  - id: trailing-whitespace
+
+- repo: local
+  hooks:
+  - id: check-unfinished-work
+    name: Check Unfinished Work
+    entry: lib/check-unfinished.sh
+    language: system
+    types: [file]     # Run for all file types
+    pass_filenames: true
