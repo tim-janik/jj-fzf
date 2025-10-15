@@ -270,11 +270,22 @@ jjfzf_refs_enter()
       elif [[ "$STATE1D" == "Untracked" ]] ; then
 	jjfzf_run +n jj --no-pager bookmark track -- "$REF"@origin
       elif [[ "$STATE1D" == "Local" ]] ; then
-	# needs push to be present @origin
-	jjfzf_run +n jj git push $JJFZF_COLOR --allow-new --remote origin --bookmark "$REF" --dry-run > $JJFZF_TEMPD/bpush.log 2>&1 \
+	PUSH_ARGS=(--allow-new --remote origin --bookmark "$REF")
+	# needs push to be possible @origin
+	jjfzf_run +n jj git push $JJFZF_COLOR "${PUSH_ARGS[@]}" --dry-run > $JJFZF_TEMPD/bpush.log 2>&1 \
 	  && STATUS=0 || STATUS=$?
 	cat $JJFZF_TEMPD/bpush.log
-	if test $STATUS != 0 || grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/bpush.log ; then
+	if test $STATUS == 0 && grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/bpush.log ; then
+	  STATUS=-1
+	fi
+	# jj-pre-push --dry-run to run hooks
+	if test $STATUS == 0 -a -r .pre-commit-config.yaml &&
+	    jjfzf_config get 'aliases.push' | grep -q '\bjj-pre-push\b' ; then
+	  jjfzf_run +n jj push "${PUSH_ARGS[@]}" --dry-run \
+	    || STATUS=$?
+	fi
+	# jj git push
+	if test $STATUS != 0 ; then
 	  read -p "Press Enter..."
 	else
 	  read -p 'Proceed with bookmark push and submit changes? (y/N) ' YN
