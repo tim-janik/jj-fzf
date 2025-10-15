@@ -27,7 +27,7 @@ done
 # == Config ==
 export JJFZF_REVSET_OVERRIDE="$JJFZF_TEMPD/log_revset"
 # Always ensure root relative paths
-JJROOT="$(jj --ignore-working-copy --no-pager root 2>/dev/null)" &&
+JJROOT="$(jj --ignore-working-copy --no-pager workspace root 2>/dev/null)" &&
   cd "$JJROOT" ||
     die "$PWD: not a JJ repository"
 JJ="jj --no-pager --ignore-working-copy"
@@ -319,7 +319,7 @@ DOC[oplog]='Use `jj operation log` to browse the recent operations log. Use hotk
 
 # Push & fetch from remotes
 KEY[push]="Ctrl-P"	POST[new]="+first"
-DOC[push]='Use `jj git fetch` and `jj git push --tracked --deleted` to update the local and remote repositories. Pushing needs confirmation after a dry-run. Tries to push all refs if no revisions are currently selected.'
+DOC[push]='Use `jj git fetch` and `jj git push --tracked --deleted` to update the local and remote repositories. Pushing needs confirmation after a dry-run. Tries to push all refs if no revisions are currently selected. Uses `jj push` if that is configured as an alias for `jj-pre-push`.'
 RUN[push]="jjfzf_push {2} {+2}"
 jjfzf_push()
 (
@@ -331,14 +331,26 @@ jjfzf_push()
       REVS=( -r "$ALL" )
   fi
   STATUS=0
+  # fetch to ensure up-to-date bookmarks
   jjfzf_run +n jj git fetch $JJFZF_COLOR $JJFZF_KEEPCOMMITS \
     || STATUS=$?
+  # push --dry-run to see if anything needs pushing
   if test $STATUS == 0 ; then
-    jjfzf_run +n jj git push $JJFZF_COLOR "${REVS[@]}" --dry-run > $JJFZF_TEMPD/push.log 2>&1 \
+    jjfzf_run +n jj git push "${REVS[@]}" $JJFZF_COLOR --dry-run > $JJFZF_TEMPD/push.log 2>&1 \
       || STATUS=$?
     cat $JJFZF_TEMPD/push.log
+    if test $STATUS == 0 && grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/push.log ; then
+      STATUS=-1
+    fi
   fi
-  if test $STATUS != 0 || grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/push.log ; then
+  # jj-pre-push --dry-run to run hooks
+  if test $STATUS == 0 -a -r .pre-commit-config.yaml &&
+      jjfzf_config get 'aliases.push' | grep -q '\bjj-pre-push\b' ; then
+    jjfzf_run +n jj push "${REVS[@]}" --dry-run \
+      || STATUS=$?
+  fi
+  # push when confirmed
+  if test $STATUS != 0 ; then
     read -p "Press Enter..."
   else
     read -p 'Proceed with actual push and submit changes? (y/N) ' YN
