@@ -198,6 +198,10 @@
   Pre-generated commit messages for `jj describe` are provided as a temporary config
   value in `template-aliases.default_commit_description`.
 
+  If an `aliases.push` command is configured to run `jj-pre-push` and the
+  workspace contains a `.pre-commit-config.yaml` file, pushing will use
+  `jj push` so any **pre-commit** hooks are executed first.
+
 
 ## LLM CONFIGURATION
 !!!! lib/gen-message.py --llm-help
@@ -213,3 +217,6 @@
 
   For using `default_commit_description` in `draft_commit_description` customization, see: \
   https://jj-vcs.github.io/jj/latest/config/#default-description
+
+  For **pre-commit** hooks via `jj-pre-push`, see: \
+  https://github.com/acarapetis/jj-pre-push
