@@ -108,7 +108,8 @@ installcheck:
 	$(QGEN)
 	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null \
 	|| { echo "$@: ERROR: failed to start $(DESTDIR)$(BINDIR)/jj-fzf" >&2; false; }
-	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 | grep -qF jj-fzf \
+	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 > $@.tmp \
+	&& grep -qF jj-fzf $@.tmp && rm -f $@.tmp \
 	|| { echo "$@: ERROR: failed to render $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1" >&2; false; }
 uninstall:
 	$(QGEN)
