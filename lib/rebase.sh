@@ -83,7 +83,7 @@ jjfzf_rebase_enter()
   source $JJFZF_TEMPD/rebase.env
   # duplicate revisions
   if test -n "$DP" ; then
-    jjfzf_run +n jj duplicate $TO "$TARGET" -r "$JJFZF_CREVS$CH"
+    jjfzf_run +n jj duplicate $II $TO "$TARGET" -r "$JJFZF_CREVS$CH"
   else # rebase revisions
     jjfzf_run +n jj rebase $II $TO "$TARGET" $FR "$JJFZF_CREVS"
   fi
@@ -105,7 +105,7 @@ jjfzf_rebase_plan()
   source $JJFZF_TEMPD/rebase.env
   echo
   test -z "$DP" ||
-    echo "jj duplicate $TO $TARGET -r '$JJFZF_CREVS'$CH"
+    echo "jj duplicate $II $TO $TARGET -r '$JJFZF_CREVS'$CH"
   test -n "$DP" ||
     echo "jj rebase $II $TO $TARGET $FR '$JJFZF_CREVS'"
   echo
