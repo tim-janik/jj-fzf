@@ -27,6 +27,7 @@ echo 'CH='			>> $JJFZF_TEMPD/rebase.env
 echo 'TO=--destination'		>> $JJFZF_TEMPD/rebase.env
 echo 'SP=false'			>> $JJFZF_TEMPD/rebase.env
 echo 'II='			>> $JJFZF_TEMPD/rebase.env
+echo 'WORDS='			>> $JJFZF_TEMPD/rebase.env
 if [[ $JJFZF_CREVS =~ \| ]] ; then
   echo 'FR=--revisions'		>> $JJFZF_TEMPD/rebase.env	# multi revs
 else
@@ -61,14 +62,17 @@ B+=( --bind "alt-p:execute-silent( sed 's/^SP=false/SP=x/; s/^SP=true/SP=false/;
 H+=( 'Alt-I:  Ignore-Immutable permits rebasing immutable commits' )
 B+=( --bind "alt-i:execute-silent( sed 's/^II=-.*/II=x/; s/^II=$/II=--ignore-immutable/; s/^II=x.*/II=/' -i $JJFZF_TEMPD/rebase.env )+refresh-preview" )
 
-H+=( "Ctrl-D: Destination — pick the target to rebase onto" )
-B+=( --bind "ctrl-d:execute-silent( sed 's/^TO=.*/TO=--destination/' -i $JJFZF_TEMPD/rebase.env )+refresh-preview" )
-
 H+=( "Ctrl-A: After — pick the target to insert after" )
 B+=( --bind "ctrl-a:execute-silent( sed 's/^TO=.*/TO=--insert-after/' -i $JJFZF_TEMPD/rebase.env )+refresh-preview" )
 
 H+=( "Ctrl-B: Before — pick the target to insert before" )
 B+=( --bind "ctrl-b:execute-silent( sed 's/^TO=.*/TO=--insert-before/' -i $JJFZF_TEMPD/rebase.env )+refresh-preview" )
+
+H+=( "Ctrl-D: Destination — pick the target to rebase onto" )
+B+=( --bind "ctrl-d:execute-silent( sed 's/^TO=.*/TO=--destination/' -i $JJFZF_TEMPD/rebase.env )+refresh-preview" )
+
+H+=( "Ctrl-W: Word-level merging — merge words not lines" )
+B+=( --bind "ctrl-w:execute-silent( sed 's/^WORDS=-.*/WORDS=x/; s/^WORDS=$/WORDS=--config=merge.hunk-level=word/; s/^WORDS=x.*/WORDS=/' -i $JJFZF_TEMPD/rebase.env )+refresh-preview" )
 
 # == Header Help ==
 HEADER_HELP=$(printf "%s\n" "${H[@]}" | jjfzf_bold_keys)
@@ -83,9 +87,9 @@ jjfzf_rebase_enter()
   source $JJFZF_TEMPD/rebase.env
   # duplicate revisions
   if test -n "$DP" ; then
-    jjfzf_run +n jj duplicate $II $TO "$TARGET" -r "$JJFZF_CREVS$CH"
+    jjfzf_run +n jj duplicate $II $TO "$TARGET" -r "$JJFZF_CREVS$CH" $WORDS
   else # rebase revisions
-    jjfzf_run +n jj rebase $II $TO "$TARGET" $FR "$JJFZF_CREVS"
+    jjfzf_run +n jj rebase $II $TO "$TARGET" $FR "$JJFZF_CREVS" $WORDS
   fi
   # simplify-parents
   if $SP; then
@@ -105,9 +109,9 @@ jjfzf_rebase_plan()
   source $JJFZF_TEMPD/rebase.env
   echo
   test -z "$DP" ||
-    echo "jj duplicate $II $TO $TARGET -r '$JJFZF_CREVS'$CH"
+    echo "jj duplicate $II $TO $TARGET -r '$JJFZF_CREVS'$CH" $WORDS
   test -n "$DP" ||
-    echo "jj rebase $II $TO $TARGET $FR '$JJFZF_CREVS'"
+    echo "jj rebase $II $TO $TARGET $FR '$JJFZF_CREVS'" $WORDS
   echo
   test $SP == true &&
     echo "jj simplify-parents -r '$JJFZF_CREVS'"
