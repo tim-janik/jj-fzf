@@ -87,9 +87,9 @@ jjfzf_rebase_enter()
   source $JJFZF_TEMPD/rebase.env
   # duplicate revisions
   if test -n "$DP" ; then
-    jjfzf_run +n jj duplicate $II $TO "$TARGET" -r "$JJFZF_CREVS$CH" $WORDS
+    jjfzf_run +n jj duplicate $II $WORDS $TO "$TARGET" -r "$JJFZF_CREVS$CH"
   else # rebase revisions
-    jjfzf_run +n jj rebase $II $TO "$TARGET" $FR "$JJFZF_CREVS" $WORDS
+    jjfzf_run +n jj rebase $II $WORDS $TO "$TARGET" $FR "$JJFZF_CREVS"
   fi
   # simplify-parents
   if $SP; then
@@ -109,9 +109,9 @@ jjfzf_rebase_plan()
   source $JJFZF_TEMPD/rebase.env
   echo
   test -z "$DP" ||
-    echo "jj duplicate $II $TO $TARGET -r '$JJFZF_CREVS'$CH" $WORDS
+    echo "jj duplicate $II $WORDS $TO $TARGET -r '$JJFZF_CREVS'$CH"
   test -n "$DP" ||
-    echo "jj rebase $II $TO $TARGET $FR '$JJFZF_CREVS'" $WORDS
+    echo "jj rebase $II $WORDS $TO $TARGET $FR '$JJFZF_CREVS'"
   echo
   test $SP == true &&
     echo "jj simplify-parents -r '$JJFZF_CREVS'"
