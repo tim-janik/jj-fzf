@@ -108,10 +108,16 @@ jjfzf_rebase_plan()
   TARGET="$1"
   source $JJFZF_TEMPD/rebase.env
   echo
-  test -z "$DP" ||
-    echo "jj duplicate $II $WORDS $TO $TARGET -r '$JJFZF_CREVS'$CH"
-  test -n "$DP" ||
-    echo "jj rebase $II $WORDS $TO $TARGET $FR '$JJFZF_CREVS'"
+  test -z "$DP" || {
+    echo "jj duplicate $II $WORDS \\"
+    echo "  $TO $TARGET \\"
+    echo "  -r '$JJFZF_CREVS'$CH"
+  }
+  test -n "$DP" || {
+    echo "jj rebase $II $WORDS \\"
+    echo "  $TO $TARGET \\"
+    echo "  $FR '$JJFZF_CREVS'"
+  }
   echo
   test $SP == true &&
     echo "jj simplify-parents -r '$JJFZF_CREVS'"
