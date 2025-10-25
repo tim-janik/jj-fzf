@@ -23,6 +23,7 @@ while test $# -ne 0 ; do
   esac
   shift
 done
+echo "DIFFMODE='$(jjfzf_config get jj-fzf.diff-mode)'"			>> $JJFZF_TEMPD/preview.env
 echo "IGNORE_SPACE='$(jjfzf_config get jj-fzf.whitespace-mode)'"	>> $JJFZF_TEMPD/preview.env
 
 # == Config ==
@@ -42,10 +43,11 @@ jjfzf_full_commit()
   set -Eeuo pipefail
   test -z "${1-}" &&	# may be revset
     exit 0
-  IGNORE_SPACE=
-  test -r "$JJFZF_TEMPD/preview.env" && . $JJFZF_TEMPD/preview.env # IGNORE_SPACE
-  test -z "$IGNORE_SPACE" && DIFF_COMMENT='""' || DIFF_COMMENT="\"diff $IGNORE_SPACE\\n\""
-  jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR $IGNORE_SPACE --no-graph -r "$1" -p \
+  IGNORE_SPACE= DIFFMODE=
+  test -r "$JJFZF_TEMPD/preview.env" && . $JJFZF_TEMPD/preview.env # IGNORE_SPACE DIFFMODE
+  test -z "$DIFFMODE" || DIFFMODE=--color-words
+  test -z "$IGNORE_SPACE$DIFFMODE" && DIFF_COMMENT='""' || DIFF_COMMENT="\"diff $IGNORE_SPACE $DIFFMODE\\n\""
+  jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR $IGNORE_SPACE $DIFFMODE --no-graph -r "$1" -p \
 	      -T '"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n", '"$DIFF_COMMENT"' )'
 )
 export -f jjfzf_full_commit
@@ -256,6 +258,24 @@ jjfzf_whitespace_cycle()
   sed "s/^IGNORE_SPACE=.*/IGNORE_SPACE='${WHITESPACE_MODES[$next_index]}'/" -i $JJFZF_TEMPD/preview.env
 )
 export -f jjfzf_whitespace_cycle
+
+# Word-diff toggle
+KEY[wdiff]="Ctrl-W"
+DOC[wdiff]='Toggle preview diff display between line diff and word diff.'
+BINDINGS+=( --bind "ctrl-w:execute-silent( jjfzf_word_diff_toggle )+refresh-preview" )
+jjfzf_word_diff_toggle()
+(
+  CURRENT_DIFFMODE=$(jjfzf_config get jj-fzf.diff-mode)
+  DIFF_MODES=("--color-words" "")
+  index=0
+  for i in "${!DIFF_MODES[@]}"; do
+    [[ "${DIFF_MODES[$i]}" == "$CURRENT_DIFFMODE" ]] && { index=$i && break; }
+  done
+  next_index=$(( (index + 1) % ${#DIFF_MODES[@]} ))
+  jjfzf_config set jj-fzf.diff-mode "${DIFF_MODES[$next_index]}"
+  sed "s/^DIFFMODE=.*/DIFFMODE='${DIFF_MODES[$next_index]}'/" -i $JJFZF_TEMPD/preview.env
+)
+export -f jjfzf_word_diff_toggle
 
 # Describe
 KEY[describe]="Ctrl-D"
