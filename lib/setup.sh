@@ -111,12 +111,16 @@ export -f jjfzf_config_quote
 jjfzf_status()
 (
   CID=$(jj --no-pager --ignore-working-copy log --no-graph -r @ -T commit_id)
-  ( set -x
-    jj --no-pager status $JJFZF_COLOR
-  ) > $JJFZF_TEMPD/status 2>&1
-  test $(jj --no-pager --ignore-working-copy log --no-graph -r @ -T commit_id) == "$CID" ||
+  if ( set -x && jj --no-pager status $JJFZF_COLOR ) > $JJFZF_TEMPD/status 2>&1 ; then
+    test $(jj --no-pager --ignore-working-copy log --no-graph -r @ -T commit_id) == "$CID" ||
+      cat $JJFZF_TEMPD/status >&2
+    ERR=0
+  else
+    ERR=$?
     cat $JJFZF_TEMPD/status >&2
+  fi
   rm -f $JJFZF_TEMPD/status
+  exit $ERR
 )
 export -f jjfzf_status
 
