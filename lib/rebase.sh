@@ -163,6 +163,7 @@ export -f jjfzf_log0_marked_revs
 FZF_ARGS+=(
   --color=border:magenta,label:magenta
   --border-label "-[ ${TITLE^^} — JJ-FZF ]-"
+  --bind "load:+toggle-preview-wrap"
   --footer "${TITLE}"
   --bind 'focus:+transform-ghost( R={2} && echo -n "${R:0:12}" )'
 )

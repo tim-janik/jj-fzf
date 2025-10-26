@@ -156,7 +156,7 @@ FZF_ARGS+=(
   --bind 'focus:+transform-ghost( R={2} && echo -n "${R:0:12}" )'
   --prompt 'Parent > '
   --bind "start,resize,alt-h:+transform-header: jjfzf_header "
-  --bind "start:+toggle-preview-wrap"
+  --bind "load:+toggle-preview-wrap"
   --footer "${TITLE}"
 )
 test -z "${FZF_POS-}" ||

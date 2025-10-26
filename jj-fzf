@@ -23,6 +23,7 @@ while test $# -ne 0 ; do
   esac
   shift
 done
+echo "IGNORE_SPACE='$(jjfzf_config get jj-fzf.whitespace-mode)'"	>> $JJFZF_TEMPD/preview.env
 
 # == Config ==
 export JJFZF_REVSET_OVERRIDE="$JJFZF_TEMPD/log_revset"
@@ -41,13 +42,17 @@ jjfzf_full_commit()
   set -Eeuo pipefail
   test -z "${1-}" &&	# may be revset
     exit 0
-  jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR --no-graph -r "$1" -p \
-	      -T '"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n" )'
+  IGNORE_SPACE=
+  test -r "$JJFZF_TEMPD/preview.env" && . $JJFZF_TEMPD/preview.env # IGNORE_SPACE
+  test -z "$IGNORE_SPACE" && DIFF_COMMENT='""' || DIFF_COMMENT="\"diff $IGNORE_SPACE\\n\""
+  jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR $IGNORE_SPACE --no-graph -r "$1" -p \
+	      -T '"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n", '"$DIFF_COMMENT"' )'
 )
 export -f jjfzf_full_commit
 jjfzf_log_detailed	# for preview, assigns $JJFZF_LOG_DETAILED_CONFIG
 
 # == jjfzf_full_history ==
+# Browse revset history in pager
 jjfzf_full_history()
 (
   set -Eeuo pipefail
@@ -233,6 +238,24 @@ DOC[redo]='Use `jj redo` to redo the last undo operation performed by `jj undo`.
 KEY[undo]="Alt-Z"
 RUN[undo]="jjfzf_run jj --no-pager undo"
 DOC[undo]='Use `jj undo` to undo the last operation performed by `jj` that was not previously undone.'
+
+# Whitespace toggle
+KEY[nospace]="Ctrl-B"
+DOC[nospace]='Cycle between preview diff display with and without whitespace.'
+BINDINGS+=( --bind "ctrl-b:execute-silent( jjfzf_whitespace_cycle )+refresh-preview" )
+jjfzf_whitespace_cycle()
+(
+  CURRENT_WHITESPACE=$(jjfzf_config get jj-fzf.whitespace-mode)
+  WHITESPACE_MODES=("--ignore-space-change" "--ignore-all-space" "")
+  index=0
+  for i in "${!WHITESPACE_MODES[@]}"; do
+    [[ "${WHITESPACE_MODES[$i]}" == "$CURRENT_WHITESPACE" ]] && { index=$i && break; }
+  done
+  next_index=$(( (index + 1) % ${#WHITESPACE_MODES[@]} ))
+  jjfzf_config set jj-fzf.whitespace-mode "${WHITESPACE_MODES[$next_index]}"
+  sed "s/^IGNORE_SPACE=.*/IGNORE_SPACE='${WHITESPACE_MODES[$next_index]}'/" -i $JJFZF_TEMPD/preview.env
+)
+export -f jjfzf_whitespace_cycle
 
 # Describe
 KEY[describe]="Ctrl-D"
