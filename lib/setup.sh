@@ -84,8 +84,13 @@ jjfzf_config()
   set -Eeuo pipefail
   JJ="jj --no-pager --ignore-working-copy"
   case "$1" in
-    get)	$JJ config get "$2" 2>/dev/null || : ;;
-    set)	$JJ config set --repo "$2" "$3" ;;
+    # <get> <key> [fallback]
+    get)	$JJ config get "$2" 2>/dev/null || {
+	   test -z "${3-}" || echo "$3"
+	 } ;;
+    # <set> <key> <value>
+    set)	$JJ config set --repo "$2" -- "$3" ;;
+    # <toggle> <key>
     toggle)
       T="$($JJ config get "$2" 2>/dev/null || :)"
       test "$T" == 0 -o "$T" == false && T=true || T=false
