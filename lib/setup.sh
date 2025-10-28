@@ -189,7 +189,8 @@ jjfzf_log0()
   TMPL=$($JJ config get jj-fzf.log_template 2>/dev/null) ||
     TMPL=$($JJ config get templates.log 2>/dev/null) ||
     TMPL=builtin_log_oneline
-  jjfzf_jjlog $JJFZF_COLOR -r "$REVSET" \
+  LOGMODE=$(jjfzf_config get jj-fzf.log-mode)
+  jjfzf_jjlog $JJFZF_COLOR $LOGMODE -r "$REVSET" \
       -T " '¸'++stringify($JJFZF_REVISION_TMPL)++'¸¸' ++ $TMPL " 2>&1 |
     sed '/¸¸/s/^/\x00/ ; 1s/^\x00//'
 )

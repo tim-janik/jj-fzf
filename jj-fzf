@@ -277,6 +277,23 @@ jjfzf_word_diff_toggle()
 )
 export -f jjfzf_word_diff_toggle
 
+# Toggle log --types
+KEY[types]="Ctrl-T"
+DOC[types]='Toggle display of a two letter file type diff in the log view.'
+RUN[types]="jjfzf_toggle_types ; jjfzf_load_and_status"
+jjfzf_toggle_types()
+(
+  CURRENT_LOGMODE=$(jjfzf_config get jj-fzf.log-mode)
+  LOGMODES=("--types" "")
+  index=0
+  for i in "${!LOGMODES[@]}"; do
+    [[ "${LOGMODES[$i]}" == "$CURRENT_LOGMODE" ]] && { index=$i && break; }
+  done
+  next_index=$(( (index + 1) % ${#LOGMODES[@]} ))
+  jjfzf_config set jj-fzf.log-mode "${LOGMODES[$next_index]}"
+)
+export -f jjfzf_toggle_types
+
 # Describe
 KEY[describe]="Ctrl-D"
 RUN[describe]="jjfzf_describe_commit {2}"
