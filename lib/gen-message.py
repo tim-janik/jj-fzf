@@ -3,6 +3,7 @@
 import sys, os, re, argparse, json, subprocess
 import urllib.request, urllib.parse
 from typing import Generator, Dict, Any
+from pathlib import Path
 
 DEBUG = False
 DEBUG_PROMPT = False
@@ -143,18 +144,24 @@ def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None
 def generate_commit_message (commit_hash, max_count=99):
   """Generate a commit message for the given commit hash"""
   llm_stream, llm_name = configure_model_stream()
+  use_jj = locate_dominating_file (".", ".jj") != None
   if DEBUG:
-    print ("EXEC: Running `git log ...`", file = sys.stderr)
+    print (f"EXEC: Running `{'jj' if use_jj else 'git'} log ...`", file = sys.stderr)
   try:
-    git_log = "git -P log --no-color --format='%n========%nAuthor: %an <%ae>%n%n%B' --stat"
-
+    # Commands to list example history and diff
+    if use_jj:
+      vcs_log = """jj log --no-pager --no-graph --color=never --stat """
+      vcs_log += """-T '"\n========\nAuthor: "++coalesce(self.author().name(),self.author().email())++"\n\n"++description++"\n"' """
+      vcs_diff = vcs_log + f"""--git -r '{commit_hash}' """
+      vcs_log += f"""-n {max_count} -r '..{commit_hash}' --reversed """
+    else:
+      vcs_log = """git -P log --no-color --stat --format='%n========%nAuthor: %an%n%n%B' """
+      vcs_diff = vcs_log + f"""-p '{commit_hash}^!' """
+      vcs_log += f"""-n {max_count} '{commit_hash}' --reverse """
     # Get the diff for the specific commit
-    diff_cmd = f"{git_log} -p '{commit_hash}^!'"
-    diff = subprocess.check_output (diff_cmd, shell = True, text = True)
-
-    # Get examples from recent commits
-    examples_cmd = f"{git_log} --reverse -n{max_count}"
-    examples = subprocess.check_output (examples_cmd, shell = True, text = True)
+    diff = subprocess.check_output (vcs_diff, shell = True, text = True)
+    # Get example messages from recent commits
+    examples = subprocess.check_output (vcs_log, shell = True, text = True)
   except subprocess.CalledProcessError as e:
     print (f"{sys.argv[0]}: Failed to execute git command: {e}", file = sys.stderr)
     sys.exit (2)
@@ -174,6 +181,7 @@ def generate_commit_message (commit_hash, max_count=99):
   if DEBUG_PROMPT:
     print ("PROMPT:", file = sys.stderr)
     print (constructed_prompt, file = sys.stderr)
+    # Path('/tmp/prompt.txt').write_text (constructed_prompt) # 'a'
   iterable = llm_stream (constructed_prompt)
   if DEBUG:
     print ("HTTP: Starting LLM request", file = sys.stderr)
@@ -181,6 +189,7 @@ def generate_commit_message (commit_hash, max_count=99):
 
 def output (text_to_print: str):
   """Writes the given text to standard output and flushes."""
+  text_to_print = re.sub (r' +(?=\n)', '', text_to_print)
   sys.stdout.write (text_to_print)
   sys.stdout.flush()
   if DUP_OUTPUT:
@@ -212,6 +221,14 @@ def tidy_print (iterable):
     output (buffer)
   if not buffer.endswith ('\n'):
     output ('\n')
+
+def locate_dominating_file (start, name):
+  p = Path (start).resolve()
+  while p != p.parent:
+    if (p / name).exists():
+      return str (p)
+    p = p.parent
+  return None
 
 def main():
   if '--llm-help' in sys.argv:
