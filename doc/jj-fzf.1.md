@@ -193,6 +193,9 @@
   template). For example, to configure one-line display as the default, use:
   `jj config set --user jj-fzf.log_template builtin_log_oneline`
 
+  The `jj-fzf.log-mode` configuration setting stores whether each commit in the
+  log view also includes a two letter file type diff.
+
   The configuration setting `jj-fzf.show-keys` determines if an **fzf** header
   is shown that displays active key bindings.
   Pre-generated commit messages for `jj describe` are provided as a temporary config
