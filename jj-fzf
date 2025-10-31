@@ -304,8 +304,11 @@ jjfzf_describe_commit()
   CONFIG=()
   if test true == $(jj --no-pager --ignore-working-copy log --no-graph \
 		       -r "$REV" -T 'self.parents().len() > 1') ; then
-    QMSG=$($JJFZF_ABSPATHLIB/draft.sh "$REV" | jjfzf_config_quote)
-    CONFIG+=(--config="template-aliases.default_commit_description=$QMSG")
+    echo '[template-aliases]'			>  $JJFZF_TEMPD/descdraft.toml
+    echo -n "default_commit_description="	>> $JJFZF_TEMPD/descdraft.toml
+    $JJFZF_ABSPATHLIB/draft.sh "$REV" |
+      jjfzf_config_quote '' ''			>> $JJFZF_TEMPD/descdraft.toml
+    CONFIG+=( --config-file $JJFZF_TEMPD/descdraft.toml )
   fi
   export JJFZF_EDITOR="${JJ_EDITOR-}"			# preserve user setting
   export JJ_EDITOR="$JJFZF_ABSPATHLIB/editor.sh"	# wrapper that rejects non-edits
