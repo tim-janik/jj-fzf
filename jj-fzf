@@ -141,6 +141,11 @@ jjfzf_split_i()
 )
 export -f jjfzf_split_i
 
+# Resolve interactively
+KEY[resolve]="Alt-L"
+RUN[resolve]="jjfzf_run jj resolve -r {2}"
+DOC[resolve]='Use `jj resolve` to interactively select content diff hunks of a conflict to be resolved.'
+
 # Inject commit
 KEY[inject]="Alt-J"
 RUN[inject]="jjfzf_inject --diff @ {2} ; jjfzf_load_and_status"
