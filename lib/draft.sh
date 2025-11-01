@@ -92,7 +92,7 @@ if test "${#PARENTS[@]}" -ge 2 ; then
     fi
     $JJ log --no-graph -r "$FORK_POINT..$c" -T '"\x0c"++description++"\n"' |
       sed '/^\([A-Z][a-z0-9-]*-by\|Cc\):/d' | # strip Signed-off-by:
-      sed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /' || :
+      sed '/^[ \t]*$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /' || :
   done
   # echo && $JJ log --no-graph -r "$COMMIT" -T ' format_signed_off_by_trailer(self) '
 fi
