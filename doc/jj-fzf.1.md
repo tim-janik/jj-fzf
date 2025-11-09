@@ -142,6 +142,9 @@
   single, most significant state for each bookmark and only takes `@origin`
   as remote into consideration:
 
+  `[Pending]`
+  : The bookmark exists locally and is tracking a remote bookmark that has yet to be pushed.
+
   `[Deleted]`
   : The bookmark is deleted locally but is still tracked on a remote, the deletion still needs to be pushed to the remote.
 
