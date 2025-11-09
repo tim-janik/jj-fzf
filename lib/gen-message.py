@@ -141,6 +141,47 @@ def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None
     if DEBUG and buffer.strip() and buffer.strip() != ']':
       print (f"\nWarning: unprocessed JSON: {buffer.strip()}", file = sys.stderr)
 
+COMMIT_MESSAGE_PROMPT = """
+You are an assistant that writes clear, concise, and meaningful Git commit messages.
+
+Your task:
+- Read the list of *previous example commits* from this project.
+- Read the *current diff* that has no commit message yet.
+- Based on the style and content of the previous commits, generate a new commit message for the current diff.
+
+Formatting requirements:
+1. The output must contain ONLY the commit message. Nothing else.
+2. The commit message must have:
+   - A single-line **title** summarizing the change.
+   - **One empty line** after the title.
+   - A **body** explaining the reasoning (the *why*), especially for complex logic or non-obvious changes.
+3. Focus on *why* the change was made, not *what* the code does.
+4. Follow the general tone, tense, and style of the existing commits.
+
+---
+
+### Previous Commits:
+
+{commit_examples}
+
+---
+
+### Current Diff (uncommitted changes):
+
+{commit_diff}
+
+---
+
+### Instruction:
+Generate a commit message for the above diff that fits the project's existing commit style and focuses on the reasoning behind the change.
+
+Remember:
+- Only output the commit message, consisting of a single line for the commit title, followed by an empty line and the commit body.
+- Do not include explanations, markdown, or any other text.
+
+/no-think
+"""
+
 def generate_commit_message (commit_hash, max_count=99):
   """Generate a commit message for the given commit hash"""
   llm_stream, llm_name = configure_model_stream()
@@ -151,11 +192,11 @@ def generate_commit_message (commit_hash, max_count=99):
     # Commands to list example history and diff
     if use_jj:
       vcs_log = """jj log --no-pager --no-graph --color=never --stat """
-      vcs_log += """-T '"\n========\nAuthor: "++coalesce(self.author().name(),self.author().email())++"\n\n"++description++"\n"' """
+      vcs_log += """-T '"\n----- 8< -----\nAuthor: "++coalesce(self.author().name(),self.author().email())++"\n\n"++description++"\n"' """
       vcs_diff = vcs_log + f"""--git -r '{commit_hash}' """
       vcs_log += f"""-n {max_count} -r '..{commit_hash}' --reversed """
     else:
-      vcs_log = """git -P log --no-color --stat --format='%n========%nAuthor: %an%n%n%B' """
+      vcs_log = """git -P log --no-color --stat --format='%n----- 8< -----%nAuthor: %an%n%n%B' """
       vcs_diff = vcs_log + f"""-p '{commit_hash}^!' """
       vcs_log += f"""-n {max_count} '{commit_hash}' --reverse """
     # Get the diff for the specific commit
@@ -165,17 +206,13 @@ def generate_commit_message (commit_hash, max_count=99):
   except subprocess.CalledProcessError as e:
     print (f"{sys.argv[0]}: Failed to execute git command: {e}", file = sys.stderr)
     sys.exit (2)
-  constructed_prompt = (
-    "======== EXAMPLES ========\n" +
-    examples + "\n\n" +
-    "======== COMMIT & DIFF ========\n" +
-    diff + "\n\n" +
-    "======== REQUEST ========\n" +
-    "Generate a brief commit title, a separate empty line and a suitable commit message body for the above commit & diff.\n" +
-    "Focus on *why* something is done, especially for complex logic, rather than *what* is done. Generate nothing else.\n" +
-    "/no-think" +
-    "\n"
-  )
+  # Remove noise from log
+  examples = re.sub (r'(?mi)(?:\n\s*)*^\s*Signed-off-by:.*$(?:\n*)*', '\n', examples).strip()
+  # Fill in prompt template
+  constructed_prompt = COMMIT_MESSAGE_PROMPT.format (
+    commit_examples = examples.strip(),
+    commit_diff = diff.strip()
+    ).strip()
   if DEBUG:
     print (f"LLM: {llm_name}", file = sys.stderr)
   if DEBUG_PROMPT:
