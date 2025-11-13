@@ -264,7 +264,7 @@ jjfzf_refs_enter()
   case "$MODE" in
     T)
       test -z "$NEWNAME" -o -z "$JJFZF_COMMITID" || {
-	jjfzf_run +n git tag "$NEWNAME" "$JJFZF_COMMITID"
+	jjfzf_run +n jj --no-pager tag set --allow-move -r "$JJFZF_COMMITID" "$NEWNAME"
 	jjfzf_run +n jj --no-pager $JJFZF_KEEPCOMMITS status # import tag
       }
       ;;
