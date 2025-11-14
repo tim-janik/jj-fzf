@@ -191,12 +191,12 @@ def generate_commit_message (commit_hash, max_count=99):
   try:
     # Commands to list example history and diff
     if use_jj:
-      vcs_log = """jj log --no-pager --no-graph --color=never --stat """
+      vcs_log = """jj log --no-pager --no-graph --color=never """
       vcs_log += """-T '"\n----- 8< -----\nAuthor: "++coalesce(self.author().name(),self.author().email())++"\n\n"++description++"\n"' """
       vcs_diff = vcs_log + f"""--git -r '{commit_hash}' """
       vcs_log += f"""-n {max_count} -r '..{commit_hash}' --reversed """
     else:
-      vcs_log = """git -P log --no-color --stat --format='%n----- 8< -----%nAuthor: %an%n%n%B' """
+      vcs_log = """git -P log --no-color --format='%n----- 8< -----%nAuthor: %an%n%n%B' """
       vcs_diff = vcs_log + f"""-p '{commit_hash}^!' """
       vcs_log += f"""-n {max_count} '{commit_hash}' --reverse """
     # Get the diff for the specific commit
