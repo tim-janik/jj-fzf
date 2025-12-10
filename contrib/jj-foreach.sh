@@ -53,12 +53,12 @@ echo "     jj op restore $START_OP" >&2
 # == Save Workgion Copy ==
 AT_HEAD_ID=$(jj --no-pager --ignore-working-copy log --color=never --no-graph -T change_id -r @)
 
-# == find commit IDs ==
-readarray -t COMMITIDS < <( jj --no-pager --ignore-working-copy log --no-graph --color=never -T 'commit_id ++ "\n"' -r "$REVSET" )
+# == find change IDs ==
+readarray -t CHANGEIDS < <( jj --no-pager --ignore-working-copy log --no-graph --color=never -T 'change_id ++ "\n"' -r "$REVSET" )
 
 # == run commands ==
 jj new @ # keeps $AT_HEAD_ID alive even if empty
-for CID in "${COMMITIDS[@]}" ; do
+for CID in "${CHANGEIDS[@]}" ; do
   ( set -xe
     # prepare for changes
     jj new "$CID"
@@ -70,7 +70,7 @@ for CID in "${COMMITIDS[@]}" ; do
 done
 ERR="$?"
 
-# == Restore Workgion Copy ==
+# == Restore Working Copy ==
 jj edit "$AT_HEAD_ID"
 
 # == Recovery Msg ==
