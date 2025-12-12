@@ -234,6 +234,23 @@ def output (text_to_print: str):
 
 def tidy_print (iterable):
   """Remove reasoning blocks from iterable text and add terminating newline."""
+  col, line = 0, 0
+  def output_wrapped (text):
+    nonlocal col, line
+    res = []
+    for char in text:
+      if char == '\n':
+        col = 0
+        line += 1
+        res.append (char)
+      elif line >= 1 and col >= 100 and char == ' ':
+        res.append ('\n')
+        col = 0
+        line += 1
+      else:
+        res.append (char)
+        col += 1
+    output ("".join (res))
   # Read up to the first reasoning tag
   buffer = ""
   for chunk in iterable:
@@ -252,12 +269,12 @@ def tidy_print (iterable):
   # Normal text output
   buffer = buffer.lstrip()
   if len (buffer) > 0:
-    output (buffer)
+    output_wrapped (buffer)
   for chunk in iterable:
     buffer = chunk
-    output (buffer)
+    output_wrapped (buffer)
   if not buffer.endswith ('\n'):
-    output ('\n')
+    output_wrapped ('\n')
 
 def locate_dominating_file (start, name):
   p = Path (start).resolve()
