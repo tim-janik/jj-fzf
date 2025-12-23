@@ -15,7 +15,7 @@ test -z "$JJ_EDITOR" &&
 
 # Edit files
 ERR=0
-"$JJ_EDITOR" "$@" || ERR=$?
+$JJ_EDITOR "$@" || ERR=$?
 
 # Report "no-edit" as error
 if test $ERR == 0 ; then
