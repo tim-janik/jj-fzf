@@ -123,10 +123,14 @@ rev_bookmarks()
 }
 # Identify input bookmark name or find first local bookmark in $INPUT_REV
 P=()	# PIDs to run jj queries in parellel
-(jjfzf_b_l --color=never -T 'name++"\n"' -- "$INPUT_REV" |
-   sed -r '1q')					> $JJFZF_TEMPD/res0 & P+=($!)
-(jj tag list -T 'name++"\n"' -- "$INPUT_REV" |
-   sed -r '1q')					> $JJFZF_TEMPD/res1 & P+=($!)
+(jjfzf_b_l --color=never -T 'name++"\n"' -- "exact:'$INPUT_REV'" 2>$JJFZF_TEMPD/err0 |
+   sed -r '1q'
+ grep -v '^Warning: ' $JJFZF_TEMPD/err0 >&2 || true	# ignore non-matching names
+)						> $JJFZF_TEMPD/res0 & P+=($!)
+(jj tag list -T 'name++"\n"' -- "exact:'$INPUT_REV'" 2>$JJFZF_TEMPD/err1 |
+   sed -r '1q'
+ grep -v '^Warning: ' $JJFZF_TEMPD/err1 >&2 || true	# ignore non-matching names
+)						> $JJFZF_TEMPD/res1 & P+=($!)
 (rev_bookmarks -t -r "$INPUT_REV")		> $JJFZF_TEMPD/res2 & P+=($!)
 (rev_bookmarks -r "$INPUT_REV"-)		> $JJFZF_TEMPD/res3 & P+=($!)
 (rev_bookmarks -r "$INPUT_REV"+)		> $JJFZF_TEMPD/res4 & P+=($!)
