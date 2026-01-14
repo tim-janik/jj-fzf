@@ -75,21 +75,22 @@ PARENTS=( $($JJ log --no-graph -T 'commit_id ++ "\n"' -r "$COMMIT-" --reversed) 
 
 # Output merge message
 if test "${#PARENTS[@]}" -ge 2 ; then
-  MERGE_BASE=$(git merge-base --octopus "${PARENTS[@]}")
+  FORK_POINT=$($JJ show --no-patch -r " fork_point( $COMMIT- ) " -T commit_id)
+
   if test "${#PARENTS[@]}" -eq 2 ; then
     echo "Merge branch '$(find_first_bookmark ${PARENTS[1]})' into '$(find_first_bookmark ${PARENTS[0]})'"
   else
     echo "Merge branches:" "${PARENTS[@]}"
   fi
   for c in "${PARENTS[@]}"; do
-    test "$c" == "$MERGE_BASE" &&
+    test "$c" == "$FORK_POINT" &&
       continue
     if test "${#PARENTS[@]}" -eq 2 ; then
-      echo -e "\n* Branch commit log:"	# "$c ^$MERGE_BASE"
+      echo -e "\n* Branch commit log:"	# "$c ^$FORK_POINT"
     else
       echo -e "\n* Branch '$(find_first_bookmark $c)' commit log:"
     fi
-    git log --pretty=$'\f%s%+b' $c ^$MERGE_BASE |
+    $JJ log --no-graph -r "$FORK_POINT..$c" -T '"\x0c"++description++"\n"' |
       sed '/^\([A-Z][a-z0-9-]*-by\|Cc\):/d' | # strip Signed-off-by:
       sed '/^$/d ; s/^/\t/ ; s/^\t\f$/  (no description)/ ; s/^\t\f/  /' || :
   done
