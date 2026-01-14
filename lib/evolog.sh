@@ -23,7 +23,7 @@ TITLE='Evolution Log'
 export JJFZF_EVOLOG_SRC=$(jj --no-pager --ignore-working-copy log --no-graph -T commit_id -r "${1-@}")
 LONG_IDS="--config=template-aliases.'format_short_change_id(id)'='id.shortest(32)'"
 FOOTER="$TITLE for Change ID:"$'\n'
-FOOTER="$FOOTER"$(jj --no-pager --ignore-working-copy log --no-graph $LONG_IDS $JJFZF_COLOR -T 'format_short_change_id_with_hidden_and_divergent_info(self)' -r "${1-@}")
+FOOTER="$FOOTER"$(jj --no-pager --ignore-working-copy log --no-graph $LONG_IDS $JJFZF_COLOR -T 'format_short_change_id_with_change_offset(self)' -r "${1-@}")
 jjfzf_log_detailed	# for preview, assigns $JJFZF_LOG_DETAILED_CONFIG
 B=() H=()
 
