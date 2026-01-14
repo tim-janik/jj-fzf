@@ -18,13 +18,13 @@ jobs:
         sudo apt-get update
         sudo TZ=Etc/UTC DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata nano tmux asciinema pv bsdextrautils
     - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
-    - run: git fetch -f --tags	# Fix actions/checkout#290
+    - run: git fetch -f --tags  # Fix actions/checkout#290
     - run: |
         curl -s -L https://github.com/junegunn/fzf/releases/download/v0.65.2/fzf-0.65.2-linux_amd64.tar.gz |
           sudo tar zxvf - -C /usr/local/bin/ fzf
         fzf --version
     - run: |
-        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.34.0/jj-v0.34.0-x86_64-unknown-linux-musl.tar.gz |
+        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.37.0/jj-v0.37.0-x86_64-unknown-linux-musl.tar.gz |
           sudo tar zxvf - -C /usr/local/bin/ ./jj
         jj --version
     - run: |
@@ -63,13 +63,13 @@ jobs:
   CreateRelease:
     runs-on: ubuntu-24.04
     needs: [ MakeDistCheck ]
-    if: github.ref_type == 'tag'	# https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+    if: github.ref_type == 'tag'        # https://docs.github.com/en/actions/reference/events-that-trigger-workflows
     # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
-    permissions: { contents: write }	# allow github.token to create a release
+    permissions: { contents: write }    # allow github.token to create a release
     env: { GH_TOKEN: "${{ github.token }}" }
     steps:
     - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
-    - run: git fetch -f --tags	# Fix actions/checkout#290
+    - run: git fetch -f --tags          # Fix actions/checkout#290
     - uses: actions/download-artifact@v4
       with: { path: ./artifacts, merge-multiple: true }
     - run: ls -alR artifacts/
