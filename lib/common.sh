@@ -45,43 +45,6 @@ BIGHEXPAT='\b([0-9a-f]{18,})\b'			# long hexadecimal pattern
 # Find any hex pattern, 7 digits or longer
 HEX7PAT='\ ([0-9a-f]{7,})\ '			# space enclosed hexadecimal pattern
 
-# == Oneline ==
-# TODO: have a JJ command that allows to query for the builtin_log_oneline template
-# Copied from jj/cli/src/config/templates.toml in jj-0.33, changes:
-# - print commit.commit_id before tags, etc
-# - print long form commit id (24 characters)
-ONELINE_COMMIT_BIGHEX='concat(
-if(commit.root(),
-  format_root_commit(commit),
-  label(
-    separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
-    ),
-    concat(
-      separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(commit),
-        format_short_signature_oneline(commit.author()),
-        format_timestamp(commit_timestamp(commit)),
-        commit.commit_id().short(20),
-        commit.bookmarks(),
-        commit.tags(),
-        commit.working_copies(),
-        if(commit.git_head(), label("git_head", "git_head()")),
-        if(commit.conflict(), label("conflict", "conflict")),
-        if(config("ui.show-cryptographic-signatures").as_boolean(),
-          format_short_cryptographic_signature(commit.signature())),
-        if(commit.empty(), label("empty", "(empty)")),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
-        ),
-      ) ++ "\n",
-    ),
-  )
-) )'
-
 # == Diff rendering ==
 # Show commit diff according to jj-fzf.diff-mode
 jj_show_diff()
