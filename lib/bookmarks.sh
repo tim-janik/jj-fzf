@@ -25,15 +25,14 @@ while test $# -ne 0 ; do
   esac
   shift
 done
+jjfzf_status		# snapshot dirty working tree
 
 # == Config ==
 TITLE='Bookmarks & Tags'
 jjfzf_log_detailed	# for preview, assigns $JJFZF_LOG_DETAILED_CONFIG
-export JJFZFT="jj --no-pager --ignore-working-copy log --no-graph -T"
-JJFZF_COMMITID=$($JJFZFT commit_id -r "$INPUT_REV") ||
+JJFZF_COMMITID=$(jj --no-pager --ignore-working-copy log --no-graph -T commit_id -r "$INPUT_REV") ||
   die "Unknown revision: $INPUT_REV"
 export JJFZF_COMMITID
-jjfzf_status		# snapshot dirty working tree
 B=() H=()
 
 # == Aliases ==
@@ -119,33 +118,55 @@ rev_bookmarks()
 {
   T='self.local_bookmarks()++"\n"'
   test "$1" == -t && { shift ; T="$T ++ ' ' ++ self.tags()" ; }
-  $JJFZFT "$T" "$@" 2>/dev/null |
+  jj --no-pager --ignore-working-copy log --no-graph -T "$T" "$@" 2>/dev/null |
     tr ' ' '\n' | sed -r '/@/d; s/[*?].*//;' || :
 }
 # Identify input bookmark name or find first local bookmark in $INPUT_REV
-NEAREST=( $(jjfzf_b_l --color=never -T 'name++"\n"' -- "$INPUT_REV" | sed -r '1q')
-	  $(jj tag list -T 'name++"\n"' -- "$INPUT_REV" | sed -r '1q')
-	  $(rev_bookmarks -t -r "$INPUT_REV")
-	  $(rev_bookmarks -r "$INPUT_REV"-)
-	  $(rev_bookmarks -r "$INPUT_REV"+)
-	  $(rev_bookmarks -r .."$INPUT_REV") )
+P=()	# PIDs to run jj queries in parellel
+(jjfzf_b_l --color=never -T 'name++"\n"' -- "exact:'$INPUT_REV'" 2>$JJFZF_TEMPD/err0 |
+   sed -r '1q'
+ grep -v '^Warning: ' $JJFZF_TEMPD/err0 >&2 || true	# ignore non-matching names
+)						> $JJFZF_TEMPD/res0 & P+=($!)
+(jj tag list -T 'name++"\n"' -- "exact:'$INPUT_REV'" 2>$JJFZF_TEMPD/err1 |
+   sed -r '1q'
+ grep -v '^Warning: ' $JJFZF_TEMPD/err1 >&2 || true	# ignore non-matching names
+)						> $JJFZF_TEMPD/res1 & P+=($!)
+(rev_bookmarks -t -r "$INPUT_REV")		> $JJFZF_TEMPD/res2 & P+=($!)
+(rev_bookmarks -r "$INPUT_REV"-)		> $JJFZF_TEMPD/res3 & P+=($!)
+(rev_bookmarks -r "$INPUT_REV"+)		> $JJFZF_TEMPD/res4 & P+=($!)
+(rev_bookmarks -r .."$INPUT_REV")		> $JJFZF_TEMPD/res5 & P+=($!)
+NEAREST=()
+for i in "${!P[@]}"; do
+  wait "${P[i]}" || exit $?
+  NEAREST+=( $(cat $JJFZF_TEMPD/res$i) )
+  rm -f $JJFZF_TEMPD/res$i
+done
 
 # == jjfzf_bookmark_list0 ==
 jjfzf_bookmark_list0()
 (
   # Keep things simple and only consider remote bookmarks @origin.
   set -Eeuo pipefail
+  # Run jj commands in parallel to speed up listings
+  jjfzf_b_l -a -T 'if(!remote, name) ++ "\n"' > $JJFZF_TEMPD/bm_lnames & P_lnames=$!
+  jjfzf_b_l -a -T 'if(!remote || remote == "origin", bookmark_local1d )'  > $JJFZF_TEMPD/bm_local1d & P_local1d=$!
+  jjfzf_b_l --remote origin -T 'if(!tracked && remote == "origin", name) ++ "\n"' > $JJFZF_TEMPD/bm_onames & P_onames=$!
+  jjfzf_b_l --remote origin -T 'if(!tracked && remote == "origin", bookmark_remote1d )'  > $JJFZF_TEMPD/bm_origin1d & P_origin1d=$!
+  jj --no-pager --ignore-working-copy --config-file=$JJFZF_TEMPD/bm.toml \
+     tag list $JJFZF_COLOR -T tag_local1d > $JJFZF_TEMPD/bm_tags.lst & P_tags=$!
   # Truely local bookmark names
-  LOCAL_BOOKMARKS=( $(jjfzf_b_l -a -T 'if(!remote, name) ++ "\n"') )
-  jjfzf_b_l -a -T 'if(!remote || remote == "origin", bookmark_local1d )'  > $JJFZF_TEMPD/bm_local1d
+  wait "$P_lnames" || exit $?
+  LOCAL_BOOKMARKS=( $(cat $JJFZF_TEMPD/bm_lnames) )
+  wait "$P_local1d" || exit $?
   for B in "${LOCAL_BOOKMARKS[@]}" ; do
     for S in "Deleted" "Conflicted" "Tracked" "Untracked" "Local" ; do # "UNKNOWN"
       grep -m1 "^$S¸$B¸" $JJFZF_TEMPD/bm_local1d && break
     done
   done		>  $JJFZF_TEMPD/bm_refs.lst
   # Bookmarks untracked @origin
-  ORIGIN_BOOKMARKS=( $(jjfzf_b_l --remote origin -T 'if(!tracked && remote == "origin", name) ++ "\n"') )
-  jjfzf_b_l --remote origin -T 'if(!tracked && remote == "origin", bookmark_remote1d )'  > $JJFZF_TEMPD/bm_origin1d
+  wait "$P_onames" || exit $?
+  ORIGIN_BOOKMARKS=( $(cat $JJFZF_TEMPD/bm_onames) )
+  wait "$P_origin1d" || exit $?
   for B in "${ORIGIN_BOOKMARKS[@]}" ; do
     jjfzf_contained "$B" "${LOCAL_BOOKMARKS[@]}" && continue
     S=Remote
@@ -155,9 +176,8 @@ jjfzf_bookmark_list0()
   echo '¸¸¸'	>> $JJFZF_TEMPD/bm_refs.lst
   wc -l < $JJFZF_TEMPD/bm_refs.lst > $JJFZF_TEMPD/bm_start_pos
   # list tags
-  jj --no-pager --ignore-working-copy --config-file=$JJFZF_TEMPD/bm.toml \
-     tag list $JJFZF_COLOR -T tag_local1d \
-     >> $JJFZF_TEMPD/bm_refs.lst
+  wait "$P_tags" || exit $?
+  cat $JJFZF_TEMPD/bm_tags.lst >> $JJFZF_TEMPD/bm_refs.lst
   # 0-termination
   sed '/¸.*¸/s/^/\x00/ ; 1s/^\x00//' < $JJFZF_TEMPD/bm_refs.lst > $JJFZF_TEMPD/bm_refs0.lst
 )
@@ -175,7 +195,7 @@ JJFZF_REFS_START_POS="$(cat "$JJFZF_TEMPD/bm_start_pos")"
 B+=( --bind "load:+pos($JJFZF_REFS_START_POS)" )
 
 # == jjfzf_refs_transform ==
-export JJFZF_BOOKMARK_AT=$(jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR --no-graph -T builtin_log_compact -r "$JJFZF_COMMITID" )
+export JJFZF_BOOKMARK_AT=$(jjfzf_jjlog $JJFZF_COLOR --no-graph -T builtin_log_compact -r "$JJFZF_COMMITID" )
 # Adjust prompt, etc according to mode
 jjfzf_refs_transform()
 (
@@ -337,7 +357,6 @@ FZF_ARGS+=(
   --color=border:red,label:red
   --border-label "-[ ${TITLE^^} — JJ-FZF ]-"
 )
-jjfzf_status
 unset FZF_DEFAULT_OPTS FZF_DEFAULT_COMMAND
 export JJFZF_LOAD_LIST=jjfzf_bookmark_list0
 fzf -m "${FZF_ARGS[@]}" "${B[@]}" \
