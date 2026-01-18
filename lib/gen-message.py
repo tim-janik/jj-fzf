@@ -59,7 +59,7 @@ def configure_model_stream():
     return stream_fn, llm_name
   elif os.environ.get ('GEMINI_API_KEY'):
     # https://ai.google.dev/gemini-api/docs/models
-    model = 'gemini-2.0-flash-lite' # 'gemini-1.5-flash-latest'
+    model = 'gemini-flash-lite-latest' # 'gemini-2.0-flash-lite'
     llm_name = f"Google Gemini model '{model}'"
     stream_fn = lambda p: gemini_stream (os.environ['GEMINI_API_KEY'], model, p)
     return stream_fn, llm_name
