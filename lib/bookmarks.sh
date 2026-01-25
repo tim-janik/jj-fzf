@@ -37,7 +37,7 @@ B=() H=()
 
 # == Aliases ==
 # Bookmarks are managed locally, @git, @origin and possibly other remotes.
-# There are varying states, depending on wether a bookmark is tracked,
+# There are varying states, depending on whether a bookmark is tracked,
 # new/delete is unpushed, or @remote disagrees with a moved @git after
 # fetch (conflicted).
 # For the UI, we try to map the states of a bookmark name onto 1 dimension,
@@ -46,6 +46,7 @@ B=() H=()
 # In addition we list remote bookmarks that have no local name.
 #
 # Possible states:
+# [Pending]	(local, tracked, to be pushed to @origin)
 # [Deleted]	(but still tracked @origin)
 # [Conflicted]	(local, tracked, undecided @git != @origin)
 # [Tracked]	(local and @origin)
@@ -56,13 +57,15 @@ cat > $JJFZF_TEMPD/bm.toml <<\__EOF
 [template-aliases]
 # Hierarchical state categories (1D) for a bookmark name
 'bookmark_state1d(untracked)'='''
-if(!present, "Deleted",
-  if(conflict, "Conflicted",
-    if(tracked && remote && remote != "git", "Tracked",
-      if(!tracked && !remote, "Local",
-        if(!tracked && remote != "git", untracked,
-          "OTHER_REMOTE"
-        )
+if(tracked && !present, "Pending",
+  if(!present, "Deleted",
+    if(conflict, "Conflicted",
+      if(tracked && remote && remote != "git", "Tracked",
+	if(!tracked && !remote, "Local",
+	  if(!tracked && remote != "git", untracked,
+	    "OTHER_REMOTE"
+	  )
+	)
       )
     )
   )
@@ -73,7 +76,7 @@ bookmark_state1d("Untracked") ++ '¸'
 ++ name ++ '¸' ++ if(remote,"@"++remote) ++ '¸'
 ++ pad_end(32, label("bookmark", name), " ") ++ " "
 ++ pad_end(13,
-	       label(if(conflict || !present, "conflict"),
+	       label(if(conflict || (!present && !tracked), "conflict"),
 			"[" ++ bookmark_state1d("Untracked") ++ "]") )
 ++ if(present && !conflict,
      format_commit_summary_with_refs(self.normal_target(), "") )
@@ -159,7 +162,7 @@ jjfzf_bookmark_list0()
   LOCAL_BOOKMARKS=( $(cat $JJFZF_TEMPD/bm_lnames) )
   wait "$P_local1d" || exit $?
   for B in "${LOCAL_BOOKMARKS[@]}" ; do
-    for S in "Deleted" "Conflicted" "Tracked" "Untracked" "Local" ; do # "UNKNOWN"
+    for S in "Pending" "Deleted" "Conflicted" "Tracked" "Untracked" "Local" ; do # "UNKNOWN"
       grep -m1 "^$S¸$B¸" $JJFZF_TEMPD/bm_local1d && break
     done
   done		>  $JJFZF_TEMPD/bm_refs.lst
@@ -285,33 +288,14 @@ jjfzf_refs_enter()
     O)
       if [[ "$STATE1D" == "Remote" ]] ; then
 	jjfzf_run +n jj --no-pager bookmark track -- "$REF"
+      elif [[ "$STATE1D" == "Pending" ]] ; then
+	jjfzf_run +n jj --no-pager bookmark untrack -- "$REF"@origin
       elif [[ "$STATE1D" == "Tracked" ]] ; then
 	jjfzf_run +n jj --no-pager bookmark untrack -- "$REF"@origin
       elif [[ "$STATE1D" == "Untracked" ]] ; then
 	jjfzf_run +n jj --no-pager bookmark track -- "$REF"@origin
       elif [[ "$STATE1D" == "Local" ]] ; then
-	PUSH_ARGS=(--allow-new --remote origin --bookmark "$REF")
-	# needs push to be possible @origin
-	jjfzf_run +n jj git push $JJFZF_COLOR "${PUSH_ARGS[@]}" --dry-run > $JJFZF_TEMPD/bpush.log 2>&1 \
-	  && STATUS=0 || STATUS=$?
-	cat $JJFZF_TEMPD/bpush.log
-	if test $STATUS == 0 && grep -qEi 'nothing *changed|won.?t push|rejected *commit' $JJFZF_TEMPD/bpush.log ; then
-	  STATUS=-1
-	fi
-	# jj-pre-push --dry-run to run hooks
-	if test $STATUS == 0 -a -r .pre-commit-config.yaml &&
-	    jjfzf_config get 'aliases.push' | grep -q '\bjj-pre-push\b' ; then
-	  jjfzf_run +n jj push "${PUSH_ARGS[@]}" --dry-run \
-	    || STATUS=$?
-	fi
-	# jj git push
-	if test $STATUS != 0 ; then
-	  read -p "Press Enter..."
-	else
-	  read -p 'Proceed with bookmark push and submit changes? (y/N) ' YN
-	  [[ "${YN:0:1}" =~ [yY] ]] &&
-	    jjfzf_run +n jj git push $JJFZF_COLOR --allow-new --bookmark "$REF"
-	fi
+	jjfzf_run +n jj --no-pager bookmark track -- "$REF"@origin
       fi
       ;;
     V|*)
