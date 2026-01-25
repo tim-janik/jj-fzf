@@ -1,6 +1,46 @@
-## JJ-FZF NEXT
+## JJ-FZF 0.37.0 - 2026-01-25
 
-* The minimum supported fzf version is now 0.67.0.
+### Added:
+* Ctrl-T now toggles multi-line file type display in the log view
+* Commit message generation now uses the latest Gemini flash model
+* The commit log now supports scrolling with Ctrl-↑↓
+* The preview now supports scrolling with Alt-↑↓ and shows more lines
+* Ctrl-W now allows to toggle word diff format
+* Ctrl-B now support cycling through whitespace-ignore options for diffs
+* Rebase now has support for word-level merging via Ctrl-W
+* Rebase with duplicate now supports --ignore-immutable via Alt-I
+* Alt-J now injects the diff of a revision (not the entire content tree)
+* Ctrl-P will now use `jj push` when configured as an alias for `jj-pre-push`
+  to support pre-commit hooks via jj-pre-push, see:
+  https://github.com/acarapetis/jj-pre-push
+
+### Changed:
+* Generated commit messages are now wrapped after 100 columns
+* The prompt and context for commit message generation was improved
+* The `jj tag` sub commands are now used for tag creation and deletion
+* The Bookmarks dialog can now show bookmarks in `Pending` state
+  when not yet pushed to @origin
+* Instead of forced pushing new bookmarks, we now rely on `jj bookmark track`
+* The preview home/end shortcuts are now Alt-←→ instead of Alt-< Alt->
+* The $EDITOR variable is now run without quoting to support arguments
+* Bookmarks and tags now use the exact:name syntax from jj
+* Bookmark (and tag) listing got faster by running jj list commands in parallel
+* The handling of `jj status` (for snapshots) was improved to show errors
+* A set of .pre-commit-config.yaml hooks now monitors code quality
+
+### Fixed:
+* Describe doesn't work with complex EDITOR command	- #25
+* JJ is changing internal templates - #23
+
+### Removed:
+* Some obsolete templates and helper scripts got removed
+
+### Breaking:
+* This release requires jj-0.37.0 (for bookmark and tag handling)
+* This release requires fzf-0.67.0 (improves key bindings)
+
+Thanks to everyone who gave feedback regarding the rewrite and
+helped to make this release happen!
 
 
 ## JJ-FZF 0.34.0 - 2025-10-02
