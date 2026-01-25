@@ -72,7 +72,7 @@ jjfzf_op_info()
   echo
   echo "jj --at-operation=$OPID log -p -r ..@"
   jj --no-pager --ignore-working-copy $JJFZF_COLOR --at-operation="$OPID" log -p -r ..@ |
-    sed '3001q'
+    sed $JJFZF_SEDLIMIT
 )
 export -f jjfzf_op_info
 
