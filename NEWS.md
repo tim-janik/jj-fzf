@@ -1,3 +1,8 @@
+## JJ-FZF NEXT
+
+* The minimum supported fzf version is now 0.67.0.
+
+
 ## JJ-FZF 0.34.0 - 2025-10-02
 
 ### Added:
