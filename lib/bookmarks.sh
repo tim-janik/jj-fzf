@@ -276,11 +276,7 @@ jjfzf_refs_enter()
       ;;
     D)
       if [[ "$STATE1D" == "Tag" ]] ; then
-	GIT_DIR=$(jj --no-pager --ignore-working-copy git root) ||
-	  die "need Git to delete tag: $REF"
-	export GIT_DIR
-	jjfzf_run +n git tag -d "$REF"
-	jjfzf_run +n jj --no-pager $JJFZF_KEEPCOMMITS status # import deletion
+	jjfzf_run +n jj --no-pager $JJFZF_KEEPCOMMITS tag delete "$REF"
       else
 	jjfzf_run +n jj --no-pager $JJFZF_KEEPCOMMITS bookmark delete "exact:$REF"
       fi
