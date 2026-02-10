@@ -79,7 +79,7 @@ command -v "awk" > /dev/null 2>&1 &&
     __preflightish_die "Failed to find usable 'awk' executable in \$PATH"
 
 # == Jujutsu ==
-__preflightish_require "0.37" jj --version --ignore-working-copy
+__preflightish_require "0.38" jj --version --ignore-working-copy
 
 # == fzf ==
 __preflightish_require "0.67.0" fzf --version
