@@ -101,11 +101,12 @@ jjfzf_filesplit()
   mapfile -t MAPFILE < <(jj --no-pager diff --name-only -r "$COMMIT")
   [[ ${#MAPFILE[@]} -gt 1 ]] ||
     return
+  export JJ_EDITOR='true' # Override ui.editor to implement --without-description
   # create n-1 new commits from n files
   while [[ ${#MAPFILE[@]} -gt 1 ]] ; do
-    unset 'MAPFILE[-1]' # unset 'MAPFILE[${#MAPFILE[@]}-1]'
-    export JJ_EDITOR='true' # Override ui.editor to implement --without-description
-    jjfzf_run +n jj split -m= -r "$COMMIT" -- "${MAPFILE[@]}"
+    # CURRENT="${MAPFILE[-1]}" && unset 'MAPFILE[-1]'
+    CURRENT="${MAPFILE[0]}" && MAPFILE=("${MAPFILE[@]:1}")
+    jjfzf_run +n jj split -m= -r "$COMMIT" -B "$COMMIT" -- "file:$(jjfzf_strquote "$CURRENT")"
   done
   jjfzf_run
 )

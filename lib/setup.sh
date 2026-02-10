@@ -109,6 +109,17 @@ jjfzf_config_quote() # [prefix] [postfix]
 )
 export -f jjfzf_config_quote
 
+# == jjfzf_strquote ==
+# Add quotes and backslashes to escape a jj input string
+jjfzf_strquote()
+(
+  # \ -> \\
+  # " -> \"
+  printf '%s' "$1" |
+    sed -re 's/(["\\])/\\\1/g; s/^|$/"/g'
+)
+export -f jjfzf_strquote
+
 # == jjfzf_status ==
 # Snapshot and show jj status if it changed
 jjfzf_status()
