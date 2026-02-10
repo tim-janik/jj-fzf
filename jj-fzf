@@ -352,7 +352,7 @@ case "$ENTER" in
   -r)	BINDINGS+=( --bind 'enter:become( jjfzf_list_change_ids {2} )' ) ;;
   +r)	BINDINGS+=( --bind 'enter:become( jjfzf_list_change_ids {+2} )' ) ;;
   -s)	BINDINGS+=( --bind 'enter:become( jjfzf_revset )' ) ;;
-  *)	BINDINGS+=( --bind 'enter:execute( jjfzf_full_history {2} )' ) ;;
+  *)	BINDINGS+=( --bind "enter:execute( jjfzf_full_history {2} )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" ) ;;
 esac
 
 # Log history
