@@ -352,7 +352,7 @@ case "$ENTER" in
   -r)	BINDINGS+=( --bind 'enter:become( jjfzf_list_change_ids {2} )' ) ;;
   +r)	BINDINGS+=( --bind 'enter:become( jjfzf_list_change_ids {+2} )' ) ;;
   -s)	BINDINGS+=( --bind 'enter:become( jjfzf_revset )' ) ;;
-  *)	BINDINGS+=( --bind 'enter:execute( jjfzf_full_history {2} )' ) ;;
+  *)	BINDINGS+=( --bind "enter:execute( jjfzf_full_history {2} )+execute( jjfzf_load_and_status )+$RELOAD+refresh-preview" ) ;;
 esac
 
 # Log history
@@ -580,6 +580,11 @@ $WITH_PREVIEW &&
 jjfzf_status
 export JJFZF_LOAD_LIST=jjfzf_log0
 unset FZF_DEFAULT_OPTS FZF_DEFAULT_COMMAND
+
+START_POS=$(jjfzf_log0_at_count)
+[[ "$START_POS" =~ ^[0-9]+$ ]] &&
+  FZF_ARGS+=( --bind "load:+pos($START_POS)+unbind(load)" )
+
 jjfzf_load --stdout |
   fzf -m "${FZF_ARGS[@]}" "${BINDINGS[@]}" \
       --read0 '-d¸' --accept-nth=2 --with-nth '{1} {4..}' \

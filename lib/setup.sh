@@ -230,6 +230,15 @@ jjfzf_log0()
     sed '/¸¸/s/^/\x00/ ; 1s/^\x00//'
 )
 export -f jjfzf_log0
+# Yield position of @ in jjfzf_log0 output
+jjfzf_log0_at_count()
+(
+  set -Eeuo pipefail
+  JJ="jj --no-pager --ignore-working-copy"
+  REVSET="$(jjfzf_revset)"
+  jjfzf_jjlog --color=never -r "($REVSET) & @::" --count
+)
+export -f jjfzf_log0_at_count
 
 # == jjfzf_load ==
 # Wrapper to write log or oplog or evolog to $JJFZF_TEMPD/jjfzf_list, also supports --stdout
