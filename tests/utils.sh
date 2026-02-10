@@ -73,7 +73,7 @@ mkcommits()
     P=@ && [[ "$1" =~ (.+)-\>(.+) ]] &&
       P="${BASH_REMATCH[1]}" C="${BASH_REMATCH[2]}" || C="$1"
     shift
-    jj --no-pager new -m="$C" -r all:"$P"
+    jj --no-pager new -m="$C" -r "$P"
     jj bookmark set -r @ "$C"
   done >$DEVERR 2>&1		# mkcommits A B 'A|B ->C'
 )
