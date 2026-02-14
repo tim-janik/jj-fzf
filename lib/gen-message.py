@@ -142,44 +142,46 @@ def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None
       print (f"\nWarning: unprocessed JSON: {buffer.strip()}", file = sys.stderr)
 
 COMMIT_MESSAGE_PROMPT = """
-You are an assistant that writes clear, concise, and meaningful Git commit messages.
+You are an assistant that writes high-quality Git commit messages.
 
-Your task:
-- Read the list of *previous example commits* from this project.
-- Read the *current diff* that has no commit message yet.
-- Based on the style and content of the previous commits, generate a new commit message for the current diff.
+Goal:
+Write a commit message for the given diff. Match the style, tone, and structure of the recent commits from this repository.
 
-Formatting requirements:
-1. The output must contain ONLY the commit message. Nothing else.
-2. The commit message must have:
-   - A single-line **title** summarizing the change.
-   - **One empty line** after the title.
-   - A **body** explaining the reasoning (the *why*), especially for complex logic or non-obvious changes.
-3. Focus on *why* the change was made, not *what* the code does.
-4. Follow the general tone, tense, and style of the existing commits.
+Instructions:
 
----
+* Study the previous commits to understand their conventions (tone, tense, prefixes, formatting, level of detail, etc.).
+* Then read the current diff.
+* Write a commit message that fits naturally with the existing commits.
+* Prefer explaining why the change was made rather than restating what the code does.
+* If the change is simple, keep the message concise.
+* If the change is complex or non-obvious, explain the reasoning clearly.
 
-### Previous Commits:
+Output requirements:
+
+* Output only the commit message.
+* Do not include commentary or explanations outside the commit message.
+* The message must contain:
+
+  1. A single-line title.
+  2. One empty line.
+  3. A body paragraph (or paragraphs) explaining the reasoning.
+* Do not add markdown formatting, labels, or extra text.
+
+### Previous commits:
 
 {commit_examples}
 
 ---
 
-### Current Diff (uncommitted changes):
+### Current diff:
 
 {commit_diff}
 
 ---
 
 ### Instruction:
-Generate a commit message for the above diff that fits the project's existing commit style and focuses on the reasoning behind the change.
 
-Remember:
-- Only output the commit message, consisting of a single line for the commit title, followed by an empty line and the commit body.
-- Do not include explanations, markdown, or any other text.
-
-/no-think
+Write the commit message now.
 """
 
 def generate_commit_message (commit_hash, max_count=99):
