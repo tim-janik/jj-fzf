@@ -533,7 +533,7 @@ FZF_ARGS=(
   --bind "shift-alt-left:preview-half-page-up"
   --bind "shift-alt-right:preview-half-page-down"
 
-  --bind 'ctrl-u:deselect-all+clear-query'
+  --bind 'ctrl-u:clear-query'	# deselect-all
   --bind "ctrl-alt-w:toggle-wrap+toggle-preview-wrap"
   --bind "ctrl-x:jump"
   --bind "ctrl-z:execute( jjfzf_exec_usershell )+refresh-preview"
