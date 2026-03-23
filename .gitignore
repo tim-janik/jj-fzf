@@ -3,7 +3,7 @@
 /wiki/
 /artifacts/
 *.tmp*
-.x*
+.*
 *.ttf
 *.cast
 *.gif

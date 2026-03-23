@@ -142,19 +142,18 @@ def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None
       print (f"\nWarning: unprocessed JSON: {buffer.strip()}", file = sys.stderr)
 
 COMMIT_MESSAGE_PROMPT = """
-You are an assistant that writes high-quality Git commit messages.
-
 Goal:
-Write a commit message for the given diff. Match the style, tone, and structure of the recent commits from this repository.
+Write the best commit message for the changes in the current diff below.
+Match the style, tone, and structure of the previous commits.
 
 Instructions:
 
-* Study the previous commits to understand their conventions (tone, tense, prefixes, formatting, level of detail, etc.).
-* Then read the current diff.
-* Write a commit message that fits naturally with the existing commits.
-* Prefer explaining why the change was made rather than restating what the code does.
+* Study the previous commit messages to understand tone, tense, prefixes, formatting, level of detail, etc.
+* Then read the changes of the current diff.
+* Write a commit message that fits naturally with the existing messages.
+* Prefer explaining what exactly the changes are rather than speculating.
 * If the change is simple, keep the message concise.
-* If the change is complex or non-obvious, explain the reasoning clearly.
+* If the change is complex or non-obvious, summarize appropriately.
 
 Output requirements:
 
@@ -167,21 +166,18 @@ Output requirements:
   3. A body paragraph (or paragraphs) explaining the reasoning.
 * Do not add markdown formatting, labels, or extra text.
 
-### Previous commits:
-
-{commit_examples}
-
----
-
 ### Current diff:
 
 {commit_diff}
+----- 8< -----
 
----
+### Previous commit messages:
+
+{commit_examples}
 
 ### Instruction:
 
-Write the commit message now.
+Now, write the commit message for the current diff:
 """
 
 def generate_commit_message (commit_hash, max_count=99):
@@ -194,11 +190,11 @@ def generate_commit_message (commit_hash, max_count=99):
     # Commands to list example history and diff
     if use_jj:
       vcs_log = """jj log --no-pager --no-graph --color=never """
-      vcs_log += """-T '"\n----- 8< -----\nAuthor: "++coalesce(self.author().name(),self.author().email())++"\n\n"++description++"\n"' """
+      vcs_log += """-T '"\n----- 8< -----\n"++description++"\n"' """
       vcs_diff = vcs_log + f"""--git -r '{commit_hash}' """
       vcs_log += f"""-n {max_count} -r '..{commit_hash}' --reversed """
     else:
-      vcs_log = """git -P log --no-color --format='%n----- 8< -----%nAuthor: %an%n%n%B' """
+      vcs_log = """git -P log --no-color --format='%n----- 8< -----%n%B' """
       vcs_diff = vcs_log + f"""-p '{commit_hash}^!' """
       vcs_log += f"""-n {max_count} '{commit_hash}' --reverse """
     # Get the diff for the specific commit
@@ -297,7 +293,7 @@ def main():
     formatter_class = argparse.RawDescriptionHelpFormatter
   )
   parser.add_argument ('commit_hash', help = 'The hash of the commit to generate a message for.')
-  parser.add_argument ('--max-count', type=int, default=19, help = 'The maximum number of recent commits to use as examples.')
+  parser.add_argument ('--max-count', type=int, default=7, help = 'The maximum number of recent commits to use as examples.')
   parser.add_argument ('--dup-output', action = 'store_true', help = 'Duplicate output to stderr.')
   parser.add_argument ('--debug-prompt', action = 'store_true', help = 'Print the generated prompt to stderr.')
   parser.add_argument ('-x', '--debug', action = 'store_true', help = 'Debug operational status to stderr.')
