@@ -1,3 +1,27 @@
+## JJ-FZF 0.38.0 - 2026-03-24
+
+### Added:
+* Experimental: automatic positioning on @ upon jj-fzf start
+
+### Changed:
+* Ctrl-U: preserve selection when clearing the line
+* Update commit message generation prompt to work with a variety and smaller models
+* Update man page documentation to include F11 preview toggle
+* Introduce `jjfzf_strquote` helper function (for `jj split`)
+
+### Fixed:
+* Use `dd skip=1` instead of iseek to support SFX on ubuntu 22.04
+* Fix quoting and order when commit splitting with `jj split`
+* Refresh status after opening full history view
+
+### Breaking:
+* This release requires jj-0.38.0
+* This release requires fzf-0.67.0
+
+Thanks to everyone who gave feedback and
+helped to make this release happen!
+
+
 ## JJ-FZF 0.37.0 - 2026-01-25
 
 ### Added:
