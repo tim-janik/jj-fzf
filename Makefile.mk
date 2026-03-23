@@ -168,6 +168,7 @@ distcheck:
 	&& make PREFIX=$$T/inst uninstall \
 	&& (set -x && $$PWD/jj-fzf --version) \
 	&& cd / && rm -r "$$T"
+	$Q $(MAKE) artifacts/jj-fzf.sfx artifacts/jj-fzf.1.gz
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 CLEANDIRS += artifacts
 
