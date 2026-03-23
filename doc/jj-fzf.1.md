@@ -129,6 +129,7 @@
   Most **jj-fzf** commands operate on the current revision under the fzf pointer
   and/or a set of previously selected revisions (use _Tab_ or _Shift-Tab_ to change
   selection). All dialogs can be closed at any point with _Escape_.
+  The layout of the preview window can be adjusted with _F11_.
 
 ## KEY BINDINGS FOR JJ-FZF
    

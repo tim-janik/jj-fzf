@@ -22,7 +22,7 @@ fi
 
 OFFSET=$(sed '/#''__SFXSH_TAR__/q' "$0" | wc -c) ||
   die "failed to detect tarball"
-dd iseek=1 ibs="$OFFSET" if="$0" 2>/dev/null | ( cd $SFXSHTMPDIR && tar zxf - ) ||
+dd skip=1 ibs="$OFFSET" if="$0" 2>/dev/null | ( cd $SFXSHTMPDIR && tar zxf - ) ||
   die "failed to extract tarball"
 
 export SFXSHTMPDIR
