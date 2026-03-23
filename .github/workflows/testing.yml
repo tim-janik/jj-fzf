@@ -20,16 +20,7 @@ jobs:
     - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
     - run: git fetch -f --tags  # Fix actions/checkout#290
     - run: |
-        curl -s -L https://github.com/junegunn/fzf/releases/download/v0.67.0/fzf-0.67.0-linux_amd64.tar.gz |
-          sudo tar zxvf - -C /usr/local/bin/ fzf
-        fzf --version
-    - run: |
-        curl -s -L https://github.com/martinvonz/jj/releases/download/v0.38.0/jj-v0.38.0-x86_64-unknown-linux-musl.tar.gz |
-          sudo tar zxvf - -C /usr/local/bin/ ./jj
-        jj --version
-    - run: |
-        cd /tmp && wget -q -c https://github.com/jgm/pandoc/releases/download/3.7.0.2/pandoc-3.7.0.2-1-amd64.deb
-        sudo apt install ./pandoc-3.7.0.2-1-amd64.deb && pandoc --version
+        make apt-deps-install
     - run: |
         make all
     - run: |
@@ -44,10 +35,10 @@ jobs:
         make clean
     - run: |
         make distcheck
-    - run: |
-        make artifacts/jj-fzf.sfx
-    - run: |
-        make artifacts/jj-fzf.1.gz
+    # - run: |
+    #     make artifacts/jj-fzf.sfx
+    # - run: |
+    #     make artifacts/jj-fzf.1.gz
     - uses: actions/upload-artifact@v4
       with: { name: jj-fzf-Artifacts, path: artifacts/ }
     - name: Screencast Tests
@@ -60,21 +51,21 @@ jobs:
     - uses: actions/upload-artifact@v4
       with: { name: jj-fzf-Screencasts, path: screencasts/*.cast }
 
-  CreateRelease:
-    runs-on: ubuntu-24.04
-    needs: [ MakeDistCheck ]
-    if: github.ref_type == 'tag'        # https://docs.github.com/en/actions/reference/events-that-trigger-workflows
-    # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
-    permissions: { contents: write }    # allow github.token to create a release
-    env: { GH_TOKEN: "${{ github.token }}" }
-    steps:
-    - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
-    - run: git fetch -f --tags          # Fix actions/checkout#290
-    - uses: actions/download-artifact@v4
-      with: { path: ./artifacts, merge-multiple: true }
-    - run: ls -alR artifacts/
-    - run: |
-        .github/workflows/gh-release.sh "JJ-FZF"
+  # CreateRelease:
+  #   runs-on: ubuntu-24.04
+  #   needs: [ MakeDistCheck ]
+  #   if: github.ref_type == 'tag'        # https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+  #   # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
+  #   permissions: { contents: write }    # allow github.token to create a release
+  #   env: { GH_TOKEN: "${{ github.token }}" }
+  #   steps:
+  #   - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
+  #   - run: git fetch -f --tags          # Fix actions/checkout#290
+  #   - uses: actions/download-artifact@v4
+  #     with: { path: ./artifacts, merge-multiple: true }
+  #   - run: ls -alR artifacts/
+  #   - run: |
+  #       .github/workflows/gh-release.sh "JJ-FZF"
 
   Ping-IRC:
     if: always()

@@ -123,6 +123,26 @@ uninstall:
 	$(QGEN)
 	rm -r -f $(DESTDIR)$(PRJDIR) $(DESTDIR)$(BINDIR)/jj-fzf $(DESTDIR)$(MANDIR)/man1/jj-fzf.1
 
+# == apt-deps-install ==
+apt-deps-install:
+	$(QGEN)
+	$Q command -v fzf >/dev/null 2>&1 && exit 0 ; \
+	   V=$$(sed -n '/ fzf --version/{s/.*__preflightish_require "\([0-9.]*\)".*/\1/p}' preflight.sh) \
+	   && curl -s -L https://github.com/junegunn/fzf/releases/download/v$$V/fzf-$$V-linux_amd64.tar.gz \
+	   | sudo tar zxf - -C /usr/local/bin/ fzf
+	fzf --version
+	$Q command -v jj >/dev/null 2>&1 && exit 0 ; \
+	   V=$$(sed -n '/ jj --version/{s/.*__preflightish_require "\([0-9.]*\)".*/\1/p}' preflight.sh) \
+	   && curl -s -L https://github.com/martinvonz/jj/releases/download/v$$V/jj-v$$V-x86_64-unknown-linux-musl.tar.gz \
+	    | sudo tar zxf - -C /usr/local/bin/ ./jj
+	jj --version
+	$Q echo "Force newer pandoc" ; \
+	   cd /tmp \
+	   && wget -q -c https://github.com/jgm/pandoc/releases/download/3.7.0.2/pandoc-3.7.0.2-1-amd64.deb \
+	   && sudo apt install ./pandoc-3.7.0.2-1-amd64.deb \
+	   && rm -f ./pandoc-3.7.0.2-1-amd64.deb
+	pandoc --version
+
 # == distcheck ==
 distcheck:
 	@$(eval distversion != git describe --match='v[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//')
@@ -148,6 +168,7 @@ distcheck:
 	&& make PREFIX=$$T/inst uninstall \
 	&& (set -x && $$PWD/jj-fzf --version) \
 	&& cd / && rm -r "$$T"
+	$Q $(MAKE) artifacts/jj-fzf.sfx artifacts/jj-fzf.1.gz
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 CLEANDIRS += artifacts
 
