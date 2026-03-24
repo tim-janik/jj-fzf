@@ -172,6 +172,19 @@ distcheck:
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 CLEANDIRS += artifacts
 
+# == wiki ==
+wiki-jj-fzf-help.md:
+	$(MAKE) doc/jj-fzf.1.gfm.md
+	git -C wiki/.git/.. switch master
+	$Q # git -C wiki/.git/.. reset --hard origin/master
+	git -C wiki/.git/.. pull
+	mv doc/jj-fzf.1.gfm.md wiki/.git/../jj-fzf-help.md
+	git -C wiki/.git/.. add jj-fzf-help.md
+	git -C wiki/.git/.. commit -m 'jj-fzf-help.md: Update jj-fzf man page'
+	git -C wiki/.git/.. log -1 -p
+	$Q echo \# git -C $$PWD/wiki/.git/.. push
+.PHONY: wiki-jj-fzf-help.md
+
 # == artifacts/jj-fzf.sfx ==
 artifacts/jj-fzf.sfx: all
 	$(QGEN)
