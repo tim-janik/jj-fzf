@@ -156,11 +156,11 @@ distcheck:
 		--pretty='^^%ad  %an 	# %h%n%n%B%n'		>  artifacts/ChangeLog \
 	&& sed 's/^/	/; s/^	^^// ; s/[[:space:]]\+$$// '	-i artifacts/ChangeLog \
 	&& sed '/^\s*$$/{ N; /^\s*\n\s*$$/D }'			-i artifacts/ChangeLog
-	$Q # Generate and compress artifacts/jj-fzf-*.tar.zst
+	$Q # Generate and compress artifacts/*.tar.zst
 	$Q git archive --prefix=$(distname)/ --add-file artifacts/ChangeLog -o artifacts/$(distname).tar HEAD
-	$Q rm -f artifacts/$(distname).tar.zst && zstd --ultra -22 --rm artifacts/$(distname).tar && ls -lh artifacts/$(distname).tar.zst
+	$Q zstd --ultra -22 --rm artifacts/$(distname).tar && ls -lh artifacts/$(distname).tar.zst
 	$Q T=`mktemp -d` && cd $$T && tar xf $(abspath artifacts/$(distname).tar.zst) \
-	&& cd jj-fzf-$(distversion) \
+	&& cd $(distname) \
 	&& nice make all -j`nproc` \
 	&& make PREFIX=$$T/inst install \
 	&& make PREFIX=$$T/inst installcheck -j`nproc` \
@@ -170,7 +170,21 @@ distcheck:
 	&& cd / && rm -r "$$T"
 	$Q $(MAKE) artifacts/jj-fzf.sfx artifacts/jj-fzf.1.gz
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
-CLEANDIRS += artifacts
+CLEANDIRS += artifacts/
+.PHONY: distcheck
+
+# == wiki ==
+wiki-jj-fzf-help.md:
+	$(MAKE) doc/jj-fzf.1.gfm.md
+	git -C wiki/.git/.. switch master
+	$Q # git -C wiki/.git/.. reset --hard origin/master
+	git -C wiki/.git/.. pull
+	mv doc/jj-fzf.1.gfm.md wiki/.git/../jj-fzf-help.md
+	git -C wiki/.git/.. add jj-fzf-help.md
+	git -C wiki/.git/.. commit -m 'jj-fzf-help.md: Update jj-fzf man page'
+	git -C wiki/.git/.. log -1 -p
+	$Q echo \# git -C $$PWD/wiki/.git/.. push
+.PHONY: wiki-jj-fzf-help.md
 
 # == artifacts/jj-fzf.sfx ==
 artifacts/jj-fzf.sfx: all
