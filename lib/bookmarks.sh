@@ -192,7 +192,7 @@ jjfzf_bookmark_list0	# setup $JJFZF_TEMPD/bm_start_pos
 JJFZF_REFS_START_POS="$(cat "$JJFZF_TEMPD/bm_start_pos")"
 [[ ${#NEAREST[@]} -ge 1 ]] &&
   NEAREST_POS=$(sed -r 's/\x1b\[[0-9;]*[mK]//g' $JJFZF_TEMPD/bm_refs.lst |
-		  grep -m 1 -n "\b${NEAREST[0]}\b" | cut -d: -f1) &&
+		  grep -m 1 -n "¸${NEAREST[0]}¸" | cut -d: -f1) &&
   test -n "$NEAREST_POS" &&
   JJFZF_REFS_START_POS="$NEAREST_POS"
 B+=( --bind "load:+pos($JJFZF_REFS_START_POS)" )
