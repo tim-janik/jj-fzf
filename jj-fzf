@@ -313,7 +313,7 @@ jjfzf_describe_commit()
   fi
   export JJFZF_EDITOR="${JJ_EDITOR-}"			# preserve user setting
   export JJ_EDITOR="$JJFZF_ABSPATHLIB/editor.sh"	# wrapper that rejects non-edits
-  jjfzf_run +e jj describe --edit "${CONFIG[@]}" "$REV"
+  jjfzf_run +e jj describe --editor "${CONFIG[@]}" "$REV"
 )
 export -f jjfzf_describe_commit
 
@@ -336,7 +336,7 @@ jjfzf_describe_llm()
   fi
   export JJFZF_EDITOR="${JJ_EDITOR-}"			# preserve $JJ_EDITOR user settings
   export JJ_EDITOR="$JJFZF_ABSPATHLIB/editor.sh"	# use hash-comparing wrapper
-  jjfzf_run +e jj describe --edit "${CONFIG[@]}" "$REV"
+  jjfzf_run +e jj describe --editor "${CONFIG[@]}" "$REV"
 )
 export -f jjfzf_describe_llm
 
