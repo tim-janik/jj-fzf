@@ -18,6 +18,11 @@ QGEN		 = @echo '  GEN     ' $@
 QSKIP		:= $(if $(findstring s,$(MAKEFLAGS)),: )
 QECHO		 = @QECHO() { Q1="$$1"; shift; QR="$$*"; QOUT=$$(printf '  %-8s ' "$$Q1" ; echo "$$QR") && $(QSKIP) echo "$$QOUT"; }; QECHO
 
+# == Require GNU Make >= 4.0 for $(file) ==
+ifneq ($(filter 3.%,$(MAKE_VERSION)),)
+  $(error GNU Make >= 4.0 is required (found $(MAKE_VERSION)))
+endif
+
 # == Check presence of dependencies ==
 check-deps: preflight.sh jj-fzf
 	$(QGEN)
