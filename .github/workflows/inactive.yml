@@ -25,12 +25,12 @@ jobs:
             because it has been open for several weeks with no activity.
             Feel free to reopen this issue when more information or
             updates are available.
-          days-before-issue-stale: 31
-          days-before-issue-close: 21
+          days-before-issue-stale: 92
+          days-before-issue-close: -1
           stale-pr-label: "inactive"
           stale-pr-message: >
             This PR is considered stale,
             because it has been open for several weeks with no activity.
-          days-before-pr-stale: 91
+          days-before-pr-stale: 92
           days-before-pr-close: -1
           repo-token: ${{ secrets.GITHUB_TOKEN }}

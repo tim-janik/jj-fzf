@@ -220,7 +220,7 @@ def generate_commit_message (commit_hash, max_count=99):
   iterable = llm_stream (constructed_prompt)
   if DEBUG:
     print ("HTTP: Starting LLM request", file = sys.stderr)
-  tidy_print (iterable)
+  tidy_print (iterable) # thinking_tags
 
 def output (text_to_print: str):
   """Writes the given text to standard output and flushes."""
@@ -230,6 +230,10 @@ def output (text_to_print: str):
   if DUP_OUTPUT:
     sys.stderr.write (text_to_print)
 
+thinking_tags = [
+  ('<'+'think>', '</'+'think>'),                # Qwen
+  ('<|'+'channel>thought', '<channel'+'|>'),    # Gemma
+]
 def tidy_print (iterable):
   """Remove reasoning blocks from iterable text and add terminating newline."""
   col, line = 0, 0
@@ -258,11 +262,13 @@ def tidy_print (iterable):
     if len (buffer) >= 12: # min size to detect thinking
       break
   # Keep reading until reasoning is done
-  while (think := buffer.find ('<think>')) >= 0 and (chunk := next (iterable, None)):
+  while (match := next(( (s, e, buffer.find (s)) for s, e in thinking_tags if s in buffer ), None)) \
+        and (chunk := next (iterable, None)):
+    s, e, think = match
     if DEBUG: sys.stderr.write (chunk)
     buffer += chunk
-    if (closing := buffer.find ('</think>')) > think:
-      buffer = buffer[closing + len ('</think>'):]
+    if (closing := buffer.find (e, think)) > think:
+      buffer = buffer[closing + len (e):]
       break
   # Normal text output
   buffer = buffer.lstrip()
