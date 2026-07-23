@@ -144,7 +144,7 @@ def gemini_stream (api_key: str, model: str, prompt: str) -> Generator[str, None
 COMMIT_MESSAGE_PROMPT = """
 Goal:
 Write the best commit message for the changes in the current diff below.
-Match the style, tone, and structure of the previous commits.
+Match the style, tone, and structure of the previous commits and keep wording minimal.
 
 Instructions:
 
