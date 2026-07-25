@@ -141,10 +141,20 @@ jjfzf_split_i()
 )
 export -f jjfzf_split_i
 
+# Resolve interactively
+KEY[resolve]="Alt-L"
+RUN[resolve]="jjfzf_run jj resolve -r {2}"
+DOC[resolve]='Use `jj resolve` to interactively select content diff hunks of a conflict to be resolved.'
+
 # Inject commit
 KEY[inject]="Alt-J"
 RUN[inject]="jjfzf_inject --diff @ {2} ; jjfzf_load_and_status"
 DOC[inject]='Inject the currently selected revision as historic diff before @ while preserving its content.'
+
+# Metaedit
+KEY[meta]="Ctrl-R"
+RUN[meta]="jjfzf_run jj --no-pager metaedit --update-change-id --force-rewrite {+2}"
+DOC[meta]='Use `jj metaedit` to rewrite the change ID and committer timestamp (EXPERIMENTAL).'
 
 # New-A
 KEY[new-a]="Alt-N"
