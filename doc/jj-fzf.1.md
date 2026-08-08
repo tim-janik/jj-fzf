@@ -220,10 +220,10 @@
   https://github.com/tim-janik/jj-fzf
 
   For revset expressions, see: \
-  https://martinvonz.github.io/jj/latest/revsets
+  https://www.jj-vcs.dev/latest/revsets
 
   For using `default_commit_description` in `draft_commit_description` customization, see: \
-  https://jj-vcs.github.io/jj/latest/config/#default-description
+  https://www.jj-vcs.dev/latest/config/#default-description
 
   For **pre-commit** hooks via `jj-pre-push`, see: \
   https://github.com/acarapetis/jj-pre-push

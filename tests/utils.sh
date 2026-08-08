@@ -89,7 +89,7 @@ get_change_id()
 (
   COMMIT_ID=$(get_commit_id "$@")
   UNIQUECHANGE='if(self.divergent(), "", change_id)'
-  # only allow non-divergent: https://martinvonz.github.io/jj/latest/FAQ/#how-do-i-deal-with-divergent-changes-after-the-change-id
+  # only allow non-divergent: https://www.jj-vcs.dev/latest/guides/divergence/
   CHANGE_ID=$(jj --ignore-working-copy log --no-graph -T "$UNIQUECHANGE" -r " $COMMIT_ID ") || exit
   echo "$CHANGE_ID"
 )

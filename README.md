@@ -10,22 +10,22 @@ JJ-FZF
 <!-- ABOUT -->
 ## About jj-fzf
 
-`JJ-FZF` is a text UI for the [Jujutsu VCS](https://jj-vcs.github.io/jj/latest/) `jj` based on [fzf](https://junegunn.github.io/fzf/).
-All modification commands are printed on stderr to help users in learning the [jj CLI](https://jj-vcs.github.io/jj/latest/cli-reference/).
+`JJ-FZF` is a text UI for the [Jujutsu VCS](https://www.jj-vcs.dev/latest/) `jj` based on [fzf](https://junegunn.github.io/fzf/).
+All modification commands are printed on stderr to help users in learning the [jj CLI](https://www.jj-vcs.dev/latest/cli-reference/).
 
 ### Feature Set
 
-* Edit the current [revset](https://jj-vcs.github.io/jj/latest/revsets/) (list of commits) in the fzf input field with live reload of the `jj log`.
+* Edit the current [revset](https://www.jj-vcs.dev/latest/revsets/) (list of commits) in the fzf input field with live reload of the `jj log`.
 * Complex [rebase](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#rebasing-commits) commands just need `Alt-R` and cursor keys.
 * Use `Alt-P` for a dialog to edit or simplify the parents in a [merge](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#merging-commits) commit.
-* [Splitting](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#splitting-commits) commits needs a single key press. `Alt-F` splits commits by file, `Alt-I` uses the [`jj split`](https://jj-vcs.github.io/jj/latest/cli-reference/#jj-split) command in interactive mode.
+* [Splitting](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#splitting-commits) commits needs a single key press. `Alt-F` splits commits by file, `Alt-I` uses the [`jj split`](https://www.jj-vcs.dev/latest/cli-reference/#jj-split) command in interactive mode.
 * First class [Mega-Merge](https://github.com/tim-janik/jj-fzf?tab=readme-ov-file#mega-merge-workflow) support: `Ctrl-N` starts a new branch, `Alt-N` inserts a new empty commit, `Alt-P` edits merged branches, `Alt-O` absorbs fixes into related commits of merged branches.
-* Commits can be [squashed](https://jj-vcs.github.io/jj/latest/cli-reference/#jj-squash) (combined into a single commit) from arbitrary points in the ancestry with `Alt-Q`.
-* A dedicated browser (`Ctrl-T`) shows the evolution of each revision ([change_id](https://jj-vcs.github.io/jj/latest/glossary/#change-id)) and allows to inject (`Alt-J`) historic versions of a revision as a new commit without affecting the working copy.
+* Commits can be [squashed](https://www.jj-vcs.dev/latest/cli-reference/#jj-squash) (combined into a single commit) from arbitrary points in the ancestry with `Alt-Q`.
+* A dedicated browser (`Ctrl-T`) shows the evolution of each revision ([change_id](https://www.jj-vcs.dev/latest/glossary/#change-id)) and allows to inject (`Alt-J`) historic versions of a revision as a new commit without affecting the working copy.
 * Key bindings are easily discoverable in an onscreen area and via `Ctrl-H` or the `jj-fzf.1` manual page.
-* At any point the [oplog](https://jj-vcs.github.io/jj/latest/operation-log/) can be opened with `Ctrl-O` to understand recent modifications, browse the working copy of a previous operation and restore the repository to an arbitrary earlier snapshot.
+* At any point the [oplog](https://www.jj-vcs.dev/latest/operation-log/) can be opened with `Ctrl-O` to understand recent modifications, browse the working copy of a previous operation and restore the repository to an arbitrary earlier snapshot.
 * Use `Alt-J` in the oplog to "inject" past snapshots of a repository as newly created historic commits after the fact without affecting the working copy.
-* Snapshots are usually created with commands like `jj status`, [Watchman](https://jj-vcs.github.io/jj/latest/config/#watchman) or upon `Save` in Emacs by using the [contrib/jj-undirty.el](https://github.com/tim-janik/jj-fzf/blob/trunk/contrib/jj-undirty.el) script.
+* Snapshots are usually created with commands like `jj status`, [Watchman](https://www.jj-vcs.dev/latest/config/#watchman) or upon `Save` in Emacs by using the [contrib/jj-undirty.el](https://github.com/tim-janik/jj-fzf/blob/trunk/contrib/jj-undirty.el) script.
 * The shortcuts for repository wide undo/redo are `Alt-Z` and `Alt-Y`. The operation log view (`Ctrl-O`) reflects the current state of the undo stack by marking past undo operations with `⋯`.
 
 The main view centers around `jj log` and allows editing of the revset that is currently being displayed.

@@ -26,7 +26,7 @@ if $HINT ; then
 # edited files, add Signed-off-by and append a diff. In newer JJ versions,
 # this can all be configured via `jj config` templates. Note that using
 # commit_trailers may interfere with empty descriptiopn editing.
-# See also: https://jj-vcs.github.io/jj/latest/config/#default-description
+# See also: https://www.jj-vcs.dev/latest/config/#default-description
 # The following config is similar to the old jj-fzf describe command:
 __EOF
   cat <<\__EOF

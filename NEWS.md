@@ -110,7 +110,7 @@ helped to make this release happen!
   commit messages, use `templates.draft_commit_description` instead. If you
   depend on the messages of previous jj-fzf versions, consider the hint printed
   out by: `lib/draft.sh --hint`
-  See also: https://jj-vcs.github.io/jj/latest/config/#default-description
+  See also: https://www.jj-vcs.dev/latest/config/#default-description
 
 * Ctrl-F now toggles between the fzf finder and live revset editing.
   There is no key binding replacement for the old 'file-editor', just run
