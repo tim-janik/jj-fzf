@@ -138,7 +138,7 @@ apt-deps-install:
 	fzf --version
 	$Q command -v jj >/dev/null 2>&1 && exit 0 ; \
 	   V=$$(sed -n '/ jj --version/{s/.*__preflightish_require "\([0-9.]*\)".*/\1/p}' preflight.sh) \
-	   && curl -s -L https://github.com/martinvonz/jj/releases/download/v$$V/jj-v$$V-x86_64-unknown-linux-musl.tar.gz \
+	   && curl -s -L https://github.com/jj-vcs/jj/releases/download/v$$V/jj-v$$V-x86_64-unknown-linux-musl.tar.gz \
 	    | sudo tar zxf - -C /usr/local/bin/ ./jj
 	jj --version
 	$Q echo "Force newer pandoc" ; \
