@@ -103,9 +103,9 @@ export -f jjfzf_config
 # Add quotes and escapes to a stream to be usable as toml config value
 jjfzf_config_quote() # [prefix] [postfix]
 (
-  echo -n "''' \"${1-}"
+  echo -n "''' ${1-}\""
   sed -r 's/([\\"])/\\\1/g;'"s/'/\\\\x27/g"
-  echo -n "${2-}\" '''"
+  echo "\"${2-} '''"
 )
 export -f jjfzf_config_quote
 
