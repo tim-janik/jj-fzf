@@ -21,7 +21,6 @@ while test $# -ne 0 ; do
     -x)		set -x ;;
     -*)		true ;;
     *)		INPUT_REV="$1" ;;
-    *)		break ;;
   esac
   shift
 done
@@ -269,7 +268,7 @@ jjfzf_refs_enter()
       }
       ;;
     B)
-      test -z "$NEWNAME" -a $ISTAG == false && NEWNAME="$REF"
+      test -z "$NEWNAME" -a "$ISTAG" == false && NEWNAME="$REF"
       test -z "$NEWNAME" -o -z "$JJFZF_COMMITID" || {
 	jjfzf_run +n jj --no-pager bookmark set --allow-backwards -r "$JJFZF_COMMITID" -- "$NEWNAME"
       }
