@@ -11,4 +11,5 @@
 *.webp
 /screencasts/*/
 /*Demo/
+/.issues/
 x*
