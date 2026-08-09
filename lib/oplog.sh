@@ -67,7 +67,7 @@ jjfzf_op_info()
 (
   set -Eeuo pipefail #-x
   OPID="$1"
-  jj --no-pager --ignore-working-copy $JJFZF_COLOR op show -p "$OPID"
+  jj --no-pager --ignore-working-copy $JJFZF_COLOR op show -p --show-changes-in='all()' "$OPID"
   echo
   echo
   echo "jj --at-operation=$OPID log -p -r ..@"
