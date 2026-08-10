@@ -6,13 +6,16 @@ PATH="$SCRIPTDIR/..:$PATH"	# ensure jj-fzf is in $PATH
 jj-fzf --version >/dev/null
 
 # == VARIABLE Setup ==
-export JJ_FZF_ERROR_DELAY=0 # instant errors for testing
+export JJFZF_ERROR_DELAY=0 # instant errors for testing
 TEMPD=
 
 # == OPTIONS ==
 DEVERR=/dev/null
 [[ " $* " =~ -x ]] && {
-  PS4="+ \${BASH_SOURCE[0]##*/}:\${LINENO}: "
+  # EPOCHREALTIME (bash >= 5.0) is recomputed per reference, so the PS4
+  # prompt carries a per-trace-line timestamp fork-free; deltas between
+  # consecutive lines show each command's duration.
+  PS4="+ \${EPOCHREALTIME} \${BASH_SOURCE[0]##*/}:\${LINENO}: "
   DEVERR=/dev/stderr
   set -x
 }

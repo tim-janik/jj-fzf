@@ -374,7 +374,10 @@ clone_jj_repo()
     echo 041c4fecb77434dd6720e7d7f1ce48d9575ac5f7 > .git/refs/remotes/origin/main
     jj git init --colocate
     jj new b9ebe2f0
-    jj abandon --ignore-immutable ' lxuluxyq:: | sqywrslw::'
+    jj tag delete '*' # we just need main and the rest to be mutable
+    # Keep the ancestor chain of 8b949f7e (incl. qylkzstz and wvormzwm) visible;
+    # jj >= 0.39 no longer revives hidden commits during `jj rebase`.
+    jj abandon --ignore-immutable '(lxuluxyq:: | sqywrslw::) & ~ancestors(8b949f7e)'
     jj rebase --destination 3aac8d21 --source 8b949f7e
   )
 }
