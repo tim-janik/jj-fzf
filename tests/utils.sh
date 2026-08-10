@@ -6,7 +6,7 @@ PATH="$SCRIPTDIR/..:$PATH"	# ensure jj-fzf is in $PATH
 jj-fzf --version >/dev/null
 
 # == VARIABLE Setup ==
-export JJ_FZF_ERROR_DELAY=0 # instant errors for testing
+export JJFZF_ERROR_DELAY=0 # instant errors for testing
 TEMPD=
 
 # == OPTIONS ==
