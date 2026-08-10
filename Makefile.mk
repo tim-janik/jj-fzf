@@ -76,6 +76,9 @@ SHELLSCRIPTS := jj-fzf $(wildcard *.sh lib/*.sh)
 tests-basics.sh:
 	$Q tests/basics.sh
 .PHONY: tests-basics.sh
+tests-regressions.sh:
+	$Q tests/regressions.sh
+.PHONY: tests-regressions.sh
 
 # == shellcheck ==
 shellcheck-warning: $(SHELLSCRIPTS) $(LIBSCRIPTS)
@@ -89,7 +92,7 @@ shellcheck-error:
 check-help:
 	$(QGEN)
 	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
-check: check-deps check-help shellcheck-error tests-basics.sh
+check: check-deps check-help shellcheck-error tests-basics.sh tests-regressions.sh
 
 # == test ==
 test: test-screencasts

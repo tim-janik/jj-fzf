@@ -25,7 +25,7 @@ if $HINT ; then
 # For commit message generation of a non-merge commit, jj-fzf used to list
 # edited files, add Signed-off-by and append a diff. In newer JJ versions,
 # this can all be configured via `jj config` templates. Note that using
-# commit_trailers may interfere with empty descriptiopn editing.
+# commit_trailers may interfere with empty description editing.
 # See also: https://www.jj-vcs.dev/latest/config/#default-description
 # The following config is similar to the old jj-fzf describe command:
 __EOF
