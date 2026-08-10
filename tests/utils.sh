@@ -12,7 +12,10 @@ TEMPD=
 # == OPTIONS ==
 DEVERR=/dev/null
 [[ " $* " =~ -x ]] && {
-  PS4="+ \${BASH_SOURCE[0]##*/}:\${LINENO}: "
+  # EPOCHREALTIME (bash >= 5.0) is recomputed per reference, so the PS4
+  # prompt carries a per-trace-line timestamp fork-free; deltas between
+  # consecutive lines show each command's duration.
+  PS4="+ \${EPOCHREALTIME} \${BASH_SOURCE[0]##*/}:\${LINENO}: "
   DEVERR=/dev/stderr
   set -x
 }
