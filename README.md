@@ -85,8 +85,8 @@ It begins by selecting a revision to base the merge commit on, then starts the m
 For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit.
 More commits can also be merged, and in such cases, `Ctrl-D` can be used to describe the merge commit afterward.
 
-![Mergin Commits](https://github.com/user-attachments/assets/47be543f-4a20-42a2-929b-e9c53ad1f896)
-**Mergin Commits:** [Asciicast](https://asciinema.org/a/685133) [MP4](https://github.com/user-attachments/assets/7d97f37f-c623-4fdb-a2de-8860bab346a9)
+![Merging Commits](https://github.com/user-attachments/assets/47be543f-4a20-42a2-929b-e9c53ad1f896)
+**Merging Commits:** [Asciicast](https://asciinema.org/a/685133) [MP4](https://github.com/user-attachments/assets/7d97f37f-c623-4fdb-a2de-8860bab346a9)
 
 ### Rebasing Commits
 

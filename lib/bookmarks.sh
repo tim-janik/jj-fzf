@@ -124,7 +124,7 @@ rev_bookmarks()
     tr ' ' '\n' | sed -r '/@/d; s/[*?].*//;' || :
 }
 # Identify input bookmark name or find first local bookmark in $INPUT_REV
-P=()	# PIDs to run jj queries in parellel
+P=()	# PIDs to run jj queries in parallel
 (jjfzf_b_l --color=never -T 'name++"\n"' -- "exact:'$INPUT_REV'" 2>$JJFZF_TEMPD/err0 |
    sed -r '1q'
  grep -v '^Warning: ' $JJFZF_TEMPD/err0 >&2 || true	# ignore non-matching names
@@ -156,7 +156,7 @@ jjfzf_bookmark_list0()
   jjfzf_b_l --remote origin -T 'if(!tracked && remote == "origin", bookmark_remote1d )'  > $JJFZF_TEMPD/bm_origin1d & P_origin1d=$!
   jj --no-pager --ignore-working-copy --config-file=$JJFZF_TEMPD/bm.toml \
      tag list $JJFZF_COLOR -T tag_local1d > $JJFZF_TEMPD/bm_tags.lst & P_tags=$!
-  # Truely local bookmark names
+  # Truly local bookmark names
   wait "$P_lnames" || exit $?
   LOCAL_BOOKMARKS=( $(cat $JJFZF_TEMPD/bm_lnames) )
   wait "$P_local1d" || exit $?

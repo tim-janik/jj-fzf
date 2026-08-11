@@ -119,7 +119,7 @@ DOC[filesplit]='Use `jj split` in a loop to split each file modified by the curr
 # KEY[showkeys]="Alt-H"	# TODO: add for --help
 BINDINGS+=( --header-label "$(echo ' Alt-H: Toggle Key Display ⫶ Ctrl-H: help ' | jjfzf_bold_keys)" )
 BINDINGS+=( --bind "alt-h:execute-silent( jjfzf_config toggle jj-fzf.show-keys )" )	# see also transform-header
-DOC[showkeys]='Display or hide the list of avilable key bindings, persist the setting in `jj-fzf.show-keys` of the `jj` user config.'
+DOC[showkeys]='Display or hide the list of available key bindings, persist the setting in `jj-fzf.show-keys` of the `jj` user config.'
 
 # Help
 # KEY[help]="Ctrl-H"	# TODO: add for --help
@@ -154,7 +154,7 @@ DOC[inject]='Inject the currently selected revision as historic diff before @ wh
 # Metaedit
 KEY[meta]="Ctrl-R"
 RUN[meta]="jjfzf_run jj --no-pager metaedit --update-change-id --force-rewrite {+2}"
-DOC[meta]='Use `jj metaedit` to rewrite the change ID and committer timestamp (EXPERIMENTAL).'
+DOC[meta]='Use `jj metaedit` to rewrite the change ID and committer timestamp.'
 
 # New-A
 KEY[new-a]="Alt-N"
@@ -239,7 +239,7 @@ DOC[revert]='Use `jj revert` to create new commits that undo the changes made by
 # Swap
 KEY[swap]="Alt-X"	POST[swap]="+down"
 RUN[swap]="jjfzf_run jj --no-pager rebase --insert-before {2}- -r {2}"
-DOC[swap]='Use `jj rebase --insert-before` to quickly swap the currenly selected revision with the revision immediately before it. Add `Ctrl` to use `--insert-after` instead.'
+DOC[swap]='Use `jj rebase --insert-before` to quickly swap the currently selected revision with the revision immediately before it. Add `Ctrl` to use `--insert-after` instead.'
 BINDINGS+=( --bind "ctrl-alt-x:execute( jjfzf_run jj --no-pager rebase --insert-after {2}+ -r {2} )+$RELOAD+up" )
 
 # Redo
@@ -519,7 +519,7 @@ if [ -v "RUN[${1-}]" ]; then
     CIDS=( $(jjfzf_list_change_ids "${@-@}") )
     test "${#CIDS[@]}" -lt 1 &&
       die "missing revisions for command: $KEY"
-    # Placeholder replacments
+    # Placeholder replacements
     while [[ "$CMD" =~ (.*)\{2\}(.*) ]] ; do
       CMD="${BASH_REMATCH[1]}${CIDS[0]}${BASH_REMATCH[2]}"
     done
