@@ -154,7 +154,7 @@ DOC[inject]='Inject the currently selected revision as historic diff before @ wh
 # Metaedit
 KEY[meta]="Ctrl-R"
 RUN[meta]="jjfzf_run jj --no-pager metaedit --update-change-id --force-rewrite {+2}"
-DOC[meta]='Use `jj metaedit` to rewrite the change ID and committer timestamp (EXPERIMENTAL).'
+DOC[meta]='Use `jj metaedit` to rewrite the change ID and committer timestamp.'
 
 # New-A
 KEY[new-a]="Alt-N"
