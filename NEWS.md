@@ -1,3 +1,33 @@
+## JJ-FZF 0.42.0 - 2026-08-11
+
+### Added:
+* Alt-L: start interactive conflict resolution with `jj resolve`
+* Ctrl-R: rewrites the change ID via `jj metaedit --update-change-id`
+* Added feature and regression tests
+* Ctrl-O: Keep showing *all* oplog changes in jj-0.40 and later
+
+### Changed:
+* Support `jj describe --editor`, since jj-0.42 removed `jj describe --edit`
+* The jj download URL was updated to: https://github.com/jj-vcs/jj/
+* Error pause delays are now configurable via the $JJFZF_ERROR_DELAY
+* Documentation links are updated to use jj-vcs.dev
+* The commit message prompt now requests 'keep commit wording minimal'
+
+### Fixed:
+* Require GNU Make >= 4.0, inspired by Bryan O'Sullivan (@bos), fixes #21
+* Bookmark startup position now matches bookmark names correctly with proper delimiters
+* Filter multiple Gemma/Qwen thinking tag formats in commit message generation
+
+### Breaking:
+* This release requires jj-0.42.0
+* This release requires fzf-0.67.0
+* This release requires GNU Make-4.0
+* This release requires bash-5.1
+
+Thanks to everyone who gave feedback and
+helped to make this release happen!
+
+
 ## JJ-FZF 0.38.0 - 2026-03-24
 
 ### Added:
@@ -221,7 +251,7 @@ helped to make this release happen!
 
 ### Removed:
 * Removed unnecessary `all:` prefix in jj revset expressions
-* Removed unsed command / key binding for undo marker reset
+* Removed unused command / key binding for undo marker reset
 
 
 ## JJ-FZF 0.32.0 - 2025-08-14
