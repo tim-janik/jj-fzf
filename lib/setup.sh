@@ -288,7 +288,7 @@ jjfzf_run()
       $IGNORE &&
 	ERR=0 || {
 	  echo "jj-fzf: command exit_status=$ERR" >&2
-	  read -t "${JJFZF_ERROR_DELAY:-2}" || :	# pause unles JJFZF_ERROR_DELAY=0
+	  read -t "${JJFZF_ERROR_DELAY:-2}" || :	# pause unless JJFZF_ERROR_DELAY=0
 	}
     fi
   fi

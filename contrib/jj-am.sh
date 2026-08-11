@@ -45,7 +45,7 @@ temp_dir()
 # Create new commit
 jj_commit()
 (
-  # collect commit infor from header
+  # collect commit info from header
   HEADER="$1" BODY="$(<"$2")" PATCH="$3"
   AUTHOR="$(sed -nr '/^Author: /{ s/^[^:]*: //; p; q; }' < $HEADER)"
   EMAIL="$(sed -nr '/^Email: /{ s/^[^:]*: //; p; q; }' < $HEADER)"
