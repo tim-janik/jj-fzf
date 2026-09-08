@@ -9,42 +9,70 @@ DEBUG = False
 DEBUG_PROMPT = False
 DUP_OUTPUT = False
 
+def env_or_jj_config (env_var: str, jj_key: str, default: str = '') -> str:
+  """Return the value of *env_var* if set, otherwise query `jj config get jj-fzf.<jj_key>`.
+  Falls back to *default* if neither is available."""
+  if os.environ.get (env_var):
+    return os.environ[env_var]
+  try:
+    result = subprocess.check_output (
+      ['jj', '--no-pager', '--ignore-working-copy', 'config', 'get', f'jj-fzf.{jj_key}'],
+      text = True, stderr = subprocess.DEVNULL
+    ).strip()
+    if result:
+      return result
+  except (subprocess.CalledProcessError, FileNotFoundError):
+    pass
+  return default
+
 # LLM setup help, repeated in the manual page
 LLM_HELP = '''
 Commit messages can be generated using different Large Language Models (LLMs).
-The LLM is chosen based on environment variables, in the following order of precedence:
+The LLM is chosen based on environment variables (or jj config), in the following order of precedence:
+
+Environment variables take precedence over jj config settings. Note that jj config
+keys are case-sensitive, so use the exact spellings shown below (e.g. `jj-fzf.LLM_API_BASE`,
+not `jj-fzf.llm-api-base`).
 
 1. Generic llama.cpp-compatible API:
-   Set LLM_API_BASE to the base URL of your API endpoint.
-   Optionally, set LLM_API_KEY if the API requires an authorization key.
+   Set the LLM_API_BASE environment variable to the base URL of your API endpoint.
+   As a fallback, the jj config `jj-fzf.LLM_API_BASE` can be used instead.
+   Optionally, set LLM_API_KEY (or jj config `jj-fzf.LLM_API_KEY`) if the API requires an authorization key.
    Example:
    ```
    export LLM_API_BASE="http://llm-server.local:8080/v1"
    export LLM_API_KEY="your-api-key"  # optional
+   # Or via jj config:
+   jj config set --user jj-fzf.LLM_API_BASE "http://llm-server.local:8080/v1"
    ```
 2. Google Gemini:
-   Set GEMINI_API_KEY to your Google AI Studio API key.
+   Set the GEMINI_API_KEY environment variable or jj config `jj-fzf.GEMINI_API_KEY` to your Google AI Studio API key.
    Get a free key from: https://aistudio.google.com/
    Example:
    ```
    export GEMINI_API_KEY="AI-gemini-api-key"
+   # Or via jj config:
+   jj config set --user jj-fzf.GEMINI_API_KEY "AI-gemini-api-key"
    ```
 
 3. OpenAI:
-   Set OPENAI_API_KEY to your OpenAI API key.
-   Optionally, set OPENAI_API_BASE to use a different endpoint
+   Set the OPENAI_API_KEY environment variable or jj config `jj-fzf.OPENAI_API_KEY` to your OpenAI API key.
+   Optionally, set OPENAI_API_BASE (or jj config `jj-fzf.OPENAI_API_BASE`) to use a different endpoint
    (e.g., for Azure OpenAI or other compatible services).
    Example:
    ```
    export OPENAI_API_KEY="sk-openai-api-key"
+   # Or via jj config:
+   jj config set --user jj-fzf.OPENAI_API_KEY "sk-openai-api-key"
    # Optionally, to use a different endpoint:
    export OPENAI_API_BASE="https://api.llm-server.local/v1"
+   # or: jj config set --user jj-fzf.OPENAI_API_BASE "https://api.llm-server.local/v1"
    ```
 
 4. Local llama.cpp server (default):
    If none of the above are set, a connection attempt is made to a local
    llama.cpp server at http://localhost:8080/v1.
-   You can set LLM_API_KEY if your local server requires it.
+   You can set LLM_API_KEY (or jj config `jj-fzf.LLM_API_KEY`) if your local server requires it.
    For more info on llama.cpp server:
 
    https://github.com/ggml-org/llama.cpp/blob/master/tools/server
@@ -52,25 +80,29 @@ The LLM is chosen based on environment variables, in the following order of prec
 
 def configure_model_stream():
   chcompl = '/chat/completions'
-  if os.environ.get ('LLM_API_BASE'):
-    base, key = os.environ['LLM_API_BASE'], os.environ.get ('LLM_API_KEY', '')
+  base = env_or_jj_config ('LLM_API_BASE', 'LLM_API_BASE')
+  if base:
+    key = env_or_jj_config ('LLM_API_KEY', 'LLM_API_KEY')
     llm_name = f"llama.cpp-compatible API at {base}"
     stream_fn = lambda p: stream_text (base + chcompl, key, 'llama.cpp', p)
     return stream_fn, llm_name
-  elif os.environ.get ('GEMINI_API_KEY'):
+  gemini_key = env_or_jj_config ('GEMINI_API_KEY', 'GEMINI_API_KEY')
+  if gemini_key:
     # https://ai.google.dev/gemini-api/docs/models
     model = 'gemini-flash-lite-latest' # 'gemini-2.0-flash-lite'
     llm_name = f"Google Gemini model '{model}'"
-    stream_fn = lambda p: gemini_stream (os.environ['GEMINI_API_KEY'], model, p)
+    stream_fn = lambda p: gemini_stream (gemini_key, model, p)
     return stream_fn, llm_name
-  elif os.environ.get ('OPENAI_API_KEY'):
+  openai_key = env_or_jj_config ('OPENAI_API_KEY', 'OPENAI_API_KEY')
+  if openai_key:
     model = 'gpt-3.5-turbo' # 'gpt-4.1-nano' 'gpt-4o-mini'
-    base = os.environ.get ('OPENAI_API_BASE', 'https://api.openai.com/v1')
+    base = env_or_jj_config ('OPENAI_API_BASE', 'OPENAI_API_BASE', 'https://api.openai.com/v1')
     llm_name = f"OpenAI model '{model}' at {base}"
-    stream_fn = lambda p: stream_text (base + chcompl, os.environ['OPENAI_API_KEY'], model, p)
+    stream_fn = lambda p: stream_text (base + chcompl, openai_key, model, p)
     return stream_fn, llm_name
   llm_name = "local llama.cpp server at http://localhost:8080/v1"
-  stream_fn = lambda p: stream_text ('http://localhost:8080/v1' + chcompl, os.environ.get ('LLM_API_KEY', ''), 'llama.cpp', p)
+  local_key = env_or_jj_config ('LLM_API_KEY', 'LLM_API_KEY')
+  stream_fn = lambda p: stream_text ('http://localhost:8080/v1' + chcompl, local_key, 'llama.cpp', p)
   return stream_fn, llm_name
 
 def stream_text (chat_url, api_key, model, prompt):
