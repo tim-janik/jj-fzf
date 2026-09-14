@@ -266,7 +266,7 @@ t7()
   OUT="$(cd "$T/local" && "$S" -n ../remote 2>&1)"
   printf '%s\n' "$OUT" >&2     # dump into the log for failure inspection
   HEADS_BEFORE="$(heads_of "$T/local" | sort)"
-  assert "dry-run lists fetch"            sh -c 'echo "$1" | grep -q "will fetch"' sh "$OUT"
+  assert "dry-run lists fetch"            sh -c 'echo "$1" | grep -q "Will fetch"' sh "$OUT"
   assert "dry-run details import"         sh -c 'echo "$1" | grep -q "as reachable heads"' sh "$OUT"
   assert "dry-run makes no changes"       test "$HEADS_BEFORE" = "$(heads_of "$T/local" | sort)"
   assert "A not visible after dry-run"    is_hidden "$T/local" "$A"
