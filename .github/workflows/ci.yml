@@ -26,6 +26,8 @@ jobs:
     - run: |
         make check
     - run: |
+        make -C contrib -f Makefile.mk check
+    - run: |
         sudo make install
     - run: |
         make installcheck
