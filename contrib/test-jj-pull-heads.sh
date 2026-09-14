@@ -466,8 +466,8 @@ t18()
   HEADS_BEFORE="$(heads_of "$T/local" | sort)"
   OUT="$(cd "$T/local" && "$S" -n ../remote 2>&1)"
   printf '%s\n' "$OUT" >&2     # dump into the log for failure inspection
-  assert "dry-run plans remote commits"        sh -c 'echo "$1" | grep -q "will fetch .* remote commit(s)"' sh "$OUT"
-  assert "dry-run plans abandonment pass"      sh -c 'echo "$1" | grep -q "will abandon up to .* local head(s)"' sh "$OUT"
+  assert "dry-run plans remote commits"        sh -c 'echo "$1" | grep -q "Will fetch .* remote commit(s)"' sh "$OUT"
+  assert "dry-run plans abandonment pass"      sh -c 'echo "$1" | grep -q "Will abandon up to .* local head(s)"' sh "$OUT"
   assert "dry-run makes no changes"            test "$HEADS_BEFORE" = "$(heads_of "$T/local" | sort)"
   ( cd "$T/local" && sync ../remote )
   assert "C imported as head"               is_head   "$T/local" "$C"
