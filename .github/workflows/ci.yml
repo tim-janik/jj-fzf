@@ -1,6 +1,6 @@
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 
-# Linting: xclip -sel c <.github/workflows/testing.yml # https://rhysd.github.io/actionlint/
+# Linting: xclip -sel c <.github/workflows/ci.yml # https://rhysd.github.io/actionlint/
 
 on:
   push:
@@ -79,11 +79,6 @@ jobs:
         echo '${{ needs.MakeDistCheck.result }}'
         [[ ${{ needs.MakeDistCheck.result }}    =~ success|skipped ]]
     - name: Ping IRC
-      if: ${{ always() && !env.ACT }}
-      run: |
-        R='${{ github.repository }}' && R=${R#*/}
-        B='${{ github.ref }}' && B=${B#refs/heads/}
-        S='${{ job.status }}' && URL='${{ github.event.head_commit.url }}'
-        A='${{ github.actor }}' && B="$(git branch --show-current)"
-        MSG=$(git log -1 --format='%s')
-        .github/workflows/ircbot.py -q -j "#Anklang" -R "$R" -U "$A" -D "$B" -S "$S" "$MSG" "$URL"
+      if: ${{ always() && !env.ACT }}  # IRCBOT_JOBS indicates 'success'
+      env: { IRCBOT_JOBS: "${{ join(needs.*.result, ' ') }}" }
+      run: .github/workflows/ircbot.py -s irc.libera.chat:6697 -G "#Anklang"
