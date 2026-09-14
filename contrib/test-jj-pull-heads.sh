@@ -501,7 +501,7 @@ t20()
   printf '%s\n' "$OUT" >&2                        # dump into the log for failure inspection
   assert "dry-run --keep notes no abandonment"    sh -c 'echo "$1" | grep -q "no local heads will be abandoned"' sh "$OUT"
   assert "dry-run --keep omits abandon plan"      sh -c '! echo "$1" | grep -q "will abandon up to"' sh "$OUT"
-  assert "dry-run --keep still plans fetch"       sh -c 'echo "$1" | grep -q "will fetch"' sh "$OUT"
+  assert "dry-run --keep still plans fetch"       sh -c 'echo "$1" | grep -q "Will fetch"' sh "$OUT"
   assert "dry-run --keep makes no changes"        is_hidden "$T/local" "$C"
   OUT="$(cd "$T/local" && "$S" --keep ../remote 2>&1)"
   printf '%s\n' "$OUT" >&2                        # dump into the log for failure inspection
