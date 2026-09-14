@@ -1,6 +1,6 @@
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 
-# Linting: xclip -sel c <.github/workflows/testing.yml # https://rhysd.github.io/actionlint/
+# Linting: xclip -sel c <.github/workflows/ci.yml # https://rhysd.github.io/actionlint/
 
 on:
   push:
