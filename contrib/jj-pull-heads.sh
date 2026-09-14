@@ -129,8 +129,9 @@ shellquote() { local s="$1"; printf "'%s'" "${s//\'/\'\\\'\'}"; }
 # No --ignore-working-copy here: jj git export below must snapshot the WC.
 jj_local() { jj -R "$LOCAL_JJ_ROOT" --no-pager --color=never "$@"; }
 
-# Newer jj complains on `jj git import/export` for colocated repos
-jj_local_git_import_export() { jj_local git root "$@" >/dev/null; }
+# Newer jj requires explicit import and export commands for colocated repos
+jj_local_git_import() { jj_local --quiet git import "$@"; }
+jj_local_git_export() { jj_local --quiet git export; }
 
 # Run a git command in the local git backend
 git_local() { git --git-dir="$LOCAL_GIT_DIR" "$@"; }
@@ -290,7 +291,7 @@ vecho "== Creating merge commits..."
 
 # Ensure local heads exist in the local git object db (needed for
 # non-colocated repos; harmless for colocated ones)
-jj_local_git_import_export ||
+jj_local_git_export ||
   die "jj git export failed"
 
 # The empty tree (well-known git hash)
@@ -332,7 +333,7 @@ if test "${#REMOTE_HEAD_IDS[@]}" -gt 0 ; then
 fi
 
 # == Import both bookmarks into jj ==
-jj_local_git_import_export --config git.abandon-unreachable-commits=false ||
+jj_local_git_import --config git.abandon-unreachable-commits=false ||
   die "jj git import failed"
 
 # == Drop hidden-heads bookmark via git, import => cleanup abandons stale heads ==
@@ -340,8 +341,8 @@ if test -n "$HIDDEN_HEADS_MERGE" ; then
   vecho "== Delete __jj_pull_hidden_heads_..."
   git_local update-ref -d refs/heads/__jj_pull_hidden_heads_
   echo "Importing deletion of hidden heads merge - hides local heads no longer reachable from remote refs..." >&2
-  jj_local_git_import_export --config git.abandon-unreachable-commits=true ||
-    die "jj git import/export failed"
+  jj_local_git_import --config git.abandon-unreachable-commits=true ||
+    die "jj git import failed"
 fi
 
 # == Dissolve pull merge, keeping parents as orphans ==
@@ -353,8 +354,8 @@ if test -n "$CARRIED_HEADS_MERGE" ; then
   jj_local --config git.abandon-unreachable-commits=false abandon __jj_pull_carried_heads_ ||
     die "jj abandon __jj_pull_carried_heads_ failed"
   # Export the deletion: in non-colocated repos jj abandon does not drop the git ref.
-  jj_local_git_import_export ||
-    die "jj git import/export failed"
+  jj_local_git_export ||
+    die "jj git export failed"
 fi
 
 echo "Pull complete." >&2
