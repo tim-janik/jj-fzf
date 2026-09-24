@@ -48,7 +48,7 @@ jobs:
   #   permissions: { contents: write }    # allow github.token to create a release
   #   env: { GH_TOKEN: "${{ github.token }}" }
   #   steps:
-  #   - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
+  #   - { uses: actions/checkout@v7, with: { fetch-depth: 0 } }
   #   - run: git fetch -f --tags          # Fix actions/checkout#290
   #   - uses: actions/download-artifact@v4
   #     with: { path: ./artifacts, merge-multiple: true }
@@ -62,7 +62,7 @@ jobs:
     needs: [Build-And-Test]
     runs-on: ubuntu-24.04
     steps:
-    - { uses: actions/checkout@v4.1.1, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
+    - { uses: actions/checkout@v7, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
     - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
     - name: Check Jobs
       run: |
