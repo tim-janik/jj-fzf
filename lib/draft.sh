@@ -67,7 +67,7 @@ fi
 find_first_bookmark()
 (
   $JJ log --no-graph -T 'concat(separate(" ",bookmarks), " ", change_id)' -r "$1" |
-    awk '{print $1;}'
+    awk '{sub(/\*$/, "", $1); print $1;}'
 )
 
 # List parents
