@@ -30,6 +30,16 @@ lib_source()
 }
 
 # == TESTS ==
+test-draft-bookmark-marker()
+(
+  JJ=draft_test_jj
+  draft_test_jj() { printf '%s\n' 'feature* change-id'; }
+  source <(sed -n '/^find_first_bookmark()/,/^)/p' "$SCRIPTDIR/../lib/draft.sh")
+  test "$(find_first_bookmark revision)" == feature ||
+    die "find_first_bookmark retained its trailing marker"
+)
+TESTS+=( test-draft-bookmark-marker )
+
 # Regression: `jj op show -p` only shows "interesting" revisions since jj-0.40.0,
 # jj-fzf must pass `--show-changes-in=all()` to keep the oplog undo indicators complete.
 test-oplog-info-all-changes()
