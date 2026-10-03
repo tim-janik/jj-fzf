@@ -54,6 +54,28 @@ isolate_config()
   printf '%s\n' '[user]' 'name = "jj-fzf Tests"' 'email = "tests@jj-fzf.invalid"' > "$JJ_CONFIG"
 }
 
+# == lib_source ==
+# Source a line-1 range of lib/$1 into the test shell to reach internal
+# functions without triggering the script's top-level fzf UI. Runs from a
+# sandbox so relative `source`s resolve, with positional args cleared for
+# the scripts' option parsing loops.
+lib_source()
+{ # LIBFILE SEDEXPR
+  local LIBFILE="$1" SEDEXPR="$2"
+  # Must stay: only line-1 ranges, mid-file ranges would couple tests to script internals
+  [[ "$SEDEXPR" == 1,* ]] ||
+    die "lib_source: only ranges starting at line 1 are supported: $SEDEXPR"
+  mkdir -p $TEMPD/libtest
+  cp $SCRIPTDIR/../preflight.sh $TEMPD/preflight.sh
+  cp $SCRIPTDIR/../lib/setup.sh $TEMPD/libtest/setup.sh
+  sed -n "$SEDEXPR" "$SCRIPTDIR/../lib/$LIBFILE" > $TEMPD/libtest/part.sh
+  local -a OLDARGS=("$@") # source without positional args, so option loops
+  set --			# in the sourced script see no arguments
+  source $TEMPD/libtest/part.sh
+  set -- "${OLDARGS[@]}"
+  rm -fr $TEMPD/libtest
+}
+
 # == Repository ==
 tear_down()
 (
