@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 set -Eeuo pipefail #-x
-die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+jjfzf_die() { echo "${BASH_SOURCE[0]##*/}: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
+export -f jjfzf_die
 ABSPATHSCRIPT=$(readlink -f "${BASH_SOURCE[0]}")	# Resolve symlinks to find installdir
 
 # == Setup & Options ==
@@ -31,7 +32,7 @@ export JJFZF_REVSET_OVERRIDE="$JJFZF_TEMPD/log_revset"
 # Always ensure root relative paths
 JJROOT="$(jj --ignore-working-copy --no-pager workspace root 2>/dev/null)" &&
   cd "$JJROOT" ||
-    die "$PWD: not a JJ repository"
+    jjfzf_die "$PWD: not a JJ repository"
 JJ="jj --no-pager --ignore-working-copy"
 export JJFZFT="$JJ log --no-graph -T"
 RELOAD="reload-sync(cat $JJFZF_TEMPD/jjfzf_list)"	# see jjfzf_load
@@ -518,7 +519,7 @@ if [ -v "RUN[${1-}]" ]; then
   if [[ "$CMD" =~ \{ ]] ; then
     CIDS=( $(jjfzf_list_change_ids "${@-@}") )
     test "${#CIDS[@]}" -lt 1 &&
-      die "missing revisions for command: $KEY"
+      jjfzf_die "missing revisions for command: $KEY"
     # Placeholder replacements
     while [[ "$CMD" =~ (.*)\{2\}(.*) ]] ; do
       CMD="${BASH_REMATCH[1]}${CIDS[0]}${BASH_REMATCH[2]}"
@@ -527,7 +528,7 @@ if [ -v "RUN[${1-}]" ]; then
       CMD="${BASH_REMATCH[1]}${CIDS[*]}${BASH_REMATCH[2]}"
     done
     [[ "$CMD" =~ \{ ]] &&
-      die "failed to run command: $KEY"
+      jjfzf_die "failed to run command: $KEY"
   fi
   export JJFZF_LOAD_LIST=true
   bash -c " $CMD "
