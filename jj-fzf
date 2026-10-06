@@ -45,12 +45,16 @@ jjfzf_full_commit()
   DIFFTOOL= IGNORE_SPACE= DIFFMODE=
   test -r "$JJFZF_TEMPD/preview.env" && . $JJFZF_TEMPD/preview.env # DIFFTOOL IGNORE_SPACE DIFFMODE
   test -z "$DIFFMODE" || DIFFMODE=--color-words
-  ARGS=( $IGNORE_SPACE $DIFFMODE )
+  ARGS=( $IGNORE_SPACE $DIFFMODE ) CONFIG=()
   TITLE="jj diff ${ARGS[*]}"
   case "$DIFFTOOL" in
     git)
       ARGS=( $IGNORE_SPACE ${DIFFMODE:+--word-diff} )
       TITLE="git diff ${ARGS[*]}"
+      ;;
+    difft)
+      ARGS=( --tool=difft ) TITLE=difft
+      CONFIG=( --config="merge-tools.difft.diff-args=['$JJFZF_COLOR','--display=inline','--width=\$width','\$left','\$right']" )
       ;;
   esac
   TEMPLATE='"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n", "'"${TITLE% }"'\n" )'
@@ -63,7 +67,7 @@ jjfzf_full_commit()
 	  git --git-dir="$GITDIR" show --format= --remerge-diff $JJFZF_COLOR "${ARGS[@]}" "$COMMIT"
       done
   else
-    jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR "${ARGS[@]}" --no-graph -r "$1" -p -T "$TEMPLATE"
+    jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR "${ARGS[@]}" "${CONFIG[@]}" --no-graph -r "$1" -p -T "$TEMPLATE"
   fi
 )
 export -f jjfzf_full_commit
@@ -270,12 +274,13 @@ DOC[undo]='Use `jj undo` to undo the last operation performed by `jj` that was n
 
 # Diff mode selection
 KEY[diff]="Ctrl-W"
-DOC[diff]='Select the preview diff tool: jj (j) or git (g). Toggle word diff (w), ignoring space changes (b) or all space (a). Ctrl-W cancels.'
+DOC[diff]='Select the preview diff tool: jj (j), git (g) or difftastic (t). Toggle word diff (w), ignoring space changes (b) or all space (a). Ctrl-W cancels.'
 jjfzf_diff_tool_set()
 (
   set -Eeuo pipefail
   case "${1-}" in
     jj|git) ;;
+    difft) command -v "$1" >/dev/null || jjfzf_die "$1 is not installed" ;;
     *) jjfzf_die "unknown diff tool: ${1-}" ;;
   esac
   jjfzf_config set jj-fzf.diff-tool "$1" || exit
@@ -302,7 +307,7 @@ jjfzf_sk1()
     return
   fi
   case "$MAP" in
-    select-diff) FOOTER=$' Diff: [j]j [g]it\n Toggle: [w]ord [b]space [a]ll-space' ;;
+    select-diff) FOOTER=$' Diff: [j]j [g]it [t]difft\n Toggle: [w]ord [b]space [a]ll-space' ;;
     *) jjfzf_die "unknown secondary-key map: $MAP" ;;
   esac
   printf '%s\n' "$MAP" > "$JJFZF_TEMPD/sk1" || return
@@ -321,6 +326,7 @@ jjfzf_sk2()
   case "$MAP:${FZF_KEY-}" in
     select-diff:j) jjfzf_diff_tool_set jj ;;
     select-diff:g) jjfzf_diff_tool_set git ;;
+    select-diff:t) jjfzf_diff_tool_set difft ;;
     select-diff:w) jjfzf_diff_toggle jj-fzf.diff-mode --color-words ;;
     select-diff:b) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-space-change ;;
     select-diff:a) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-all-space ;;
