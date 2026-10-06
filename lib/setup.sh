@@ -86,7 +86,7 @@ jjfzf_wrap_args()
 export -f jjfzf_wrap_args
 
 # == jjfzf_config ==
-# Handle jj config without errors
+# Read optional jj config, preserving write errors
 jjfzf_config()
 (
   set -Eeuo pipefail
@@ -97,7 +97,7 @@ jjfzf_config()
 	   test -z "${3-}" || echo "$3"
 	 } ;;
     # <set> <key> <value>
-    set)	$JJ config set --repo "$2" -- "$3" ;;
+    set)	$JJ config set --repo "$2" -- "$3"; exit $? ;;
     # <toggle> <key>
     toggle)
       T="$($JJ config get "$2" 2>/dev/null || :)"
@@ -108,6 +108,17 @@ jjfzf_config()
   exit 0
 )
 export -f jjfzf_config
+
+jjfzf_update_preview_env()
+(
+  set -Eeuo pipefail
+  DIFFTOOL="$(jjfzf_config get jj-fzf.diff-tool)"
+  DIFFMODE="$(jjfzf_config get jj-fzf.diff-mode)"
+  IGNORE_SPACE="$(jjfzf_config get jj-fzf.whitespace-mode)"
+  printf 'DIFFTOOL=%q\nDIFFMODE=%q\nIGNORE_SPACE=%q\n' "$DIFFTOOL" "$DIFFMODE" "$IGNORE_SPACE" > "$JJFZF_TEMPD/preview.env.new" &&
+    mv -f "$JJFZF_TEMPD/preview.env.new" "$JJFZF_TEMPD/preview.env"
+)
+export -f jjfzf_update_preview_env
 
 # == jjfzf_config_quote ==
 # Add quotes and escapes to a stream to be usable as toml config value
