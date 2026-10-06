@@ -17,7 +17,7 @@ P="$JJFZF_TEMPD/preview"
 press() { jjfzf_sk1 select-diff >/dev/null; FZF_KEY="$1" jjfzf_sk2; }
 preview() { FZF_PREVIEW_COLUMNS=53 JJFZF_COLOR="${1:---color=never}" jjfzf_full_commit @ > "$P" 2> "$P.err"; }
 
-for KEY in j g t d; do
+for KEY in j g t d c; do
   ACTION="$(jjfzf_sk1 select-diff)"
   [[ "$ACTION" == hide-input+change-footer\(*+rebind\(* ]] || fail 'entry actions'
   test "$(cat "$JJFZF_TEMPD/sk1")" == select-diff || fail 'active map'
@@ -35,6 +35,8 @@ for KEY in j g t d; do
     d) test "$DIFFTOOL" == delta && test ! -s "$P.err" &&
          grep -q '^delta: --paging=never --width=53' "$P" && grep -q '^+new(value)$' "$P" && ! grep -q $'\033' "$P" &&
          preview --color=always && grep -q $'\033\\[35mdelta: --paging=never --width=53' "$P" ;;
+    c) test "$DIFFTOOL" == cmscout &&
+         grep -q '^cmscout: --ignore-all-space --word-diff --skip-unchanged --no-color -B .* -A .* a/sample.txt b/sample.txt$' "$P" ;;
   esac || fail "renderer: $KEY"
 done
 
@@ -57,6 +59,8 @@ for STEP in 'w :--ignore-all-space' 'w --color-words:--ignore-all-space' 'a --co
   source "$JJFZF_TEMPD/preview.env"
   test "$DIFFMODE:$IGNORE_SPACE" == "${STEP#* }" || fail "toggle: $STEP"
 done
+preview
+grep -q '^cmscout: --ignore-all-space --word-diff --skip-unchanged --no-color ' "$P" || fail 'cmscout space change'
 
 (
   jj() { echo 'ERROR: )+abort {q} $(touch injected)' >&2; return 1; }
@@ -67,9 +71,9 @@ done
   grep -qF 'ERROR: )+abort {q} $(touch injected)' "$JJFZF_TEMPD/sk-error" || fail 'lost error message'
 )
 press j >/dev/null
-for KEY in g t d; do
+for KEY in g t d c; do
   (
-    command() { case "$*" in '-v git'|'-v difft'|'-v delta') return 1 ;; esac; builtin command "$@"; }
+    command() { case "$*" in '-v git'|'-v difft'|'-v delta'|'-v cmscout') return 1 ;; esac; builtin command "$@"; }
     [[ "$(press $KEY)" == 'show-input+change-footer()+execute('* ]] || fail 'missing external tool error'
     test "$(jjfzf_config get jj-fzf.diff-tool)" == jj || fail 'missing tool changed config'
     test ! -e "$JJFZF_TEMPD/sk1" || fail 'missing tool cleanup'

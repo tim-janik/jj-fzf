@@ -56,6 +56,13 @@ jjfzf_full_commit()
       TITLE="git diff ${ARGS[*]}"
       test -z "$DIFFMODE" || ARGS+=( ) # '--word-diff-regex=[[:alnum:]_]+|[^[:space:]]'
       ;;
+    cmscout)	# no --ignore-space-change, closest is --ignore-all-space
+      FLAGS=( ${IGNORE_SPACE:+--ignore-all-space} ${DIFFMODE:+--word-diff} --skip-unchanged )
+      test "$JJFZF_COLOR" != --color=never || FLAGS+=( --no-color )
+      export CMSCOUT_FLAGS="${FLAGS[*]}"
+      ARGS=( --ext-diff ) CONFIG=( -c "diff.external=$JJFZF_ABSPATHLIB/cmscout-diff.sh" )
+      TITLE="cmscout ${FLAGS[*]}"
+      ;;
     difft)
       ARGS=( --tool=difft ) TITLE=difft
       export DFT_COLOR="${JJFZF_COLOR#--color=}" DFT_DISPLAY=inline DFT_WIDTH="$WIDTH"
@@ -67,13 +74,13 @@ jjfzf_full_commit()
       ;;
   esac
   TEMPLATE='"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n", "'"${TITLE% }"'\n" )'
-  if test "$DIFFTOOL" == git; then
+  if test "$DIFFTOOL" == git -o "$DIFFTOOL" == cmscout; then
     GITDIR="$(jj --ignore-working-copy --no-pager git root)"
     $JJFZFT 'commit_id ++ "\n"' -r "$1" |
       while read -r COMMIT; do
 	jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR --no-graph -r "$COMMIT" -T "$TEMPLATE"
 	[[ "$COMMIT" =~ ^0+$ ]] ||	# root() is not a git commit
-	  git --git-dir="$GITDIR" show --format= --remerge-diff $JJFZF_COLOR "${ARGS[@]}" "$COMMIT"
+	  git --git-dir="$GITDIR" "${CONFIG[@]}" show --format= --remerge-diff $JJFZF_COLOR "${ARGS[@]}" "$COMMIT"
       done
   else
     jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR "${ARGS[@]}" "${CONFIG[@]}" --no-graph -r "$1" -p -T "$TEMPLATE" |
@@ -288,13 +295,13 @@ DOC[undo]='Use `jj undo` to undo the last operation performed by `jj` that was n
 
 # Diff mode selection
 KEY[diff]="Ctrl-W"
-DOC[diff]='Select the preview diff tool: jj (j), git (g), difftastic (t) or delta (d). Toggle word diff (w), ignoring space changes (b) or all space (a). Ctrl-W cancels.'
+DOC[diff]='Select the preview diff tool: jj (j), git (g), difftastic (t), delta (d) or cmscout (c). Toggle word diff (w), ignoring space changes (b) or all space (a). Ctrl-W cancels.'
 jjfzf_diff_tool_set()
 (
   set -Eeuo pipefail
   case "${1-}" in
     jj) ;;
-    git|difft|delta) command -v "$1" >/dev/null || jjfzf_die "$1 is not installed" ;;
+    git|difft|delta|cmscout) command -v "$1" >/dev/null || jjfzf_die "$1 is not installed" ;;
     *) jjfzf_die "unknown diff tool: ${1-}" ;;
   esac
   jjfzf_config set jj-fzf.diff-tool "$1" || exit
@@ -323,7 +330,7 @@ jjfzf_sk1()
     return
   fi
   case "$MAP" in
-    select-diff) FOOTER=$' Diff: [j]j [g]it [t]difft [d]elta\n Toggle: [w]ord [b]space [a]ll-space' ;;
+    select-diff) FOOTER=$' Diff: [j]j [g]it [t]difft [d]elta [c]mscout\n Toggle: [w]ord [b]space [a]ll-space' ;;
     *) jjfzf_die "unknown secondary-key map: $MAP" ;;
   esac
   printf '%s\n' "$MAP" > "$JJFZF_TEMPD/sk1" || return
@@ -344,6 +351,7 @@ jjfzf_sk2()
     select-diff:g) jjfzf_diff_tool_set git && printf '+refresh-preview' ;;
     select-diff:t) jjfzf_diff_tool_set difft && printf '+refresh-preview' ;;
     select-diff:d) jjfzf_diff_tool_set delta && printf '+refresh-preview' ;;
+    select-diff:c) jjfzf_diff_tool_set cmscout && printf '+refresh-preview' ;;
     select-diff:w) jjfzf_diff_toggle jj-fzf.diff-mode --color-words && printf '+refresh-preview' ;;
     select-diff:b) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-space-change && printf '+refresh-preview' ;;
     select-diff:a) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-all-space && printf '+refresh-preview' ;;
