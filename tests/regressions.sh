@@ -143,6 +143,26 @@ test-config-quote()
     die "jjfzf_config_quote: TOML round trip altered the message")
 TESTS+=( test-config-quote )
 
+test-secondary-key-selection()
+(
+  export JJ_CONFIG=''
+  cd_new_repo
+  printf 'old(value)\n' > sample.txt
+  jj file track sample.txt >$DEVERR 2>&1
+  jj commit -m base >$DEVERR 2>&1
+  printf 'new(value)\n' > sample.txt
+  jj config set --repo jj-fzf.diff-mode -- --color-words >$DEVERR 2>&1
+  jj config set --repo jj-fzf.whitespace-mode -- --ignore-all-space >$DEVERR 2>&1
+  jj config set --repo ui.diff-formatter difft >$DEVERR 2>&1
+  FZF_TEMPD="$TEMPD/secondary-key"
+  mkdir -p "$FZF_TEMPD"
+  printf '%s\n' 'DIFFMODE=stale' 'IGNORE_SPACE=stale' > "$FZF_TEMPD/preview.env"
+  export JJFZF_TEST_FZF="$(command -v fzf)"
+  PATH="$SCRIPTDIR:$PATH" JJFZF_TEMPD="$FZF_TEMPD" jj-fzf --no-preview > "$FZF_TEMPD/test.log" 2>&1 ||
+    { cat "$FZF_TEMPD/test.log" >&2; die "secondary-key tests failed"; }
+)
+TESTS+=( test-secondary-key-selection )
+
 # Regression: bookmark startup position must match the ¸-delimited bookmark
 # name field, not plain word matches in commit descriptions.
 test-bookmarks-start-position()

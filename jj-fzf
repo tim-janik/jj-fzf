@@ -24,9 +24,6 @@ while test $# -ne 0 ; do
   esac
   shift
 done
-echo "DIFFMODE='$(jjfzf_config get jj-fzf.diff-mode)'"			>> $JJFZF_TEMPD/preview.env
-echo "IGNORE_SPACE='$(jjfzf_config get jj-fzf.whitespace-mode)'"	>> $JJFZF_TEMPD/preview.env
-
 # == Config ==
 export JJFZF_REVSET_OVERRIDE="$JJFZF_TEMPD/log_revset"
 # Always ensure root relative paths
@@ -36,6 +33,7 @@ JJROOT="$(jj --ignore-working-copy --no-pager workspace root 2>/dev/null)" &&
 JJ="jj --no-pager --ignore-working-copy"
 export JJFZFT="$JJ log --no-graph -T"
 RELOAD="reload-sync(cat $JJFZF_TEMPD/jjfzf_list)"	# see jjfzf_load
+jjfzf_update_preview_env
 
 # == jjfzf_full_commit ==
 # Show commit(s) with diff and full info
@@ -44,12 +42,32 @@ jjfzf_full_commit()
   set -Eeuo pipefail
   test -z "${1-}" &&	# may be revset
     exit 0
-  IGNORE_SPACE= DIFFMODE=
-  test -r "$JJFZF_TEMPD/preview.env" && . $JJFZF_TEMPD/preview.env # IGNORE_SPACE DIFFMODE
+  DIFFTOOL= IGNORE_SPACE= DIFFMODE=
+  test -r "$JJFZF_TEMPD/preview.env" && . $JJFZF_TEMPD/preview.env # DIFFTOOL IGNORE_SPACE DIFFMODE
   test -z "$DIFFMODE" || DIFFMODE=--color-words
-  test -z "$IGNORE_SPACE$DIFFMODE" && DIFF_COMMENT='""' || DIFF_COMMENT="\"diff $IGNORE_SPACE $DIFFMODE\\n\""
-  jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR $IGNORE_SPACE $DIFFMODE --no-graph -r "$1" -p \
-	      -T '"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n", '"$DIFF_COMMENT"' )'
+  ARGS=( $IGNORE_SPACE $DIFFMODE )
+  TITLE="jj diff ${ARGS[*]}"
+  case "$DIFFTOOL" in
+    git)
+      WORDS=color
+      test "$JJFZF_COLOR" != --color=never || WORDS=plain
+      ARGS=( $IGNORE_SPACE ${DIFFMODE:+--word-diff} ) # --word-diff=$WORDS
+      TITLE="git diff ${ARGS[*]}"
+      test -z "$DIFFMODE" || ARGS+=( ) # '--word-diff-regex=[[:alnum:]_]+|[^[:space:]]'
+      ;;
+  esac
+  TEMPLATE='"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n", "'"${TITLE% }"'\n" )'
+  if test "$DIFFTOOL" == git; then
+    GITDIR="$(jj --ignore-working-copy --no-pager git root)"
+    $JJFZFT 'commit_id ++ "\n"' -r "$1" |
+      while read -r COMMIT; do
+	jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR --no-graph -r "$COMMIT" -T "$TEMPLATE"
+	[[ "$COMMIT" =~ ^0+$ ]] ||	# root() is not a git commit
+	  git --git-dir="$GITDIR" show --format= --remerge-diff $JJFZF_COLOR "${ARGS[@]}" "$COMMIT"
+      done
+  else
+    jjfzf_jjlog "$JJFZF_LOG_DETAILED_CONFIG" $JJFZF_COLOR "${ARGS[@]}" --no-graph -r "$1" -p -T "$TEMPLATE"
+  fi
 )
 export -f jjfzf_full_commit
 jjfzf_log_detailed	# for preview, assigns $JJFZF_LOG_DETAILED_CONFIG
@@ -253,41 +271,74 @@ KEY[undo]="Alt-Z"
 RUN[undo]="jjfzf_run jj --no-pager undo"
 DOC[undo]='Use `jj undo` to undo the last operation performed by `jj` that was not previously undone.'
 
-# Whitespace toggle
-KEY[nospace]="Ctrl-B"
-DOC[nospace]='Cycle between preview diff display with and without whitespace.'
-BINDINGS+=( --bind "ctrl-b:execute-silent( jjfzf_whitespace_cycle )+refresh-preview" )
-jjfzf_whitespace_cycle()
+# Diff mode selection
+KEY[diff]="Ctrl-W"
+DOC[diff]='Select the preview diff tool: jj (j) or git (g). Toggle word diff (w), ignoring space changes (b) or all space (a). Ctrl-W cancels.'
+jjfzf_diff_tool_set()
 (
-  CURRENT_WHITESPACE=$(jjfzf_config get jj-fzf.whitespace-mode)
-  WHITESPACE_MODES=("--ignore-space-change" "--ignore-all-space" "")
-  index=0
-  for i in "${!WHITESPACE_MODES[@]}"; do
-    [[ "${WHITESPACE_MODES[$i]}" == "$CURRENT_WHITESPACE" ]] && { index=$i && break; }
-  done
-  next_index=$(( (index + 1) % ${#WHITESPACE_MODES[@]} ))
-  jjfzf_config set jj-fzf.whitespace-mode "${WHITESPACE_MODES[$next_index]}"
-  sed "s/^IGNORE_SPACE=.*/IGNORE_SPACE='${WHITESPACE_MODES[$next_index]}'/" -i $JJFZF_TEMPD/preview.env
+  set -Eeuo pipefail
+  case "${1-}" in
+    jj) ;;
+    git) command -v "$1" >/dev/null || jjfzf_die "$1 is not installed" ;;
+    *) jjfzf_die "unknown diff tool: ${1-}" ;;
+  esac
+  jjfzf_config set jj-fzf.diff-tool "$1" || exit
+  jjfzf_update_preview_env
 )
-export -f jjfzf_whitespace_cycle
+export -f jjfzf_diff_tool_set
 
-# Word-diff toggle
-KEY[wdiff]="Ctrl-W"
-DOC[wdiff]='Toggle preview diff display between line diff and word diff.'
-BINDINGS+=( --bind "ctrl-w:execute-silent( jjfzf_word_diff_toggle )+refresh-preview" )
-jjfzf_word_diff_toggle()
+jjfzf_diff_toggle()	# <key> <value>
 (
-  CURRENT_DIFFMODE=$(jjfzf_config get jj-fzf.diff-mode)
-  DIFF_MODES=("--color-words" "")
-  index=0
-  for i in "${!DIFF_MODES[@]}"; do
-    [[ "${DIFF_MODES[$i]}" == "$CURRENT_DIFFMODE" ]] && { index=$i && break; }
-  done
-  next_index=$(( (index + 1) % ${#DIFF_MODES[@]} ))
-  jjfzf_config set jj-fzf.diff-mode "${DIFF_MODES[$next_index]}"
-  sed "s/^DIFFMODE=.*/DIFFMODE='${DIFF_MODES[$next_index]}'/" -i $JJFZF_TEMPD/preview.env
+  set -Eeuo pipefail
+  test "$(jjfzf_config get "$1")" == "$2" && VALUE= || VALUE="$2"
+  jjfzf_config set "$1" "$VALUE" || exit
+  jjfzf_update_preview_env
 )
-export -f jjfzf_word_diff_toggle
+export -f jjfzf_diff_toggle
+
+export JJFZF_SK_KEYS='a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'
+jjfzf_sk1()
+{
+  local MAP="${1-}" FOOTER
+  test "$#" -eq 1 ||
+    jjfzf_die "jjfzf_sk1 requires a secondary-key map"
+  if test -e "$JJFZF_TEMPD/sk1"; then
+    rm -f "$JJFZF_TEMPD/sk1"
+    printf 'show-input+change-footer()+unbind(%s)\n' "$JJFZF_SK_KEYS"
+    return
+  fi
+  case "$MAP" in
+    select-diff) FOOTER=$' Diff: [j]j [g]it\n Toggle: [w]ord [b]space [a]ll-space' ;;
+    *) jjfzf_die "unknown secondary-key map: $MAP" ;;
+  esac
+  printf '%s\n' "$MAP" > "$JJFZF_TEMPD/sk1" || return
+  printf 'hide-input+change-footer(%s)+rebind(%s)\n' "$FOOTER" "$JJFZF_SK_KEYS"
+}
+export -f jjfzf_sk1
+
+jjfzf_sk2()
+{
+  local MAP
+  test -r "$JJFZF_TEMPD/sk1" ||
+    { echo abort; return; }
+  MAP="$(< "$JJFZF_TEMPD/sk1")"
+  rm -f "$JJFZF_TEMPD/sk1"
+  printf 'show-input+change-footer()'
+  case "$MAP:${FZF_KEY-}" in
+    select-diff:j) jjfzf_diff_tool_set jj && printf '+refresh-preview' ;;
+    select-diff:g) jjfzf_diff_tool_set git && printf '+refresh-preview' ;;
+    select-diff:w) jjfzf_diff_toggle jj-fzf.diff-mode --color-words && printf '+refresh-preview' ;;
+    select-diff:b) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-space-change && printf '+refresh-preview' ;;
+    select-diff:a) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-all-space && printf '+refresh-preview' ;;
+  esac 2> "$JJFZF_TEMPD/sk-error" ||
+    printf '%s' '+execute(echo "jj-fzf: secondary action failed"; cat "$JJFZF_TEMPD/sk-error")'
+  printf '\n'
+}
+export -f jjfzf_sk2
+
+BINDINGS+=( --bind "$JJFZF_SK_KEYS,esc,ctrl-c,ctrl-g:transform(jjfzf_sk2)+unbind($JJFZF_SK_KEYS)" )
+BINDINGS+=( --bind "start:unbind($JJFZF_SK_KEYS)" )
+BINDINGS+=( --bind 'ctrl-w:transform: jjfzf_sk1 select-diff' )
 
 # Toggle log --types
 KEY[types]="Ctrl-T"
