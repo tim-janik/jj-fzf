@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+set -Eeuo pipefail
+printf '\033[35mdelta: %s\033[0m\n' "$*"
+test "$#" -eq 4 -a "$1" == --paging=never -a "$2" == --width=53 || exit 2
+test -f "$3/sample.txt" -a -f "$4/sample.txt" || exit 2
+diff -u "$3/sample.txt" "$4/sample.txt"

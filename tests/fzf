@@ -17,7 +17,7 @@ P="$JJFZF_TEMPD/preview"
 press() { jjfzf_sk1 select-diff >/dev/null; FZF_KEY="$1" jjfzf_sk2; }
 preview() { COLUMNS=53 jjfzf_full_commit @ > "$P" 2> "$P.err"; }
 
-for KEY in j g t; do
+for KEY in j g t d; do
   ACTION="$(jjfzf_sk1 select-diff)"
   [[ "$ACTION" == hide-input+change-footer\(*+rebind\(* ]] || fail 'entry actions'
   test "$(cat "$JJFZF_TEMPD/sk1")" == select-diff || fail 'active map'
@@ -33,6 +33,8 @@ for KEY in j g t; do
          grep -qF '[-old(value)-]{+new(value)+}' "$P" ;;
     t) test "$DIFFTOOL" == difft && test ! -s "$P.err" &&
          grep -q '^difft: --color=never --display=inline --width=53 ' "$P" && grep -q '^+new(value)$' "$P" ;;
+    d) test "$DIFFTOOL" == delta && test ! -s "$P.err" &&
+         grep -q '^delta: --paging=never --width=53' "$P" && grep -q '^+new(value)$' "$P" ;;
   esac || fail "renderer: $KEY"
 done
 
@@ -65,9 +67,9 @@ done
   grep -qF 'ERROR: )+abort {q} $(touch injected)' "$JJFZF_TEMPD/sk-error" || fail 'lost error message'
 )
 press j >/dev/null
-for KEY in t; do
+for KEY in t d; do
   (
-    command() { case "$*" in '-v difft') return 1 ;; esac; builtin command "$@"; }
+    command() { case "$*" in '-v difft'|'-v delta') return 1 ;; esac; builtin command "$@"; }
     [[ "$(press $KEY)" == 'show-input+change-footer()+execute('* ]] || fail 'missing external tool error'
     test "$(jjfzf_config get jj-fzf.diff-tool)" == jj || fail 'missing tool changed config'
     test ! -e "$JJFZF_TEMPD/sk1" || fail 'missing tool cleanup'
