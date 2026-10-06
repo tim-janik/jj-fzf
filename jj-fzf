@@ -45,6 +45,7 @@ jjfzf_full_commit()
   DIFFTOOL= IGNORE_SPACE= DIFFMODE=
   test -r "$JJFZF_TEMPD/preview.env" && . $JJFZF_TEMPD/preview.env # DIFFTOOL IGNORE_SPACE DIFFMODE
   test -z "$DIFFMODE" || DIFFMODE=--color-words
+  WIDTH="${FZF_PREVIEW_COLUMNS:-${COLUMNS:-80}}"
   ARGS=( $IGNORE_SPACE $DIFFMODE )
   TITLE="jj diff ${ARGS[*]}"
   case "$DIFFTOOL" in
@@ -54,6 +55,10 @@ jjfzf_full_commit()
       ARGS=( $IGNORE_SPACE ${DIFFMODE:+--word-diff} ) # --word-diff=$WORDS
       TITLE="git diff ${ARGS[*]}"
       test -z "$DIFFMODE" || ARGS+=( ) # '--word-diff-regex=[[:alnum:]_]+|[^[:space:]]'
+      ;;
+    difft)
+      ARGS=( --tool=difft ) TITLE=difft
+      export DFT_COLOR="${JJFZF_COLOR#--color=}" DFT_DISPLAY=inline DFT_WIDTH="$WIDTH"
       ;;
   esac
   TEMPLATE='"\n" ++ concat( builtin_log_oneline , builtin_log_detailed , diff.stat() , "\n", "'"${TITLE% }"'\n" )'
@@ -273,13 +278,13 @@ DOC[undo]='Use `jj undo` to undo the last operation performed by `jj` that was n
 
 # Diff mode selection
 KEY[diff]="Ctrl-W"
-DOC[diff]='Select the preview diff tool: jj (j) or git (g). Toggle word diff (w), ignoring space changes (b) or all space (a). Ctrl-W cancels.'
+DOC[diff]='Select the preview diff tool: jj (j), git (g) or difftastic (t). Toggle word diff (w), ignoring space changes (b) or all space (a). Ctrl-W cancels.'
 jjfzf_diff_tool_set()
 (
   set -Eeuo pipefail
   case "${1-}" in
     jj) ;;
-    git) command -v "$1" >/dev/null || jjfzf_die "$1 is not installed" ;;
+    git|difft) command -v "$1" >/dev/null || jjfzf_die "$1 is not installed" ;;
     *) jjfzf_die "unknown diff tool: ${1-}" ;;
   esac
   jjfzf_config set jj-fzf.diff-tool "$1" || exit
@@ -308,7 +313,7 @@ jjfzf_sk1()
     return
   fi
   case "$MAP" in
-    select-diff) FOOTER=$' Diff: [j]j [g]it\n Toggle: [w]ord [b]space [a]ll-space' ;;
+    select-diff) FOOTER=$' Diff: [j]j [g]it [t]difft\n Toggle: [w]ord [b]space [a]ll-space' ;;
     *) jjfzf_die "unknown secondary-key map: $MAP" ;;
   esac
   printf '%s\n' "$MAP" > "$JJFZF_TEMPD/sk1" || return
@@ -327,6 +332,7 @@ jjfzf_sk2()
   case "$MAP:${FZF_KEY-}" in
     select-diff:j) jjfzf_diff_tool_set jj && printf '+refresh-preview' ;;
     select-diff:g) jjfzf_diff_tool_set git && printf '+refresh-preview' ;;
+    select-diff:t) jjfzf_diff_tool_set difft && printf '+refresh-preview' ;;
     select-diff:w) jjfzf_diff_toggle jj-fzf.diff-mode --color-words && printf '+refresh-preview' ;;
     select-diff:b) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-space-change && printf '+refresh-preview' ;;
     select-diff:a) jjfzf_diff_toggle jj-fzf.whitespace-mode --ignore-all-space && printf '+refresh-preview' ;;
