@@ -59,18 +59,16 @@ jobs:
   #       .github/workflows/gh-release.sh "JJ-FZF"
 
   Ping-IRC:
-    # Always run, announce tag and trunk pushes only
-    if: ${{ always() && github.event_name == 'push' && (github.ref == 'refs/heads/trunk' || github.ref_type == 'tag') }}
-    needs: [Build-And-Test]
-    runs-on: ubuntu-24.04
+    # Announce tag and trunk pushes unless cancelled
+    if: ${{ !cancelled() && github.event_name == 'push' && (github.ref == 'refs/heads/trunk' || github.ref_type == 'tag') }}
+    needs: [ Build-And-Test ]
+    runs-on: ubuntu-latest
     steps:
-    - { uses: actions/checkout@v7, with: { fetch-depth: 0, github-server-url: 'https://github.com' } }
-    - run: git fetch -f --tags && git describe --long # Fix actions/checkout#290
-    - name: Check Jobs
-      run: |
-        echo '${{ needs.Build-And-Test.result }}'
-        [[ ${{ needs.Build-And-Test.result }}    =~ success|skipped ]]
-    - name: Ping IRC
-      if: ${{ always() && !env.ACT }}  # IRCBOT_JOBS indicates 'success'
+    - { uses: actions/checkout@v7, with: { fetch-depth: 0 } }
+    - run: git fetch --force --tags     # Fix actions/checkout#290
+    - run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .github/workflows -p test_ircbot.py -v # test_ircbot.py --preview
+    - name: Ping-IRC
+      continue-on-error: true
+      if: ${{ !env.ACT }}  # IRCBOT_JOBS indicates 'success'
       env: { IRCBOT_JOBS: "${{ join(needs.*.result, ' ') }}" }
       run: .github/workflows/ircbot.py -s irc.libera.chat:6697 -G "#Anklang"
