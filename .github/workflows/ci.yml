@@ -25,6 +25,8 @@ jobs:
     - run: make apt-deps-install
     - run: make all
     - run: make check
+    - run: .github/workflows/release-test.sh
+      if: github.ref_type != 'tag'
     - run: make -C contrib -f Makefile.mk check
     - run: sudo make install
     - run: make installcheck
