@@ -29,6 +29,16 @@ export JJFZF_COLOR
 export JJFZF_KEEPCOMMITS=--config=git.abandon-unreachable-commits=false
 export JJFZF_SEDLIMIT=10000q
 
+# == jjfzf_version ==
+# Print version and date from .version, baked by git-archive or `make install`, else as git archive bakes it
+jjfzf_version()
+(
+  cd "$JJFZF_ABSPATHLIB"/.. || exit
+  version_info=$(grep -xm1 '^v\?[0-9][^$]*' .version || git archive HEAD .version | tar -xOf -) || :
+  [[ -n ${version_info%% *} ]] || { echo 'jj-fzf: ERROR: Missing version information, need git describe or .version' >&2; exit 1; }
+  echo "${version_info#v}"
+)
+
 # == JJFZF_TEMPD ==
 # Ensure temporary directory
 jjfzf_tempd()
