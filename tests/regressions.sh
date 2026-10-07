@@ -40,6 +40,54 @@ test-draft-bookmark-marker()
 )
 TESTS+=( test-draft-bookmark-marker )
 
+test-push-fetch-refresh()
+(
+  export GIT_AUTHOR_NAME=jj-fzf-test GIT_AUTHOR_EMAIL=test@example.invalid
+  export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
+  printf '[user]\nname = "%s"\nemail = "%s"\n' "$GIT_AUTHOR_NAME" "$GIT_AUTHOR_EMAIL" >$TEMPD/push-config.toml
+  export JJ_CONFIG=$TEMPD/push-config.toml
+  cd_new_repo
+  echo initial > f.txt
+  jj file track f.txt >$DEVERR 2>&1
+  jj --no-pager describe -m initial >$DEVERR 2>&1
+  jj bookmark set main >$DEVERR 2>&1
+  git init --bare $TEMPD/push-remote >$DEVERR 2>&1
+  jj git remote add origin $TEMPD/push-remote >$DEVERR 2>&1
+  git push $TEMPD/push-remote main >$DEVERR 2>&1
+  jj git fetch >$DEVERR 2>&1
+  jj bookmark track main@origin >$DEVERR 2>&1
+  INITIAL=$(get_commit_id main)
+  jj --no-pager new -r main -m local >$DEVERR 2>&1
+  echo local > f.txt
+  jj bookmark set main >$DEVERR 2>&1
+  jj config set --repo jj-fzf.log_revset 'all()' >$DEVERR 2>&1
+  source $SCRIPTDIR/../lib/setup.sh
+  source <(sed -n '/^jjfzf_push()/,/^export -f jjfzf_push$/p' "$SCRIPTDIR/../jj-fzf")
+  jjfzf_tempd
+  jjfzf_toml
+  export JJFZF_LOAD_LIST=jjfzf_log0
+  for RESPONSE in '' n y ; do
+    BOOKMARK="fetched-${RESPONSE:-default}"
+    jjfzf_load
+    REMOTE_COMMIT=$(git --git-dir=$TEMPD/push-remote commit-tree 'main^{tree}' -p main -m "$BOOKMARK")
+    git --git-dir=$TEMPD/push-remote update-ref "refs/heads/$BOOKMARK" "$REMOTE_COMMIT"
+    bash -c 'jjfzf_push @ @' <<<"$RESPONSE" >$TEMPD/push-output 2>&1
+    cat $TEMPD/push-output >$DEVERR
+    test "$(get_commit_id "$BOOKMARK@origin")" == "$REMOTE_COMMIT" ||
+      die "push did not fetch the remote branch"
+    grep -aqF "$BOOKMARK" $JJFZF_TEMPD/jjfzf_list ||
+      die "push did not refresh the fetched branch after response '$RESPONSE'"
+    if test "$RESPONSE" == y ; then
+      EXPECTED=$(get_commit_id main)
+    else
+      EXPECTED=$INITIAL
+    fi
+    test "$(git --git-dir=$TEMPD/push-remote rev-parse main)" == "$EXPECTED" ||
+      die "push did not respect the confirmation response '$RESPONSE'"
+  done
+)
+TESTS+=( test-push-fetch-refresh )
+
 # Regression: `jj op show -p` only shows "interesting" revisions since jj-0.40.0,
 # jj-fzf must pass `--show-changes-in=all()` to keep the oplog undo indicators complete.
 test-oplog-info-all-changes()

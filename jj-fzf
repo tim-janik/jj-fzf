@@ -399,6 +399,7 @@ RUN[push]="jjfzf_push {2} {+2}"
 jjfzf_push()
 (
   set -Eeuo pipefail
+  trap jjfzf_load_and_status EXIT
   REVS=( --tracked --deleted )
   if test ${#@} -gt 2 -o "$1" != "$2" ; then # fzf selection beyond pointer
     shift # eat pointer
@@ -432,7 +433,6 @@ jjfzf_push()
     [[ "${YN:0:1}" =~ [yY] ]] || exit 0
     jjfzf_run +n jj git push "${REVS[@]}"
   fi
-  jjfzf_load_and_status
 )
 export -f jjfzf_push
 
