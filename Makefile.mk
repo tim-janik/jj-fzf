@@ -2,13 +2,29 @@
 
 all:
 SHELL		:= /usr/bin/env bash -o pipefail
-version_full	!= ./version.sh
-version_bits    := $(subst _, , $(subst -, , $(subst ., , $(version_full))))
+
+# == Version ==
+# Baked .version, else .version as git archive bakes it.
+version_info != grep -xm1 '^v\?[0-9][^$$]*' .version || git archive HEAD .version | tar -xOf -
+TAG := $(word 1, $(version_info))
+version_date := $(wordlist 2, 4, $(version_info))
+version = $(patsubst v%,%,$(TAG))
+version_bits	:= $(subst _, , $(subst -, , $(subst ., , $(version))))
+version_major	:= $(word 1, $(version_bits))
+version_minor	:= $(word 2, $(version_bits))
+version_micro	:= $(word 3, $(version_bits))
+version:
+	@echo "$(version)  $(version_date)"
+.PHONY: version
+ifeq ($(and $(version_micro),$(word 4, $(version_info))),)	# do we have any version?
+$(error Missing version information, need git describe or .version)
+endif
+
 PREFIX		?= /usr/local
 BINDIR		?= ${PREFIX}/bin
 SHAREDIR	?= $(PREFIX)/share
 MANDIR		?= $(SHAREDIR)/man
-PKGVERSION      := $(word 1, $(version_bits)).$(word 2, $(version_bits))
+PKGVERSION      := $(version_major).$(version_minor)
 LIBEXEC		?= libexec/jj-fzf-$(PKGVERSION)
 PRJDIR		?= $(PREFIX)/$(LIBEXEC)
 CLEANFILES	:= *.tmp
@@ -53,8 +69,8 @@ doc/jj-fzf.1: doc/jj-fzf.1.md Makefile.mk jj-fzf $(wildcard lib/*)
 	$Q ! grep -B3 -Fn '__CMDRR_ERROR__' doc/jj-fzf+cmds.1.md /dev/null
 	$Q grep -iq 'alt-r.*rebase' doc/jj-fzf+cmds.1.md || { echo 'doc/jj-fzf+cmds.1.md: missing Alt-R'; false; }
 	$Q pandoc $(man/markdown-flavour) -s -p \
-		-M date="$(word 2, $(version_full))" \
-		-M footer="jj-fzf-$(word 1, $(version_full))" \
+		-M date="$(word 1, $(version_date))" \
+		-M footer="jj-fzf-$(version)" \
 		doc/jj-fzf+cmds.1.md -t man -o $@.tmp
 	$Q rm -f doc/cmdrr.awk doc/keys.tmp doc/jj-fzf.1.tmp.md && mv $@.tmp $@
 man/markdown-flavour	:= -f markdown+autolink_bare_uris+emoji+lists_without_preceding_blankline-smart
@@ -65,8 +81,8 @@ all: doc/jj-fzf.1
 # Man page for the jj-fzf wiki
 doc/jj-fzf.1.gfm.md: doc/jj-fzf.1
 	pandoc $(man/markdown-flavour) -s -p \
-		-M date="$(word 2, $(version_full))" \
-		-M footer="jj-fzf-$(word 1, $(version_full))" \
+		-M date="$(word 1, $(version_date))" \
+		-M footer="jj-fzf-$(version)" \
 		doc/jj-fzf+cmds.1.md -t gfm -o $@
 
 # == SCRIPTS ==
@@ -118,14 +134,13 @@ install: all
 	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(PRJDIR)/lib $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
 	install -c $(PRJ_INSTALL_FILES) $(DESTDIR)$(PRJDIR)
 	install -c $(LIB_INSTALL_FILES) $(DESTDIR)$(PRJDIR)/lib
-	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
-	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
+	echo '$(version_info)' > $(DESTDIR)$(PRJDIR)/.version
 	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
 	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
 	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
 installcheck:
 	$(QGEN)
-	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null \
+	$Q test "`$(DESTDIR)$(BINDIR)/jj-fzf --version`" = "jj-fzf $(patsubst v%,%,$(version_info))" \
 	|| { echo "$@: ERROR: failed to start $(DESTDIR)$(BINDIR)/jj-fzf" >&2; false; }
 	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 > $@.tmp \
 	&& grep -qF jj-fzf $@.tmp && rm -f $@.tmp \
