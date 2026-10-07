@@ -23,23 +23,25 @@ jobs:
     - run: sudo apt-get update
     - run: sudo TZ=Etc/UTC DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata nano tmux asciinema pv bsdextrautils
     - run: make apt-deps-install
-    - run: make all
-    - run: make check
+    - run: |
+        make -w distcheck
+        mkdir /tmp/jj-fzf && tar xf artifacts/jj-fzf-*.tar.zst -C /tmp/jj-fzf --strip-components=1
+    - uses: actions/upload-artifact@v7
+      with: { name: jj-fzf-Artifacts, path: artifacts/ }
+    - run: make -C /tmp/jj-fzf -w all -j`nproc`
+    - run: make -C /tmp/jj-fzf -w check
+    - run: make -C /tmp/jj-fzf/contrib -w -f Makefile.mk check
     - run: .github/workflows/release-test.sh
       if: github.ref_type != 'tag'
-    - run: make -C contrib -f Makefile.mk check
-    - run: sudo make install
-    - run: make installcheck
-    - run: sudo make uninstall
-    - run: make clean
-    - run: make distcheck
-    - uses: actions/upload-artifact@v4
-      with: { name: jj-fzf-Artifacts, path: artifacts/ }
+    - run: sudo make -C /tmp/jj-fzf -w install
+    - run: make -C /tmp/jj-fzf -w installcheck
+    - run: sudo make -C /tmp/jj-fzf -w uninstall
     - name: Screencast Tests
       run: |
-        ( mkdir -p ~/.cache && git -C ~/.cache clone --bare --single-branch --shallow-since 2024-12-31 -b v0.29.0 https://github.com/jj-vcs/jj.git )
+        mkdir -p ~/.cache # Download test repo for screencasts
+        git -C ~/.cache clone --bare --single-branch --shallow-since 2024-12-31 -b v0.29.0 https://github.com/jj-vcs/jj.git
         make test
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with: { name: jj-fzf-Screencasts, path: screencasts/*.cast }
 
   # CreateRelease:
