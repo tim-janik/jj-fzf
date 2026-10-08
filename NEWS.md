@@ -1,3 +1,29 @@
+## JJ-FZF 0.45.0 - 2026-10-08
+
+### Added:
+* LLM settings for commit message generation can now be set via jj config, e.g. `jj-fzf.LLM_API_BASE`
+* Added contrib/jj-pull-heads.sh to sync mutable heads from a remote jj repository, with tests
+* `make dist` creates the release tarball, `make distcheck` builds all release artifacts from it
+* GitHub releases are now created on tag pushes, with tests for the release script
+
+### Changed:
+* Ctrl-P: always refresh after fetch and push, also when the push is declined
+* Version info is now baked into .version via git export-subst
+* CI now builds and tests from the distcheck tarball and runs the contrib and ircbot tests
+
+### Fixed:
+* Avoid SIGPIPE aborting bookmark position matching
+* Strip the `*` bookmark marker when drafting merge commit messages
+* Fix missing error handling in lib/draft.sh
+
+### Breaking:
+* This release requires jj-0.45.0
+* This release requires fzf-0.67.0
+
+Thanks to everyone who gave feedback and
+helped to make this release happen!
+
+
 ## JJ-FZF 0.42.0 - 2026-08-11
 
 ### Added:
