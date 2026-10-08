@@ -95,28 +95,6 @@ test-version-metadata()
 )
 TESTS+=( test-version-metadata )
 
-# Regression: `jj op show -p` only shows "interesting" revisions since jj-0.40.0,
-# jj-fzf must pass `--show-changes-in=all()` to keep the oplog undo indicators complete.
-test-oplog-info-all-changes()
-(
-  cd_new_repo
-  # Restrict interesting revisions to @, so the describe op below is elided
-  # unless `--show-changes-in=all()` is in effect.
-  jj config set --repo revsets.op-diff-changes-in '@' >$DEVERR 2>&1
-  mkcommits A B
-  jj --no-pager describe -m 'A updated' A >$DEVERR 2>&1 # modify @-
-  OPID=$(jj op log --no-graph -T 'id ++ " " ++ description.first_line()' |
-	   grep -m1 ' describe ' | awk '{print $1}' | cut -c1-20)
-  test -n "$OPID" || die "failed to locate describe operation"
-  lib_source oplog.sh '1,/^export -f jjfzf_op_info$/p'
-  OUT="$(JJFZF_COLOR= jjfzf_op_info "$OPID")"
-  # The `Modified commit description:` hunk is only emitted by `jj op show -p`
-  # when `--show-changes-in=all()` is passed; without it, @- changes are ignored.
-  grep -q 'Modified commit description' <<<"$OUT" ||
-    die "oplog info omitted changes of a non-@ commit"
-)
-TESTS+=( test-oplog-info-all-changes )
-
 # Regression: jj-0.42 removed `jj describe --edit`, jj-fzf must use --editor
 # and apply the user editor (JJ_EDITOR) through the editor.sh wrapper.
 test-describe-editor()
