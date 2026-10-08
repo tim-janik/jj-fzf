@@ -2,13 +2,29 @@
 
 all:
 SHELL		:= /usr/bin/env bash -o pipefail
-version_full	!= ./version.sh
-version_bits    := $(subst _, , $(subst -, , $(subst ., , $(version_full))))
+
+# == Version ==
+# Baked .version, else .version as git archive bakes it.
+version_info != grep -xm1 '^v\?[0-9][^$$]*' .version || git archive HEAD .version | tar -xOf -
+TAG := $(word 1, $(version_info))
+version_date := $(wordlist 2, 4, $(version_info))
+version = $(patsubst v%,%,$(TAG))
+version_bits	:= $(subst _, , $(subst -, , $(subst ., , $(version))))
+version_major	:= $(word 1, $(version_bits))
+version_minor	:= $(word 2, $(version_bits))
+version_micro	:= $(word 3, $(version_bits))
+version:
+	@echo "$(version)  $(version_date)"
+.PHONY: version
+ifeq ($(and $(version_micro),$(word 4, $(version_info))),)	# do we have any version?
+$(error Missing version information, need git describe or .version)
+endif
+
 PREFIX		?= /usr/local
 BINDIR		?= ${PREFIX}/bin
 SHAREDIR	?= $(PREFIX)/share
 MANDIR		?= $(SHAREDIR)/man
-PKGVERSION      := $(word 1, $(version_bits)).$(word 2, $(version_bits))
+PKGVERSION      := $(version_major).$(version_minor)
 LIBEXEC		?= libexec/jj-fzf-$(PKGVERSION)
 PRJDIR		?= $(PREFIX)/$(LIBEXEC)
 CLEANFILES	:= *.tmp
@@ -53,8 +69,8 @@ doc/jj-fzf.1: doc/jj-fzf.1.md Makefile.mk jj-fzf $(wildcard lib/*)
 	$Q ! grep -B3 -Fn '__CMDRR_ERROR__' doc/jj-fzf+cmds.1.md /dev/null
 	$Q grep -iq 'alt-r.*rebase' doc/jj-fzf+cmds.1.md || { echo 'doc/jj-fzf+cmds.1.md: missing Alt-R'; false; }
 	$Q pandoc $(man/markdown-flavour) -s -p \
-		-M date="$(word 2, $(version_full))" \
-		-M footer="jj-fzf-$(word 1, $(version_full))" \
+		-M date="$(word 1, $(version_date))" \
+		-M footer="jj-fzf-$(version)" \
 		doc/jj-fzf+cmds.1.md -t man -o $@.tmp
 	$Q rm -f doc/cmdrr.awk doc/keys.tmp doc/jj-fzf.1.tmp.md && mv $@.tmp $@
 man/markdown-flavour	:= -f markdown+autolink_bare_uris+emoji+lists_without_preceding_blankline-smart
@@ -65,8 +81,8 @@ all: doc/jj-fzf.1
 # Man page for the jj-fzf wiki
 doc/jj-fzf.1.gfm.md: doc/jj-fzf.1
 	pandoc $(man/markdown-flavour) -s -p \
-		-M date="$(word 2, $(version_full))" \
-		-M footer="jj-fzf-$(word 1, $(version_full))" \
+		-M date="$(word 1, $(version_date))" \
+		-M footer="jj-fzf-$(version)" \
 		doc/jj-fzf+cmds.1.md -t gfm -o $@
 
 # == SCRIPTS ==
@@ -118,14 +134,13 @@ install: all
 	mkdir -p $(DESTDIR)$(PRJDIR)/doc $(DESTDIR)$(PRJDIR)/lib $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man1
 	install -c $(PRJ_INSTALL_FILES) $(DESTDIR)$(PRJDIR)
 	install -c $(LIB_INSTALL_FILES) $(DESTDIR)$(PRJDIR)/lib
-	@ # Note, .gitattributes:export-subst + git archive + tar are used to hardcode version in $(PRJDIR)/version.sh
-	test ! -e .gitattributes || git archive HEAD version.sh | tar xC $(DESTDIR)$(PRJDIR)
+	echo '$(version_info)' > $(DESTDIR)$(PRJDIR)/.version
 	install -c doc/jj-fzf.1 $(DESTDIR)$(PRJDIR)/doc
 	ln -sf ../../../$(LIBEXEC)/doc/jj-fzf.1 $(DESTDIR)$(MANDIR)/man1/
 	ln -sf ../$(LIBEXEC)/jj-fzf $(DESTDIR)$(BINDIR)/jj-fzf
 installcheck:
 	$(QGEN)
-	$Q $(DESTDIR)$(BINDIR)/jj-fzf --version >/dev/null \
+	$Q test "`$(DESTDIR)$(BINDIR)/jj-fzf --version`" = "jj-fzf $(patsubst v%,%,$(version_info))" \
 	|| { echo "$@: ERROR: failed to start $(DESTDIR)$(BINDIR)/jj-fzf" >&2; false; }
 	$Q man $(DESTDIR)$(PRJDIR)/doc/jj-fzf.1 > $@.tmp \
 	&& grep -qF jj-fzf $@.tmp && rm -f $@.tmp \
@@ -154,34 +169,46 @@ apt-deps-install:
 	   && rm -f ./pandoc-3.7.0.2-1-amd64.deb
 	pandoc --version
 
-# == distcheck ==
-distcheck:
-	@$(eval distversion != git describe --match='v[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//')
-	@$(eval distname := jj-fzf-$(distversion))
+# == dist ==
+dist:
+	$(eval distname := jj-fzf-$(version))
 	$(QECHO) MAKE $(distname).tar.zst
-	$Q test -n "$(distversion)" || { echo -e "#\n# $@: ERROR: no dist version, is git working?\n#" >&2; false; }
 	$Q git describe --dirty | grep -qve -dirty || echo -e "#\n# $@: WARNING: working tree is dirty\n#"
 	$Q rm -r -f artifacts/ && mkdir -p artifacts/
-	$Q # Generate ChangeLog with ^^-prefixed records. Tab-indent commit bodies, kill whitespaces and multi-newlines
+	$Q # Generate ChangeLog with ^^-prefixed records. Tab-indent commit bodies.
+	$Q # Kill trailing whitespaces. Compress multiple newlines.
 	$Q git log --abbrev=13 --date=short --first-parent HEAD	\
 		--pretty='^^%ad  %an 	# %h%n%n%B%n'		>  artifacts/ChangeLog \
 	&& sed 's/^/	/; s/^	^^// ; s/[[:space:]]\+$$// '	-i artifacts/ChangeLog \
 	&& sed '/^\s*$$/{ N; /^\s*\n\s*$$/D }'			-i artifacts/ChangeLog
-	$Q # Generate and compress artifacts/*.tar.zst
+	$Q # Generate and compress artifacts/jj-fzf-*.tar.zst
 	$Q git archive --prefix=$(distname)/ --add-file artifacts/ChangeLog -o artifacts/$(distname).tar HEAD
-	$Q zstd --ultra -22 --rm artifacts/$(distname).tar && ls -lh artifacts/$(distname).tar.zst
-	$Q T=`mktemp -d` && cd $$T && tar xf $(abspath artifacts/$(distname).tar.zst) \
-	&& cd $(distname) \
-	&& nice make all -j`nproc` \
-	&& make PREFIX=$$T/inst install \
-	&& make PREFIX=$$T/inst installcheck -j`nproc` \
-	&& (set -x && $$T/inst/bin/jj-fzf --version) \
-	&& make PREFIX=$$T/inst uninstall \
-	&& (set -x && $$PWD/jj-fzf --version) \
-	&& cd / && rm -r "$$T"
-	$Q $(MAKE) artifacts/jj-fzf.sfx artifacts/jj-fzf.1.gz
+	$Q rm -f artifacts/$(distname).tar.zst && zstd --ultra -22 --rm artifacts/$(distname).tar && ls -lh artifacts/$(distname).tar.zst
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 CLEANDIRS += artifacts/
+.PHONY: dist
+
+# == distcheck ==
+# Build all release artifacts from a fresh tarball copy and verify build, install and uninstall.
+distcheck: dist
+	@$(eval distname := jj-fzf-$(version))
+	$(QECHO) CHECK $(distname).tar.zst
+	$Q T=$$(mktemp --tmpdir -d jj-fzf-distcheck-XXXXXXXX) \
+	&& trap "rm -rf $$T" EXIT \
+	&& tar xf artifacts/$(distname).tar.zst -C $$T \
+	&& cd $$T/$(distname) \
+	&& $(MAKE) all -j$$(nproc) \
+	&& $(MAKE) PREFIX=$$T/inst install \
+	&& $(MAKE) PREFIX=$$T/inst installcheck \
+	&& $(MAKE) PREFIX=$$T/inst uninstall \
+	&& test ! -e $$T/inst/bin/jj-fzf \
+	&& $(MAKE) artifacts/jj-fzf.sfx artifacts/jj-fzf.1.gz \
+	&& test "$$(artifacts/jj-fzf.sfx --version)" = "jj-fzf $(patsubst v%,%,$(version_info))" \
+	&& cp -p artifacts/jj-fzf.sfx artifacts/jj-fzf.1.gz $(CURDIR)/artifacts/
+	$Q cd artifacts/ \
+	&& sha256sum $(distname).tar.zst ChangeLog jj-fzf.sfx jj-fzf.1.gz > $(distname).SHA256SUMS \
+	&& sha256sum -c $(distname).SHA256SUMS
+	$Q echo "Distcheck ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 .PHONY: distcheck
 
 # == wiki ==
@@ -200,6 +227,7 @@ wiki-jj-fzf-help.md:
 # == artifacts/jj-fzf.sfx ==
 artifacts/jj-fzf.sfx: all
 	$(QGEN)
+	$Q mkdir -p $(@D)
 	$Q rm -rf xinst/
 	$Q $(MAKE) install DESTDIR=xinst/
 	$Q cd xinst/ && $(abspath sfx.sh) --sfxsh-pack /usr/local/bin/jj-fzf $(abspath $@) *
@@ -209,6 +237,7 @@ artifacts/jj-fzf.sfx: all
 # == artifacts/jj-fzf.1.gz ==
 artifacts/jj-fzf.1.gz: doc/jj-fzf.1
 	$(QGEN)
+	$Q mkdir -p $(@D)
 	$Q cp doc/jj-fzf.1 artifacts/jj-fzf.1
 	$Q gzip -9 artifacts/jj-fzf.1
 	$Q echo "Man page ready: $@" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'

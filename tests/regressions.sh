@@ -40,6 +40,61 @@ test-draft-bookmark-marker()
 )
 TESTS+=( test-draft-bookmark-marker )
 
+test-version-metadata()
+(
+  mkdir -p "$TEMPD/version/lib"
+  cp "$SCRIPTDIR"/../{GNUmakefile,Makefile.mk,jj-fzf,preflight.sh} "$TEMPD/version/"
+  cp "$SCRIPTDIR/../lib/setup.sh" "$TEMPD/version/lib/"
+  cd "$TEMPD/version"
+  printf '%s\n' '.version export-subst' > .gitattributes
+  printf '%s\n' '$Format:%(describe:tags,match=v[0-9]*.[0-9]*) %ci$' > .version
+  check_version()
+  {
+    test "$(make -s --no-print-directory version)" == "$1  $2" || die "make version disagrees with $1 $2"
+    test "$(./jj-fzf --version)" == "jj-fzf $1 $2" || die "jj-fzf --version disagrees with $1 $2"
+  }
+  check_missing_version()
+  {
+    OUT=$(make -s version 2>&1) && die "make accepted missing version metadata"
+    grep -qF 'Missing version information' <<<"$OUT" || die "make did not report missing version metadata"
+    OUT=$(./jj-fzf --version 2>&1) && die "jj-fzf accepted missing version metadata"
+    grep -qF 'Missing version information' <<<"$OUT" || die "jj-fzf did not report missing version metadata"
+  }
+  check_missing_version
+  (
+    git() { PATH= command git "$@"; }
+    export -f git
+    OUT=$(make -s version 2>&1) && die "make accepted unavailable git"
+    grep -qF 'git:' <<<"$OUT" || die "make suppressed the git error"
+    OUT=$(./jj-fzf --version 2>&1) && die "jj-fzf accepted unavailable git"
+    grep -qF 'git:' <<<"$OUT" || die "jj-fzf suppressed the git error"
+  )
+  git init -q
+  git config user.name 'Version Test'
+  git config user.email 'version@example.invalid'
+  git add .gitattributes .version GNUmakefile Makefile.mk jj-fzf preflight.sh lib/setup.sh
+  git -c commit.gpgSign=false commit -qm 'Makefile.mk: version fixture'
+  check_missing_version
+  DATE=$(git log -1 --pretty=%ci)
+  git tag v1.2.3
+  check_version 1.2.3 "$DATE"
+  git -c tag.gpgSign=false tag -a v4.5.6 -m 'version fixture'
+  check_version 4.5.6 "$DATE"
+  mkdir -p archive/lib
+  cp GNUmakefile Makefile.mk jj-fzf preflight.sh archive/
+  cp lib/setup.sh archive/lib/
+  git archive HEAD .version | tar -x -C archive
+  cd archive
+  check_version 4.5.6 "$DATE"
+  printf '%s\n' 'v0.0.0 $Format:%ci$' '7.8.9 2001-01-01 01:01:01 +0000' 'v8.9.0 2002-02-02 02:02:02 +0000' > .version
+  check_version 7.8.9 '2001-01-01 01:01:01 +0000'
+  git tag -d v1.2.3 v4.5.6 >$DEVERR
+  check_version 7.8.9 '2001-01-01 01:01:01 +0000'
+  cp ../.version .version
+  check_missing_version
+)
+TESTS+=( test-version-metadata )
+
 # Regression: `jj op show -p` only shows "interesting" revisions since jj-0.40.0,
 # jj-fzf must pass `--show-changes-in=all()` to keep the oplog undo indicators complete.
 test-oplog-info-all-changes()

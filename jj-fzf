@@ -13,7 +13,7 @@ PRINTOUT=
 WITH_PREVIEW=true
 while test $# -ne 0 ; do
   case "$1" in \
-    --version)		echo "${ABSPATHSCRIPT##*/} `$JJFZF_ABSPATHLIB/../version.sh`"; exit ;;
+    --version)		V=$(jjfzf_version) || exit; echo "${ABSPATHSCRIPT##*/} $V"; exit ;;
     --help-bindings)	PRINTOUT="$1" ;;
     -h|--help)		echo "Usage: ${ABSPATHSCRIPT##*/} [--man] [--version] [OPTIONS...]"; exit ;;
     -c|+c|-r|+r|-s)	ENTER="$1" ;;
@@ -582,7 +582,7 @@ BINDINGS+=( --bind "start,resize,alt-h,f11:+transform-header: jjfzf_showkeys 2>&
 }
 
 # == fzf ==
-V=$($JJFZF_ABSPATHLIB/../version.sh | sed 's/\(-0-g\| \).*//; s/-[1-9][0-9]*-g.*/+/')
+V=$(jjfzf_version | sed 's/\(-0-g\| \).*//; s/-[1-9][0-9]*-g.*/+/')
 FZF_ARGS+=(
   --marker=' '
   --border-label "-[ JJ-FZF ($V) ]-" --color=border:cyan,label:cyan
