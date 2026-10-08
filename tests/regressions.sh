@@ -42,20 +42,40 @@ TESTS+=( test-draft-bookmark-marker )
 
 test-push-fetch-refresh()
 (
-  cd $TEMPD
+  printf '[user]\nname="push-test"\nemail="test@example.invalid"\n' >$TEMPD/push-config.toml
+  export JJ_CONFIG=$TEMPD/push-config.toml
+  REMOTE=$(clear_repo push-remote)
+  ( cd "$REMOTE" && mkcommits main && git symbolic-ref HEAD refs/heads/main ) >$DEVERR 2>&1
+  jj git clone --colocate "$REMOTE" $TEMPD/push-local >$DEVERR 2>&1
+  cd $TEMPD/push-local
+  INITIAL=$(get_commit_id main)
+  jj config set --repo jj-fzf.log_revset 'all()' >$DEVERR 2>&1
   source $SCRIPTDIR/../lib/setup.sh
   declare -A RUN
   source <(sed -n '/^RUN\[push\]=/,/^export -f jjfzf_push$/p' "$SCRIPTDIR/../jj-fzf")
-  export JJFZF_TEMPD=$TEMPD JJFZF_LOAD_LIST="cat $TEMPD/fetched"
-  jj() { test "$2" != fetch || echo fetched >$JJFZF_TEMPD/fetched; }
-  jjfzf_status() { :; }
-  export -f jj jjfzf_status
+  jjfzf_toml
+  export JJFZF_LOAD_LIST=jjfzf_log0
   CMD=$(sed 's/{[^}]*}/@/g' <<<"${RUN[push]}")
-  for RESPONSE in '' n ; do
-    echo stale >$JJFZF_TEMPD/jjfzf_list
-    bash -c "$CMD" <<<"$RESPONSE" >$DEVERR 2>&1
-    grep -qx fetched $JJFZF_TEMPD/jjfzf_list ||
+  for RESPONSE in '' n y ; do
+    if test "$RESPONSE" == n ; then
+      jj new -r main -m local >$DEVERR 2>&1
+      echo local >f.txt
+      jj file track f.txt >$DEVERR 2>&1
+      jj bookmark set main >$DEVERR 2>&1
+      LOCAL=$(get_commit_id @)
+    fi
+    jjfzf_load
+    BOOKMARK="incoming-${RESPONSE:-fetch}"
+    ( cd "$REMOTE" && mkcommits "$BOOKMARK" )
+    bash -c "$CMD" <<<"$RESPONSE" >$TEMPD/push-output 2>&1
+    cat $TEMPD/push-output >$DEVERR
+    assert_commits_eq "$BOOKMARK@origin" "$(git -C "$REMOTE" rev-parse "$BOOKMARK")"
+    grep -aqF "$BOOKMARK" $JJFZF_TEMPD/jjfzf_list ||
       die "push did not refresh after response '$RESPONSE'"
+    EXPECTED=$INITIAL
+    test "$RESPONSE" != y || EXPECTED=$LOCAL
+    test "$(git -C "$REMOTE" rev-parse main)" == "$EXPECTED" ||
+      die "push did not respect response '$RESPONSE'"
   done
 )
 TESTS+=( test-push-fetch-refresh )
