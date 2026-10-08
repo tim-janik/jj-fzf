@@ -54,7 +54,7 @@ fi
 
 # == Draft Merge Commit Message ==
 test -n "$COMMIT" ||
-  die "Missing commit"
+  { echo "draft.sh: Missing commit" >&2; exit 1; }
 JJ='jj --no-pager --ignore-working-copy --color=never'
 
 # Keep existing description
