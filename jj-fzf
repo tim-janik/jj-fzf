@@ -426,11 +426,13 @@ jjfzf_push()
   fi
   # push when confirmed
   if test $STATUS != 0 ; then
-    read -p "Press Enter..."
+    read -p "Press Enter..." ||
+      true
   else
-    read -p 'Proceed with actual push and submit changes? (y/N) ' YN
-    [[ "${YN:0:1}" =~ [yY] ]] || exit 0
-    jjfzf_run +n jj git push "${REVS[@]}"
+    read -p 'Proceed with actual push and submit changes? (y/N) ' YN &&
+      [[ "${YN:0:1}" =~ [yY] ]] &&
+      jjfzf_run +n jj git push "${REVS[@]}" ||
+	true
   fi
   jjfzf_load_and_status
 )
