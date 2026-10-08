@@ -6,7 +6,6 @@ PATH="$SCRIPTDIR/..:$PATH"	# ensure jj-fzf is in $PATH
 jj-fzf --version >/dev/null
 
 # == VARIABLE Setup ==
-export JJFZF_ERROR_DELAY=0 # instant errors for testing
 TEMPD=
 
 # == OPTIONS ==
@@ -43,7 +42,16 @@ temp_dir()
     TEMPD="`mktemp --tmpdir -d jjfzf0XXXXXX`" || die "mktemp failed"
     trap "rm -rf '$TEMPD'" 0 HUP INT QUIT TRAP USR1 PIPE TERM
     echo "$$" > $TEMPD/jjfzf-tests.pid
+    isolate_config
   }
+}
+isolate_config()
+{ # Keep user config and environment out of jj, git, fzf and jj-fzf runs
+  unset "${!JJ_@}" "${!JJFZF_@}" "${!GIT_@}" "${!FZF_@}" EDITOR VISUAL PAGER NO_COLOR
+  export HOME="$TEMPD/home" XDG_CONFIG_HOME="$TEMPD/home/.config" GIT_CONFIG_NOSYSTEM=1
+  export JJ_CONFIG="$XDG_CONFIG_HOME/jj/config.toml" JJFZF_ERROR_DELAY=0
+  mkdir -p "$XDG_CONFIG_HOME/jj"
+  printf '%s\n' '[user]' 'name = "jj-fzf Tests"' 'email = "tests@jj-fzf.invalid"' > "$JJ_CONFIG"
 }
 
 # == Repository ==
