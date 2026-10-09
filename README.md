@@ -81,9 +81,9 @@ and all changes can be undone step by step using `Alt-Z`.
 ### Merging Commits
 
 This screencast demonstrates how to merge commits using the `jj-fzf` command-line tool.
-It begins by selecting a revision to base the merge commit on, then starts the merge dialog with `Alt-M`.
-For merging exactly 2 commits, `jj-fzf` suggests a merge commit message and opens the text editor before creating the commit.
-More commits can also be merged, and in such cases, `Ctrl-D` can be used to describe the merge commit afterward.
+It begins by selecting the revisions to merge with `Tab`, then creates the merge commit with `Ctrl-N`.
+For merge commits, `Ctrl-D` opens the text editor with a suggested merge commit message.
+More commits can also be merged, which creates an octopus merge.
 
 ![Merging Commits](https://github.com/user-attachments/assets/47be543f-4a20-42a2-929b-e9c53ad1f896)
 **Merging Commits:** [Asciicast](https://asciinema.org/a/685133) [MP4](https://github.com/user-attachments/assets/7d97f37f-c623-4fdb-a2de-8860bab346a9)
@@ -91,7 +91,7 @@ More commits can also be merged, and in such cases, `Ctrl-D` can be used to desc
 ### Rebasing Commits
 
 This screencast demonstrates varies ways of rebasing commits (`Alt-R`) with `jj-fzf`.
-It begins by rebasing a single revision (`Alt-R`) before (`Ctrl-B`) and then after (`Ctrl-A`) another commit.
+It begins by rebasing a single revision (`Alt-R`) after (`Ctrl-A`) and then before (`Ctrl-B`) another commit.
 After that, it moves on to rebasing an entire branch (`Alt-B`), including its descendants and ancestry up to the merge base, using `jj rebase --branch <b> --destination <c>`.
 Finally, it demonstrates rebasing a subtree (`Alt-S`), which rebases a commit and all its descendants onto a new commit.
 
@@ -102,8 +102,8 @@ Finally, it demonstrates rebasing a subtree (`Alt-S`), which rebases a commit an
 
 This screencast demonstrates the [Mega-Merge](https://ofcr.se/jujutsu-merge-workflow) workflow, which allows to combine selected feature branches into a single "Mega-Merge" commit that the working copy is based on.
 It begins by creating a new commit (`Ctrl-N`) based on a feature branch and then adds other feature branches as parents to the commit with the parent editor (`Alt-P`).
-As part of the workflow, new commits can be squashed (`Alt-W`) or rebased (`Alt-R`) into the existing feature branches.
-To end up with a linear history, the demo then shows how to merge a single branch into `master` and rebases everything else to complete a work phase.
+As part of the workflow, new commits can be squashed (`Alt-Q`) or rebased (`Alt-R`) into the existing feature branches.
+To complete a work phase, the demo then merges a single branch into `trunk` and moves the Mega-Merge commit onto it with the parent editor (`Alt-P`).
 
 ![Mega-Merge Workflow](https://github.com/user-attachments/assets/f944afa2-b6ea-438d-802b-8af83650a65f)
 **Mega-Merge:** [Asciicast](https://asciinema.org/a/685256) [MP4](https://github.com/user-attachments/assets/eb1a29e6-b1a9-47e0-871e-b2db5892dbf1)
