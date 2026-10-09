@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+set -Eeuo pipefail
+printf 'difft: %s %s %s\n' "$DFT_COLOR" "$DFT_DISPLAY" "$DFT_WIDTH"
+test "$#" -eq 2
+test -f "$1/sample.txt" -a -f "$2/sample.txt"
+diff -u "$1/sample.txt" "$2/sample.txt" || test "$?" -eq 1

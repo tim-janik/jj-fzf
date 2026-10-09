@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+set -Eeuo pipefail
+
+test "${1-}" != --version || exec "$JJFZF_TEST_FZF" --version
+fail() { echo "secondary keys: $*" >&2; exit 1; }
+cat >/dev/null
+[[ " $* " == *"$JJFZF_SK_KEYS,esc,ctrl-c,ctrl-g:transform(jjfzf_sk2)+unbind($JJFZF_SK_KEYS)"* ]] || fail 'missing catcher'
+[[ " $* " == *"start:unbind($JJFZF_SK_KEYS)"* ]] || fail 'catcher active at startup'
+[[ " $* " == *'ctrl-w:transform: jjfzf_sk1 select-diff'* ]] || fail 'missing Ctrl-W'
+source "$JJFZF_TEMPD/preview.env"
+test "$DIFFTOOL:$DIFFMODE:$IGNORE_SPACE" == ':--color-words:--ignore-all-space' || fail 'startup sync'
+for FZF_KEY in esc ctrl-c ctrl-g; do
+  test "$(jjfzf_sk2)" == abort || fail "quit: $FZF_KEY"
+done
+P="$JJFZF_TEMPD/preview"
+press() { jjfzf_sk1 select-diff >/dev/null; FZF_KEY="$1" jjfzf_sk2; }
+preview() { FZF_PREVIEW_COLUMNS=53 JJFZF_COLOR="${1:---color=never}" jjfzf_full_commit @ > "$P" 2> "$P.err"; }
+
+for KEY in j g t d c; do
+  ACTION="$(jjfzf_sk1 select-diff)"
+  [[ "$ACTION" == hide-input+change-footer\(*+rebind\(* ]] || fail 'entry actions'
+  test "$(cat "$JJFZF_TEMPD/sk1")" == select-diff || fail 'active map'
+  test "$(FZF_KEY=$KEY jjfzf_sk2)" == 'show-input+change-footer()+refresh-preview' || fail "selection: $KEY"
+  test ! -e "$JJFZF_TEMPD/sk1" || fail 'selection cleanup'
+  source "$JJFZF_TEMPD/preview.env"
+  test "$DIFFTOOL" == "$(jjfzf_config get jj-fzf.diff-tool)" || fail 'config sync'
+  preview
+  case "$KEY" in
+    j) test "$DIFFTOOL" == jj && grep -q '^jj diff --ignore-all-space --color-words$' "$P" &&
+         grep -q '^Modified regular file sample.txt:$' "$P" ;;
+    g) test "$DIFFTOOL" == git && grep -q '^git diff --ignore-all-space --word-diff=plain$' "$P" &&
+         grep -qF '[-old-]{+new+}(value)' "$P" ;;
+    t) test "$DIFFTOOL" == difft && grep -q '^difft: never inline 53' "$P" ;;
+    d) test "$DIFFTOOL" == delta && test ! -s "$P.err" &&
+         grep -q '^delta: --paging=never --width=53' "$P" && grep -q '^+new(value)$' "$P" && ! grep -q $'\033' "$P" &&
+         preview --color=always && grep -q $'\033\\[35mdelta: --paging=never --width=53' "$P" ;;
+    c) test "$DIFFTOOL" == cmscout &&
+         grep -q '^cmscout: --ignore-all-space --word-diff --skip-unchanged --no-color -B .* -A .* a/sample.txt b/sample.txt$' "$P" ;;
+  esac || fail "renderer: $KEY"
+done
+
+for FZF_KEY in x esc ctrl-c ctrl-g ctrl-w; do
+  BEFORE="$(< "$JJFZF_TEMPD/preview.env")"
+  jjfzf_sk1 select-diff >/dev/null
+  if test "$FZF_KEY" == ctrl-w; then
+    test "$(jjfzf_sk1 select-diff)" == "show-input+change-footer()+unbind($JJFZF_SK_KEYS)" || fail 'toggle actions'
+  else
+    test "$(jjfzf_sk2)" == 'show-input+change-footer()' || fail "cancellation: $FZF_KEY"
+  fi
+  test ! -e "$JJFZF_TEMPD/sk1" || fail 'cancellation cleanup'
+  test "$BEFORE" == "$(< "$JJFZF_TEMPD/preview.env")" || fail "cancellation changed settings: $FZF_KEY"
+done
+
+for STEP in 'w :--ignore-all-space' 'w --color-words:--ignore-all-space' 'a --color-words:' \
+	    'b --color-words:--ignore-space-change' 'a --color-words:--ignore-all-space' \
+	    'b --color-words:--ignore-space-change'; do
+  test "$(press "${STEP%% *}")" == 'show-input+change-footer()+refresh-preview' || fail "toggle: $STEP"
+  source "$JJFZF_TEMPD/preview.env"
+  test "$DIFFMODE:$IGNORE_SPACE" == "${STEP#* }" || fail "toggle: $STEP"
+done
+preview
+grep -q '^cmscout: --ignore-all-space --word-diff --skip-unchanged --no-color ' "$P" || fail 'cmscout space change'
+
+(
+  jj() { echo 'ERROR: )+abort {q} $(touch injected)' >&2; return 1; }
+  ACTION="$(press w)"
+  [[ "$ACTION" == 'show-input+change-footer()+execute('* ]] || fail 'missing write error'
+  [[ "$ACTION" != *'touch injected'* ]] || fail 'error text became an action'
+  test ! -e "$JJFZF_TEMPD/sk1" || fail 'error cleanup'
+  grep -qF 'ERROR: )+abort {q} $(touch injected)' "$JJFZF_TEMPD/sk-error" || fail 'lost error message'
+)
+press j >/dev/null
+for KEY in g t d c; do
+  (
+    command() { case "$*" in '-v git'|'-v difft'|'-v delta'|'-v cmscout') return 1 ;; esac; builtin command "$@"; }
+    [[ "$(press $KEY)" == 'show-input+change-footer()+execute('* ]] || fail 'missing external tool error'
+    test "$(jjfzf_config get jj-fzf.diff-tool)" == jj || fail 'missing tool changed config'
+    test ! -e "$JJFZF_TEMPD/sk1" || fail 'missing tool cleanup'
+  )
+done
+mkdir "$JJFZF_TEMPD/preview.env.new"
+[[ "$(press w)" == 'show-input+change-footer()+execute('* ]] || fail 'missing env write error'
+test ! -e "$JJFZF_TEMPD/sk1" || fail 'env error cleanup'
+rmdir "$JJFZF_TEMPD/preview.env.new"
+jjfzf_update_preview_env
+source "$JJFZF_TEMPD/preview.env"
+test "$DIFFMODE" == '' || fail 'sync after error'
