@@ -44,6 +44,7 @@ unset "${!JJ_@}" "${!JJFZF_@}" "${!GIT_@}" "${!FZF_@}" EDITOR VISUAL PAGER NO_CO
 export HOME="$TEMPD/home" XDG_CONFIG_HOME="$TEMPD/home/.config" GIT_CONFIG_NOSYSTEM=1
 mkdir -p "$XDG_CONFIG_HOME"
 printf '%s\n' '[user]' 'name = Jane Doe' 'email = jane.doe@example.com' > "$HOME/.gitconfig"
+export TMUX_TMPDIR="$TEMPD"	# private tmux server, a running one would pass on its own environment
 export JJ_EMAIL=jane.doe@example.com
 export JJ_USER="Jane Doe"
 export JJ_OP_USERNAME=jane.doe JJ_OP_HOSTNAME=example.com
