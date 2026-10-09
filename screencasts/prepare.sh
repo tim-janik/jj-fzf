@@ -38,8 +38,15 @@ TEMPD=$(mktemp --tmpdir -d screencasts.XXXXXX) &&
 echo "$$" > $TEMPD/$SCREENCAST_SESSION.pid
 readonly SCREENCAST_ABSPATH=$(readlink -f "./$SCREENCAST_SESSION")
 export SCREENCAST_SESSION SCREENCAST_ABSPATH
+# Keep user config and environment out of screencasts, like tests/utils.sh:isolate_config
+SCREENCAST_JJGIT="$HOME/.cache/jj.git"
+unset "${!JJ_@}" "${!JJFZF_@}" "${!GIT_@}" "${!FZF_@}" EDITOR VISUAL PAGER NO_COLOR
+export HOME="$TEMPD/home" XDG_CONFIG_HOME="$TEMPD/home/.config" GIT_CONFIG_NOSYSTEM=1
+mkdir -p "$XDG_CONFIG_HOME"
+printf '%s\n' '[user]' 'name = Jane Doe' 'email = jane.doe@example.com' > "$HOME/.gitconfig"
 export JJ_EMAIL=jane.doe@example.com
 export JJ_USER="Jane Doe"
+export JJ_OP_USERNAME=jane.doe JJ_OP_HOSTNAME=example.com
 export JJ_CONFIG=/dev/null	# per default, ignore user config
 
 # == Timings ==
@@ -363,11 +370,11 @@ clone_jj_repo()
 {
   local DIR="$1"
   # cd ~/.cache/ && git clone --bare --single-branch --shallow-since 2024-12-31 -b v0.29.0 git@github.com:jj-vcs/jj.git
-  test -r /$HOME/.cache/jj.git/ ||
+  test -r "$SCREENCAST_JJGIT/" ||
     die 'missing ~/.cache/jj.git'
   rm -rf "$DIR"
   ( stdio_to_dev_null # unless set -x
-    git clone --shallow-since 2025-01-01 file://$HOME/.cache/jj.git "$DIR"
+    git clone --shallow-since 2025-01-01 "file://$SCREENCAST_JJGIT" "$DIR"
     cd "$DIR"
     rm -f .git/packed-refs .git/refs/tags/v0.3* .git/refs/tags/v0.28.2 .git/refs/tags/v0.29.0
     mkdir -p .git/refs/remotes/origin/
