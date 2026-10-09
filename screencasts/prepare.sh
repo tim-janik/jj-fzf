@@ -333,7 +333,7 @@ make_repo()
     M1=`jj log --no-graph -T change_id -r @`
     [[ $DONE =~ merged ]] && exit
 
-    jj backout -r $L -d @ && jj edit @+ && jj rebase -r @ --insert-after $A-
+    jj revert -r $L -d @ && jj edit @+ && jj rebase -r @ --insert-after $A-
     jj rebase -b trunk -d @
     [[ $DONE =~ backout ]] && exit
 
