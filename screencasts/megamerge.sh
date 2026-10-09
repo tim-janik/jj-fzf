@@ -1,23 +1,16 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
-set -Eeuo pipefail # -x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
-ABSPATHSCRIPT=`readlink -f "$0"`
-SCRIPTDIR="${ABSPATHSCRIPT%/*}"
+set -Eeuo pipefail #-x
 
-# == functions and setup for screencasts ==
-source $SCRIPTDIR/prepare.sh ${SCRIPTNAME%%.*}
-# fast_timings
+readonly SCREENCAST_SESSION=megamerge-demo
+source $(dirname $(readlink -f "${BASH_SOURCE[0]}"))/prepare.sh	"$@" # for $TEMPD and funcs
 
-# CLONE REPO
-DIR=MegaMergeDemo
-( rm -rf $DIR
-  set -x
-  git clone --no-hardlinks --single-branch --branch trunk $(cd  $SCRIPTDIR && git rev-parse --git-dir) $DIR
-  cd $DIR
+# == Config ==
+export JJ_CONFIG=$(make_jj_config)
+clone_jjfzf_repo $TEMPD/$SCREENCAST_SESSION ad3b2ad
+( stdio_to_dev_null
+  cd $TEMPD/$SCREENCAST_SESSION
   git update-ref refs/remotes/origin/trunk f2c149e
-  git tag -d `git tag`
-  # git reset --hard f2c149e
   jj git init --colocate
   jj b s trunk -r f2c149e --allow-backwards
   jj bookmark track trunk@origin
@@ -26,120 +19,126 @@ DIR=MegaMergeDemo
   jj abandon b19d586:: && jj rebase -s bf7fd9d -d f2c149e
   jj b c bug-fixes -r f93824e
   jj abandon 56a3cbb:: && jj rebase -s bed3bcd -d f2c149e
-  jj abandon 249a167:: # jj b c screencast-scripts -r 69fd52e
-  # jj abandon 4951884:: && jj rebase -s 249a167 -d f2c149e
-  jj abandon 5cf1278:: # jj b c readme-screencasts -r 8c3d950
-  # jj abandon 66eb19d:: && jj rebase -s 5cf1278 -d f2c149e
+  jj abandon 249a167::
+  jj abandon 5cf1278::
   jj b c homebrew-fixes -r c1512f4
   jj abandon 5265ff6::
   jj new @-
 )
 
-# SCRIPT
-start_asciinema $DIR 'jj-fzf' Enter
+# == SCRIPT ==
+start_screencast $TEMPD/$SCREENCAST_SESSION \
+		 'jj-fzf' Enter
 X 'The "Mega-Merge" workflow operates on a selection of feature branches'
 
-# FIRST NEW
+# -- Mega-Merge head --
 X 'Use Ctrl+N to create a new commit based on a feature branch'
-K PageUp Down; P
+K Down; P	# bug-fixes
 K C-n; P
 X 'Use Ctrl+D to give the Mega-Merge head a unique marker'
-K C-d
-T $'= = = = = = = =\n'; P;
-K C-x; P		# nano
+K C-d; S
+T '= = = = = = = ='; P
+K C-x; P	# nano
 
-# ADD PARENTS
+# -- Add parents --
 X 'Alt+P starts the Parent editor for the selected commit'
 K M-p; P
 X 'Alt+A and Alt+D toggle between adding and deleting parents'
 K M-d; P; K M-a; P; K M-d; P; K M-a; P
 X 'Pick branches and use Tab to add parents'
-#K Down; K Tab; P	# readme-screencasts
 Q "two-step-duplicate-and-backout"; K Tab; P
-Q "bug-fixes"; K Tab; P
 Q "homebrew-fixes"; K Tab; P
 X 'Enter: run `jj rebase` to add the selected parents'
 K Enter; P
 X 'The working copy now contains 3 feature branches'
 
-# NEW COMMIT
+# -- New commit --
 X 'Ctrl+N starts a new commit'
 K C-n; P
 X 'Ctrl+Z starts a subshell'
 K C-z; P
 T '(echo; echo "## Multi-merge") >>README.md && exit'; P; K Enter; P
-X 'Alt+C starts the text editor and creates a commit'
-K M-c; K End; P
+X 'Ctrl+D describes the new commit'
+K C-d; S
 T 'start multi-merge section'; P
-K C-x; P		# nano
+K C-x; P	# nano
 
-# ADD BRANCH
-K PageUp; K Down 2
-X 'Alt+N: Insert a new parent (adds a branch to merge commits)'
-K M-n; P
-Q "\ @\ "
-X 'Alt+B: Assign/move a bookmark to a commit'
-K M-b; T 'cleanup-readme'; P; K Enter
-
-# REBASE before
-K PageUp; P
+# -- Rebase into branch --
 X 'Alt+R allows rebasing a commit into a feature branch'
-K M-r;
-X 'Use Alt+R and Ctrl+B to rebase a single revision before another'
 K M-r; P
-Q "\ @\ "	# "cleanup-readme"
-K C-b; P
-X 'Enter: rebase with `jj rebase --revisions --insert-before`'
+X 'Use Alt+R and Ctrl+A to insert the revision after "bug-fixes"'
+K M-r; P
+K Down 2; P	# bug-fixes
+K C-a; P
+X 'Enter: rebase with `jj rebase --revisions --insert-after`'
+K Enter; P
+K Down; P	# start multi-merge section
+X 'Alt+B: move the "bug-fixes" bookmark to the new commit'
+K M-b; S
+T 'bug-fixes'; P
 K Enter; P
 
-# SQUASH COMMIT
-K PageUp
+# -- Squash into branch --
+K C-Left; P	# Mega-Merge head
 X 'Ctrl+N starts a new commit'
 K C-n; P
-X 'Ctrl+Z starts a subshell'
 K C-z; P
 T '(echo; echo "Alt+P enables the Multi-Merge workflow.") >>README.md && exit'; P; K Enter; P
-K C-d End; P
-T 'describe Alt+P'; P
-K C-x; S		# nano
 X 'The working copy changes can be squashed into a branch'
-Q "cleanup-readme"; P
-X 'Alt+W: squash the contents of the working copy into the selected revision'
-K M-w; P; P;
-X 'The commit now contains the changes from the working copy'
-K PageUp; P;
-X 'The working copy is now empty'
+K Tab; P	# select @
+K Down; P	# bug-fixes
+X 'Alt+Q: squash the selected working copy into the revision under the cursor'
+K M-q; P
+X 'The working copy is now empty, "bug-fixes" contains its changes'
+P
 
-# UPSTREAM-MERGE
-X "Let's merge the new branch into upstream and linearize history"
-Q "cleanup-readme"; P
-X 'Alt+M: start merge dialog'
-K M-m Down 3; P
-X 'Alt+U: upstream merge - add tracked bookmark to merge parents'
-K M-u; P
-X 'Enter: edit commit message and create upstream merge'
-K Enter; P; K C-k; P; K C-x; P      # nano
-
-# REBASE MegaMerge head
-K PageUp; K Down 2; P
-X 'Alt+R: rebase the Mega-Merge head onto the working copy'
-K M-r; P
-X "Alt+P: simplify-parents after rebase to remove old parent edges"
-K M-p; P
-X "Enter: rebase onto 'trunk' and also simplify parents"
+# -- Upstream merge --
+X "Let's merge the \"bug-fixes\" branch into 'trunk'"
+K C-Left; K Down 2; P	# bug-fixes
+K Tab; P
+K Down 7; P	# trunk
+K Tab; P
+X 'Ctrl+N creates the merge commit'
+K C-n; P
+K C-d; P
+K C-k; T "Merge branch 'bug-fixes'"; K Enter; P
+K C-x; S	# nano
+X "Alt+B: move the 'trunk' bookmark to the merge commit"
+K M-b; S
+T 'trunk'; P
 K Enter; P
 
-# NEW
-K PageUp
+# -- Rebase Mega-Merge head --
+K Down; P	# Mega-Merge head
+X 'Alt+P: add the new trunk merge as parent of the Mega-Merge head'
+K M-p; P
+K Up; K Tab; P	# trunk merge
+X 'Alt+P: simplify-parents removes the old "bug-fixes" parent edge'
+K M-p; P
+X 'Enter: run `jj rebase` and `jj simplify-parents`'
+K Enter; P
+
+# -- New --
+K C-Left; P	# Mega-Merge head
 X 'Use Ctrl+N to prepare the next commit'
 K C-n; P
-
-# OUTRO
-X "The new feature can be pushed with 'trunk' and the Mega-Merge head is rebased"
+X "The branch is merged into 'trunk' and the Mega-Merge head is rebased onto it"
 P; P
 
-# EXIT
+# == EXIT ==
 P
-stop_asciinema
-render_cast "$ASCIINEMA_SCREENCAST"
-ffmpeg -ss 00:02:32 -i megamerge.mp4 -frames:v 1 -q:v 2 -y megamerge230.jpg
+stop_screencast
+
+( cd $TEMPD/$SCREENCAST_SESSION
+  test -z "$(jj log --no-graph -T change_id -r 'conflicts()')" ||
+    die 'unexpected conflicts'
+  test -n "$(jj log --no-graph -T change_id -r 'trunk- & bug-fixes')" ||
+    die "failed to merge bug-fixes into trunk"
+  test "$(jj log --no-graph -T '"x"' -r '@--')" == xxx &&
+    test -z "$(jj log --no-graph -T change_id -r '@-- ~ (trunk | two-step-duplicate-and-backout | homebrew-fixes)')" ||
+      die 'failed to rebase the Mega-Merge head'
+  jj file show -r bug-fixes README.md | grep -q 'Alt+P enables the Multi-Merge workflow' ||
+    die 'failed to squash into bug-fixes'
+)
+
+printf '  %-8s %s\n' OK "$SCREENCAST_SESSION passed"

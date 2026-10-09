@@ -1,64 +1,67 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
-set -Eeuo pipefail # -x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
-ABSPATHSCRIPT=`readlink -f "$0"`
-SCRIPTDIR="${ABSPATHSCRIPT%/*}"
+set -Eeuo pipefail #-x
 
+readonly SCREENCAST_SESSION=merging-demo
+source $(dirname $(readlink -f "${BASH_SOURCE[0]}"))/prepare.sh	"$@" # for $TEMPD and funcs
 
-# == functions and setup for screencasts ==
-source $SCRIPTDIR/prepare.sh ${SCRIPTNAME%%.*}
-# fast_timings
+# == Config ==
+export JJ_CONFIG=$(make_jj_config)
+( stdio_to_dev_null
+  cd $TEMPD && make_repo -3tips $SCREENCAST_SESSION gitdev jjdev
+)
 
-# SCRIPT
-make_repo -3tips MergingDemo gitdev jjdev
-start_asciinema MergingDemo 'jj-fzf' Enter
+# == SCRIPT ==
+start_screencast $TEMPD/$SCREENCAST_SESSION \
+		 'jj-fzf' Enter
 
-# GOTO rev
-X 'To create a merge commit, pick the first commit to be merged'
-Q0 "trunk"; S
-
-# MERGE-2
-X 'Alt+M starts the Merge dialog'
-K M-m; P
-K 'Down'; K 'Down'
-Q "jjdev"
-X 'Tab selects another revision to merge with'
+# -- Merge 2 --
+X 'To create a merge commit, select the commits to merge with Tab'
+K Down; P	# trunk
 K Tab; P
-X 'Enter starts the text editor to describe the merge'
-K Enter; P
-K C-k; P; K C-x; S	# nano
-X 'The newly created merge commit is now the working copy'
+K Down; P	# jjdev
+K Tab; P
+X 'Ctrl+N creates a new commit with all selected revisions as parents'
+K C-n; P
+X 'Ctrl+D starts the text editor with a suggested merge commit message'
+K C-d; P
+K C-k; T "Merge 'jjdev' into 'trunk'"; K Enter; P
+K C-x; S	# nano
+X 'The new merge commit is now the working copy'
 
-# UNDO
-X 'Alt+Z will undo the last operation (the merge)'
-K M-z ; P
+# -- Undo --
+X 'Alt+Z undoes the last operation, use it twice to undo describe and merge'
+K M-z; P
+K M-z; P
 X 'The repository is back to 3 unmerged branches'
 
-# MERGE-3
-X 'Select a revision to merge'
-K Down; K Down; K Down
-Q0 "gitdev"; S
-X 'Alt+M starts the Merge dialog, now for an octopus merge'
-K M-m; P
-K Down; Q0 "trunk"; S
-K Tab; S
-K Down; Q0 "jjdev"; S
-X 'Tab again selects the third revision'
-K Tab; S
-X 'Enter starts the text editor to describe the merge'
-K Enter; P
-K C-k; P; K C-x; S	# nano
-X 'The newly created merge commit is now the working copy'
-X 'Ctrl+D starts the text editor to alter the description'
+# -- Merge 3 --
+X 'Select three revisions for an octopus merge'
+K C-Left; K Down; P	# trunk
+K Tab; P
+K Down; P	# jjdev
+K Tab; P
+K Down 2; P	# gitdev
+K Tab; P
+X 'Ctrl+N creates the merge commit'
+K C-n; P
+X 'Ctrl+D starts the text editor to describe the merge commit'
 K C-d; P
-K C-k 16
-T "Merge 'gitdev' and 'jjdev' into 'trunk'"; P
-K C-x; S		# nano
+K C-k; T "Merge 'gitdev' and 'jjdev' into 'trunk'"; K Enter; P
+K C-x; S	# nano
 X 'This is an Octopus merge, a commit can have any number of parents'
 P; P
 
-# EXIT
+# == EXIT ==
 P
-stop_asciinema
-render_cast "$ASCIINEMA_SCREENCAST"
+stop_screencast
+
+( cd $TEMPD/$SCREENCAST_SESSION
+  test "$(jj log --no-graph -T 'description.first_line()' -r @)" == "Merge 'gitdev' and 'jjdev' into 'trunk'" ||
+    die 'failed to describe the octopus merge'
+  test "$(jj log --no-graph -T change_id -r '@- ~ (trunk | jjdev | gitdev)')" == "" &&
+    test "$(jj log --no-graph -T '"x"' -r '@-')" == xxx ||
+      die 'failed to merge trunk, jjdev and gitdev'
+)
+
+printf '  %-8s %s\n' OK "$SCREENCAST_SESSION passed"

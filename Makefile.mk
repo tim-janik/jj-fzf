@@ -116,7 +116,7 @@ check: check-deps check-help shellcheck-error tests-basics.sh tests-regressions.
 # == test ==
 test: test-screencasts
 .PHONY: test test-screencasts
-SCREENCAST.SCRIPTS := oplog.sh bookmarks.sh revset.sh
+SCREENCAST.SCRIPTS := oplog.sh bookmarks.sh revset.sh intro.sh rebasing.sh splitting.sh merging.sh megamerge.sh
 define TEST_SCREENCAST
 test-screencast-$1: screencasts/$1
 	$$(QECHO) RUN $$<

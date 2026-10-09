@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
-set -Eeuo pipefail # -x
-SCRIPTNAME=`basename $0` && function die  { [ -n "$*" ] && echo "$SCRIPTNAME: **ERROR**: ${*:-aborting}" >&2; exit 127 ; }
-ABSPATHSCRIPT=`readlink -f "$0"`
-SCRIPTDIR="${ABSPATHSCRIPT%/*}"
+set -Eeuo pipefail #-x
 
+readonly SCREENCAST_SESSION=splitting-demo
+source $(dirname $(readlink -f "${BASH_SOURCE[0]}"))/prepare.sh	"$@" # for $TEMPD and funcs
 
-# == functions and setup for screencasts ==
-source $SCRIPTDIR/prepare.sh ${SCRIPTNAME%%.*}
-# fast_timings
+# == Config ==
+export JJ_CONFIG=$(make_jj_config)
+( stdio_to_dev_null
+  cd $TEMPD && make_repo -squashall $SCREENCAST_SESSION gitdev jjdev
+)
 
-# SCRIPT
-make_repo -squashall SplittingDemo gitdev jjdev
-start_asciinema SplittingDemo 'jj-fzf' Enter
+# == SCRIPT ==
+start_screencast $TEMPD/$SCREENCAST_SESSION \
+		 'jj-fzf' Enter
 
 X 'When the working copy has lots of changes in lots of files...'
 
@@ -23,7 +24,6 @@ K Down; P; K Down; P; K Down; P
 K Up  ; P; K Up  ; P; K Up  ; P
 
 # DESCRIBE
-K Down; P
 X 'Ctrl+D opens the text editor to describe the commit'
 K C-d; S; K End; P
 T 'marker left by jj'; P
@@ -35,7 +35,7 @@ X 'Alt+A abandons a commit'
 K M-a; P
 
 # SPLIT INTERACTIVELY
-K Home; P
+K C-Left; K Down; P
 X 'Alt+I starts `jj split` interactively'
 X 'Use Mouse Clicks to explore the interactive editor'
 K M-i
@@ -51,33 +51,33 @@ P
 tmux send-keys -H 1b 5b 4d 20 3a 21    1b 5b 4d 23 3a 21   # VIEW (hides)
 P
 T 'F'; P
-K Down
-K Down
+K Down 3	# first diff line
 K Enter
 K Enter
 K Enter
 K Enter
 K Enter
-K Enter; P
-T 'ac'; P
+K Enter; P	# front-matter lines selected
+T 'c'; P
 X 'With the diff split up, each commit can be treated individually'
 
 # DESCRIBE
-K Down; P
+K Down; P	# front-matter
 K C-d; S; K End; P
-T 'add brief description'; P
+T 'add front-matter + date'; P
 K C-x; P	# nano
 
 # DESCRIBE
 K Up; P
 K C-d; S; K End; P
-T 'add front-matter + date'; P
+T 'add brief description'; P
 K C-x; P	# nano
 
 # DIFF-EDIT
+K Down; P	# front-matter
 X 'Alt+E starts `jj diffedit` to select diff hunks to keep'
 K M-e; P;
-K F; K a; K Down 3; K Space; P
+K F; K a; K Down 4; K Space; P	# keep all but "Date: today"
 K c; P
 K C-d; S; K End; P
 K BSpace 7; P
@@ -89,11 +89,22 @@ K M-z ; P
 K M-z ; P
 
 # NEW
-K Home
+K C-Left
 X 'Create a new, empty change with Ctrl+N to edit the next commit'
 K C-n; P
 
-# EXIT
+# == EXIT ==
 P
-stop_asciinema
-render_cast "$ASCIINEMA_SCREENCAST"
+stop_screencast
+
+( cd $TEMPD/$SCREENCAST_SESSION
+  test "$(jj log --no-graph -T 'description.first_line() ++ ";"' -r '::@- ~ root()')" == \
+       'marker left by jj;add brief description;add front-matter + date;' ||
+    die 'failed to split and describe commits'
+  jj file show -r @--- README | grep -q 'Date: today' ||
+    die 'failed to undo diffedit'
+  test -z "$(jj file list -r @ git-here.txt 2>/dev/null)" ||
+    die 'failed to abandon git-here.txt'
+)
+
+printf '  %-8s %s\n' OK "$SCREENCAST_SESSION passed"
