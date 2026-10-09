@@ -366,6 +366,16 @@ __EOF
   echo $TEMPD/jjfzfcast.toml
 )
 
+# Clone the jj-fzf repo into $1 with $2 checked out, without branches and tags
+clone_jjfzf_repo()
+(
+  git clone -q --no-hardlinks --no-tags --no-checkout "$(git -C "$SCREENCASTSDIR" rev-parse --show-toplevel)" "$1"
+  cd "$1"
+  git checkout -q --detach "$2"
+  git remote remove origin
+  git for-each-ref --format='delete %(refname)' refs/heads | git update-ref --stdin
+)
+
 # Clone JJ repo into reproducible state (from ~/.cache/jj.git)
 clone_jj_repo()
 {
