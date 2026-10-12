@@ -1,0 +1,61 @@
+# This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
+
+# Lint: xclip -sel c < .github/workflows/distcheck.yml # https://rhysd.github.io/actionlint/
+
+name: Distcheck
+
+on:
+  schedule:
+    - cron: '7 4 * * *' # Times in UTC
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+concurrency: { group: "${{ github.workflow }}-${{ github.ref }}", cancel-in-progress: false }
+
+jobs:
+  New-Commit:
+    runs-on: ubuntu-latest
+    outputs:
+      run: '${{ steps.gate.outputs.run }}'
+    steps:
+    - { uses: actions/checkout@v7 }
+    - name: Check HEAD age
+      id: gate
+      run: |
+        run=false
+        if [[ $GITHUB_EVENT_NAME == workflow_dispatch ]] || (( $(date +%s) - $(git log -1 --format=%ct) < 25 * 60 * 60 )); then
+          run=true
+        fi
+        echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  Distcheck:
+    needs: [ New-Commit ]
+    if: ${{ needs.New-Commit.outputs.run == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+    - { uses: actions/checkout@v7, with: { fetch-depth: 0, fetch-tags: true, persist-credentials: false } }
+    - run: git fetch --force --tags     # Fix actions/checkout#290
+    - run: sudo apt-get update
+    - run: sudo TZ=Etc/UTC DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata nano tmux asciinema pv bsdextrautils
+    - run: make apt-deps-install
+    - run: make -w distcheck
+    - uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() }}
+      with: { name: jj-fzf-Distcheck, path: artifacts/ }
+
+  Ping-IRC:
+    # Announce completed distchecks unless cancelled
+    if: ${{ !cancelled() && needs.New-Commit.outputs.run == 'true' }}
+    needs: [ New-Commit, Distcheck ]
+    runs-on: ubuntu-latest
+    steps:
+    - { uses: actions/checkout@v7, with: { fetch-depth: 0 } }
+    - run: git fetch --force --tags     # Fix actions/checkout#290
+    - name: Ping-IRC
+      continue-on-error: true
+      if: ${{ !env.ACT }}  # IRCBOT_JOBS indicates 'success'
+      env: { IRCBOT_JOBS: "${{ join(needs.*.result, ' ') }}" }
+      run: |
+        URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        .github/workflows/ircbot.py -s irc.libera.chat:6697 -D "$GITHUB_REF_NAME" -G "#Anklang" "Distcheck $(git describe --always) - $URL"
