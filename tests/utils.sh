@@ -104,6 +104,11 @@ get_change_id()
   CHANGE_ID=$(jj --ignore-working-copy log --no-graph -T "$UNIQUECHANGE" -r " $COMMIT_ID ") || exit
   echo "$CHANGE_ID"
 )
+get_tree_id()
+( # Content hash, unlike commit IDs it survives rebases
+  COMMIT_ID=$(get_commit_id "$@")
+  git rev-parse "$COMMIT_ID^{tree}"
+)
 commit_count()
 (
   R="${1:-::}"
