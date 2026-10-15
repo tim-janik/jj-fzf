@@ -1,3 +1,38 @@
+## JJ-FZF 0.45.0 - 2026-10-15
+
+### Added:
+* Commit message generation can now be configured via jj config, e.g.
+  `jj-fzf.LLM_API_BASE`, environment variables still take precedence
+* contrib/jj-pull-heads.sh syncs mutable heads from a remote jj repository
+* `make dist` creates the release tarball, `make distcheck` builds all
+  release artifacts from it
+* Tag pushes now build the release assets in CI and create a GitHub release
+* A nightly CI job runs `make distcheck` for new trunk commits, see #40
+* Added tests for squash and inject
+
+### Changed:
+* Ctrl-P now always reloads the log after fetch and push, also if the push is declined
+* Tarballs from `git archive` now carry version info,
+  `make` and `jj-fzf --version` fail without it
+* Tests and screencasts now keep user config and environment out
+* Screencasts now run on a private tmux server
+* Screencasts were updated for the current keys and dialogs and check their results
+
+### Fixed:
+* Alt-B: starting on the nearest bookmark failed for long bookmark lists (SIGPIPE)
+* Merge messages no longer include the `*` marker of bookmarks that differ from their remote
+* Merge message drafting now reports a missing commit properly
+
+### Breaking:
+* This release requires jj-0.45.0
+* This release requires fzf-0.67.0
+* This release requires GNU Make-4.0
+* This release requires bash-5.1
+
+Thanks to everyone who gave feedback and
+helped to make this release happen!
+
+
 ## JJ-FZF 0.42.0 - 2026-08-11
 
 ### Added:
