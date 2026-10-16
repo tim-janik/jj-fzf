@@ -15,7 +15,8 @@ git init -q --initial-branch=trunk
 git config user.name 'Release Test'
 git config user.email release-test@example.invalid
 git remote add origin git@example.invalid:owner/example.git
-cp "$scripts"/../../{.gitattributes,.version} .
+printf '%s\n' '.version export-subst' > .gitattributes
+printf '%s\n' '$Format:%(describe:tags,match=v[0-9]*.[0-9]*) %ci$' > .version
 git add .; git commit -qm baseline; git tag v0.0.0
 printf '# NEWS\n\n## 0.1.0-rc.5\n\nCandidate notes.\n\n## 0.0.0\n\nOld notes.\n' > NEWS.md
 git add NEWS.md; git commit -qm 'Add release notes'

@@ -86,7 +86,10 @@ doc/jj-fzf.1.gfm.md: doc/jj-fzf.1
 		doc/jj-fzf+cmds.1.md -t gfm -o $@
 
 # == SCRIPTS ==
-SHELLSCRIPTS := jj-fzf $(wildcard *.sh lib/*.sh)
+SHELLSCRIPTS := jj-fzf $(wildcard *.sh lib/*.sh tests/*.sh contrib/*.sh screencasts/*.sh .github/workflows/*.sh)
+PYTHONSCRIPTS := $(wildcard lib/*.py tests/*.py .github/workflows/*.py)
+CHECKFILES := $(SHELLSCRIPTS) $(PYTHONSCRIPTS) $(wildcard *.md *.mk GNUmakefile lib/*.awk contrib/*.el contrib/*.mk \
+			doc/*.md .github/workflows/*.yml .pre-commit-config.yaml)
 
 # == tests ==
 tests-basics.sh:
@@ -100,23 +103,54 @@ tests-features.sh:
 .PHONY: tests-features.sh
 
 # == shellcheck ==
-shellcheck-warning: $(SHELLSCRIPTS) $(LIBSCRIPTS)
+shellcheck-warning: $(SHELLSCRIPTS)
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
-	shellcheck -W 3 -S warning -e SC2178,SC2207,SC2128 $(SHELLSCRIPTS) $(LIBSCRIPTS)
+	shellcheck -s bash -W 3 -S warning -e SC2178,SC2207,SC2128 $(SHELLSCRIPTS)
 shellcheck-error:
 	$(QGEN)
 	$Q shellcheck --version | grep -q 'script analysis' || { echo "$@: missing GNU shellcheck"; false; }
-	shellcheck -W 3 -S error $(SHELLSCRIPTS) $(LIBSCRIPTS)
+	shellcheck -s bash -W 3 -S error $(SHELLSCRIPTS)
 check-help:
 	$(QGEN)
 	$Q ./jj-fzf --help | grep -qF jj-fzf || { echo "$@: ERROR: failed to render \`./jj-fzf --help\`" >&2; false; }
-check: check-deps check-help shellcheck-error tests-basics.sh tests-regressions.sh tests-features.sh
+check-bash:
+	$(QGEN)
+	$Q for script in $(SHELLSCRIPTS); do bash -n "$$script" || exit; done
+check-python:
+	$(QGEN)
+	$Q python3 -B -c 'import ast, pathlib, sys; [ast.parse(pathlib.Path(p).read_text(), filename=p) for p in sys.argv[1:]]' $(PYTHONSCRIPTS)
+check-unfinished:
+	$(QGEN)
+	$Q lib/check-unfinished.sh $(CHECKFILES)
+lint: check-bash check-python shellcheck-error check-unfinished
+
+check-agents-md:
+	$(QGEN)
+	$Q tests/check-agents-md.sh AGENTS.md
+check-removals:
+	$(QGEN)
+	$Q tests/check-removals.sh "$(CHECK_BASE)" "$(CHECK_HEAD)"
+CHECK_BASE ?=
+CHECK_HEAD ?= HEAD
+check-checks:
+	$(QGEN)
+	$Q python3 -B -m unittest discover -s tests -p 'test_*.py'
+check-contrib:
+	+$(MAKE) -C contrib -f Makefile.mk check
+check-release:
+	$Q .github/workflows/release-test.sh
+check-ircbot:
+	$Q python3 -B -m unittest discover -s .github/workflows -p test_ircbot.py
+check: check-deps check-help lint check-agents-md check-removals check-checks check-contrib check-release check-ircbot \
+	tests-basics.sh tests-regressions.sh tests-features.sh
+.PHONY: check lint shellcheck-warning shellcheck-error check-help check-bash check-python check-unfinished \
+	check-agents-md check-removals check-checks check-contrib check-release check-ircbot
 
 # == test ==
 test: test-screencasts
 .PHONY: test test-screencasts
-SCREENCAST.SCRIPTS := oplog.sh bookmarks.sh revset.sh
+SCREENCAST.SCRIPTS := intro.sh splitting.sh merging.sh rebasing.sh megamerge.sh oplog.sh bookmarks.sh revset.sh
 define TEST_SCREENCAST
 test-screencast-$1: screencasts/$1
 	$$(QECHO) RUN $$<

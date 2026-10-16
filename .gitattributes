@@ -1,2 +1,4 @@
 .version export-subst
 /.git* export-ignore
+/.github -export-ignore
+/.github/workflows/*.yml export-ignore
