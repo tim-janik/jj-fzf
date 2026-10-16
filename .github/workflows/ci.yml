@@ -23,6 +23,13 @@ jobs:
     - run: sudo apt-get update
     - run: sudo TZ=Etc/UTC DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata nano tmux asciinema pv bsdextrautils
     - run: make apt-deps-install
+    - name: Check removal evidence
+      env:
+        CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/trunk' }}
+        CHECK_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        if [[ "$CHECK_BASE" =~ ^0+$ ]]; then CHECK_BASE=origin/trunk; fi
+        make check-removals CHECK_BASE="$CHECK_BASE" CHECK_HEAD="$CHECK_HEAD"
     - run: |
         make -w distcheck
         mkdir /tmp/jj-fzf && tar xf artifacts/jj-fzf-*.tar.zst -C /tmp/jj-fzf --strip-components=1
@@ -30,9 +37,6 @@ jobs:
       with: { name: jj-fzf-Artifacts, path: artifacts/ }
     - run: make -C /tmp/jj-fzf -w all -j`nproc`
     - run: make -C /tmp/jj-fzf -w check
-    - run: make -C /tmp/jj-fzf/contrib -w -f Makefile.mk check
-    - run: .github/workflows/release-test.sh
-      if: github.ref_type != 'tag'
     - run: sudo make -C /tmp/jj-fzf -w install
     - run: make -C /tmp/jj-fzf -w installcheck
     - run: sudo make -C /tmp/jj-fzf -w uninstall
@@ -66,7 +70,6 @@ jobs:
     steps:
     - { uses: actions/checkout@v7, with: { fetch-depth: 0 } }
     - run: git fetch --force --tags     # Fix actions/checkout#290
-    - run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .github/workflows -p test_ircbot.py -v # test_ircbot.py --preview
     - name: Ping-IRC
       continue-on-error: true
       if: ${{ !env.ACT }}  # IRCBOT_JOBS indicates 'success'

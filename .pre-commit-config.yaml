@@ -1,7 +1,7 @@
 # This Source Code Form is licensed MPL-2.0: http://mozilla.org/MPL/2.0
 
 # See https://pre-commit.com for more information
-default_stages: [pre-push]	# only run on push
+default_stages: [pre-push]      # only run on push
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
@@ -27,3 +27,9 @@ repos:
     language: system
     types: [file]     # Run for all file types
     pass_filenames: true
+  - id: project-checks
+    name: Check jj-fzf
+    entry: make check
+    language: system
+    pass_filenames: false
+    always_run: true
