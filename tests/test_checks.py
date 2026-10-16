@@ -121,6 +121,13 @@ class RemovalsTests (unittest.TestCase):
     self.commit ('jj-fzf: remove three lines')
     self.assertEqual (self.run_check().returncode, 0)
 
+  def test_ten_removed_lines_need_evidence (self):
+    (self.root / 'jj-fzf').write_text ('line0\nline1\n')
+    self.commit ('jj-fzf: remove ten lines')
+    result = self.run_check()
+    self.assertEqual (result.returncode, 1)
+    self.assertIn ('removes 10 source lines', result.stderr)
+
   def test_tests_and_generated_files_are_excluded (self):
     generated = self.root / 'lib/helper.g.sh'
     generated.write_text (self.lines)
