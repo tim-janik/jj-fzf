@@ -16,33 +16,32 @@ permissions: { contents: read }
 jobs:
 
   Build-And-Test:
-    runs-on: ubuntu-24.04
-    steps:
-    - { uses: actions/checkout@v7, with: { fetch-depth: 0, fetch-tags: true } }
-    - run: git fetch --force --tags     # Fix actions/checkout#290
-    - run: sudo apt-get update
-    - run: sudo TZ=Etc/UTC DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata nano tmux asciinema pv bsdextrautils
-    - run: make apt-deps-install
-    - run: |
-        make -w distcheck
-        mkdir /tmp/jj-fzf && tar xf artifacts/jj-fzf-*.tar.zst -C /tmp/jj-fzf --strip-components=1
-    - uses: actions/upload-artifact@v7
-      with: { name: jj-fzf-Artifacts, path: artifacts/ }
-    - run: make -C /tmp/jj-fzf -w all -j`nproc`
-    - run: make -C /tmp/jj-fzf -w check
-    - run: make -C /tmp/jj-fzf/contrib -w -f Makefile.mk check
-    - run: .github/workflows/release-test.sh
-      if: github.ref_type != 'tag'
-    - run: sudo make -C /tmp/jj-fzf -w install
-    - run: make -C /tmp/jj-fzf -w installcheck
-    - run: sudo make -C /tmp/jj-fzf -w uninstall
-    - name: Screencast Tests
-      run: |
+    # Shared rule from the release-kit repository; differences become arguments
+    uses: tim-janik/release-kit/.github/workflows/build-and-test.yml@trunk
+    with:
+      runs-on: ubuntu-24.04
+      apt-packages: 'tzdata nano tmux asciinema pv bsdextrautils'
+      make-targets: |
+        apt-deps-install
+        distcheck
+      tarball-path: artifacts/jj-fzf-*.tar.zst
+      tarball-dir: /tmp/jj-fzf
+      tarball-targets: |
+        all
+        check
+        -C contrib -f Makefile.mk check
+        sudo install
+        installcheck
+        sudo uninstall
+      post: |
+        if [[ $GITHUB_REF_TYPE != tag ]]; then .github/workflows/release-test.sh; fi
         mkdir -p ~/.cache # Download test repo for screencasts
         git -C ~/.cache clone --bare --single-branch --shallow-since 2024-12-31 -b v0.29.0 https://github.com/jj-vcs/jj.git
         make test
-    - uses: actions/upload-artifact@v7
-      with: { name: jj-fzf-Screencasts, path: screencasts/*.cast }
+      artifact-name: jj-fzf-Artifacts
+      artifact-path: artifacts/
+      artifact2-name: jj-fzf-Screencasts
+      artifact2-path: screencasts/*.cast
 
   Release:
     if: github.ref_type == 'tag'        # constrained by on.push.tags
