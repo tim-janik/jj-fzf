@@ -48,14 +48,5 @@ jobs:
     # Announce completed distchecks unless cancelled
     if: ${{ !cancelled() && needs.New-Commit.outputs.run == 'true' }}
     needs: [ New-Commit, Distcheck ]
-    runs-on: ubuntu-latest
-    steps:
-    - { uses: actions/checkout@v7, with: { fetch-depth: 0 } }
-    - run: git fetch --force --tags     # Fix actions/checkout#290
-    - name: Ping-IRC
-      continue-on-error: true
-      if: ${{ !env.ACT }}  # IRCBOT_JOBS indicates 'success'
-      env: { IRCBOT_JOBS: "${{ join(needs.*.result, ' ') }}" }
-      run: |
-        URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-        .github/workflows/ircbot.py -s irc.libera.chat:6697 -D "$GITHUB_REF_NAME" -G "#Anklang" "Distcheck $(git describe --always) - $URL"
+    uses: tim-janik/release-kit/.github/workflows/ping-irc.yml@trunk
+    with: { jobs: "${{ join(needs.*.result, ' ') }}" }
