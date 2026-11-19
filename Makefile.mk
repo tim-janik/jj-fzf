@@ -170,11 +170,14 @@ apt-deps-install:
 	pandoc --version
 
 # == dist ==
+# DIST_VERSION overrides the release version, e.g. a nightly tag plus -g<hash>; dist bakes it into .version.
 dist:
+	$(eval TAG := $(or $(DIST_VERSION),$(TAG)))
+	$(eval version_info := $(TAG) $(version_date))
 	$(eval distname := jj-fzf-$(version))
 	$(QECHO) MAKE $(distname).tar.zst
 	$Q git describe --dirty | grep -qve -dirty || echo -e "#\n# $@: WARNING: working tree is dirty\n#"
-	$Q rm -r -f artifacts/ && mkdir -p artifacts/
+	$Q rm -r -f artifacts/ && mkdir -p artifacts/ && echo '$(version_info)' > artifacts/.version
 	$Q # Generate ChangeLog with ^^-prefixed records. Tab-indent commit bodies.
 	$Q # Kill trailing whitespaces. Compress multiple newlines.
 	$Q git log --abbrev=13 --date=short --first-parent HEAD	\
@@ -182,7 +185,7 @@ dist:
 	&& sed 's/^/	/; s/^	^^// ; s/[[:space:]]\+$$// '	-i artifacts/ChangeLog \
 	&& sed '/^\s*$$/{ N; /^\s*\n\s*$$/D }'			-i artifacts/ChangeLog
 	$Q # Generate and compress artifacts/jj-fzf-*.tar.zst
-	$Q git archive --prefix=$(distname)/ --add-file artifacts/ChangeLog -o artifacts/$(distname).tar HEAD
+	$Q git archive --prefix=$(distname)/ --add-file artifacts/ChangeLog --add-file artifacts/.version -o artifacts/$(distname).tar HEAD ':!.version'
 	$Q rm -f artifacts/$(distname).tar.zst && zstd --ultra -22 --rm artifacts/$(distname).tar && ls -lh artifacts/$(distname).tar.zst
 	$Q echo "Archive ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 CLEANDIRS += artifacts/
@@ -206,8 +209,8 @@ distcheck: dist
 	&& test "$$(artifacts/jj-fzf.sfx --version)" = "jj-fzf $(patsubst v%,%,$(version_info))" \
 	&& cp -p artifacts/jj-fzf.sfx artifacts/jj-fzf.1.gz $(CURDIR)/artifacts/
 	$Q cd artifacts/ \
-	&& sha256sum $(distname).tar.zst ChangeLog jj-fzf.sfx jj-fzf.1.gz > $(distname).SHA256SUMS \
-	&& sha256sum -c $(distname).SHA256SUMS
+	&& sha256sum $(distname).tar.zst ChangeLog jj-fzf.sfx jj-fzf.1.gz > SHA256SUMS \
+	&& sha256sum -c SHA256SUMS
 	$Q echo "Distcheck ready: artifacts/$(distname).tar.zst" | sed '1h; 1s/./=/g; 1p; 1x; $$p; $$x'
 .PHONY: distcheck
 
